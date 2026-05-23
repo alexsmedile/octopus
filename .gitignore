@@ -55,6 +55,10 @@ CLAUDE.local.md
 # ── Octopus runtime / soft-delete ───────────────────────────────────
 .octopus/.trash/
 
+# ── Screenshots (local feedback artifacts) ──────────────────────────
+Screenshot*.png
+Screenshot*.jpg
+
 # ── Tool-generated hidden dirs ──────────────────────────────────────
 .scrapekit/
 .playwright-mcp/

@@ -206,6 +206,19 @@ def where(
             console.print(f"  [cyan]{t.slug}[/]  {t.title}")
 
 
+# ── tui ──────────────────────────────────────────────────────────────
+
+
+@app.command()
+def tui() -> None:
+    """Launch the Textual TUI (Focus + Board modes) for the current activity."""
+    root = _require_activity()
+    # Defer Textual import — keeps cold-start fast for every other command.
+    from octopus.tui.app import OctopusApp
+
+    OctopusApp(root).run()
+
+
 def _task_counts(activity_root: Path, storage_mode: str) -> dict[str, int]:
     """Count tasks per bucket. In folder mode, count by directory."""
     tasks_dir = activity_root / ".octopus" / "tasks"
