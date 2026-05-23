@@ -5,6 +5,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.0] — 2026-05-23
+
+Textual TUI ships. `octopus tui` opens a Focus or Board view of the current activity, with a 13-key mutation keymap, a pixel-art mascot in the header, and a shared `octopus.actions` write layer used by both CLI and TUI.
+
+### Added
+
+- **`octopus tui`** — Textual TUI for the current activity (CWD-scoped). Two modes: **Focus** (three quadrants: BACKLOG / NOW / NEXT) and **Board** (four-column kanban: backlog → next → now → done). Switch via `1` / `2`. Daily-driver view for the act loop.
+- **13-key mutation keymap** shared across modes: `n` capture (into focused quadrant/column), `m` advance one pipeline step, `M` move-to-bucket picker, `f` finish, `d` drop (with y/n confirm), `p` toggle pin, `e` open in `$EDITOR`, `s` session start, `S` session start + title, `Enter` open detail overlay, `r` refresh.
+- **`octopus.actions`** shared mutation layer — single entry per verb (`start_task`, `finish_task`, `drop_task`, `move_task`, `move_next`, `pin_task`, `unpin_task`, `toggle_pin`, `capture_task`, `start_session_for`). TUI calls it directly; CLI port deferred.
+- **Catppuccin Mocha theme** (`tui/theme.tcss`): lavender (`#CBA6F7`) accent, teal footer keys, no Windows-blue washes. Plain unicode glyphs throughout (no emoji, no Nerd Fonts required).
+- **Tall 7-row header** with pixel-accurate octopus mascot rendered via `rich-pixels` + PIL from a 16×14 ASCII pixel grid. Right side stacks: title, activity name, CWD path (collapsed to `~/`), session label + bucket counts, index state, mode tabs (`1 focus` / `2 board`).
+- **Single-line task rows** with marquee scrolling for clipped titles. Cursor glyph (`▸`) scoped to the active quadrant's selected row only.
+- **Detail overlay** (`Enter`) — modal with task chips, body, last 5 sessions, last 5 memory entries.
+- **Mascot assets** at `assets/mascot/octo-v1-classic.svg`. Animation deferred to request #18 (backlog).
+- **27 new tests**: `test_actions.py` (15), `test_tui_skeleton.py` (10), `test_tui_board.py` (4). **212 total passing**.
+
+### Changed
+
+- `cli/pyproject.toml` adds runtime deps: `textual>=0.46`, `rich-pixels>=3.0`, `pillow>=10.0`.
+- `.gitignore` ignores `Screenshot*.png` / `Screenshot*.jpg` (local feedback artifacts).
+- Request #05 closed (`status: done`); D43 logged in `DECISIONS.md`.
+
+### Locked decisions
+
+- **D43** — Textual TUI v1 shipped. Focus + Board modes, mode-switching via `1`/`2`, Catppuccin Mocha palette, shared `octopus.actions` mutation layer between CLI and TUI, `rich-pixels` + PIL for pixel-art mascot in the header. Request #18 (mascot animation) parked in backlog.
+
+---
+
 ## [0.1.0] — 2026-05-23
 
 Inaugural pre-release. Walking skeleton + SQLite index + continuity layer + plugin scaffold + self-contained agent skill + **pipx-installable distribution**. No git tag yet — bundling #11 into 0.1.0 so the first published wheel is feature-complete.

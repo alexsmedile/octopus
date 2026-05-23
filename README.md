@@ -655,7 +655,7 @@ If you want to see how the sausage is made: **`.spectacular/PRD.md`** for vision
 
 ## Status & what's next
 
-**v0.1.0** released 2026-05-23 — tagged + pushed. 183 tests passing. Install with `pipx install ./dist/octopus_cli-0.1.0-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
+**v0.2.0** released 2026-05-23 — Textual TUI shipped. **212 tests passing**. Install with `pipx install ./dist/octopus_cli-0.2.0-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
 
 | Phase | What | State |
 |---|---|---|
@@ -667,14 +667,15 @@ If you want to see how the sausage is made: **`.spectacular/PRD.md`** for vision
 | — | Claude Code + Codex plugin scaffold at repo root (6 commands, 3 agents, 2 hooks) | ✅ done |
 | — | Self-contained agent skill at `skills/octopus/` (SKILL.md + references/) | ✅ done |
 | 11 | pipx distribution + `octopus diagnose` + CI + logging | ✅ done |
-| **05** | **Textual TUI** | 🟢 **next-up** |
-| 06 | Adapter framework | queued |
+| 05 | Textual TUI — Focus + Board modes, pixel mascot, shared `octopus.actions` write layer | ✅ done |
+| **06** | **Adapter framework** | 🟢 **next-up** |
 | 07 | Obsidian symlink bridge | queued |
 | 08 | Claude Code plugin polish + install assistant | queued |
 | 09 | Apple Reminders pull | queued |
 | 12 | Lint cleanup (re-tighten ruff — debt deferred from #11) | queued |
+| 18 | Mascot animation (tentacle wave + idle bob) | backlog |
 
-v1 ships when 05 + 06 are done. The protocol — `.octopus/` on disk — is the lock-in, not the Python.
+v1 ships when 06 + 07 are done. The protocol — `.octopus/` on disk — is the lock-in, not the Python.
 
 ---
 
