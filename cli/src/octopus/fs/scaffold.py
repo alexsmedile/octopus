@@ -7,7 +7,9 @@ from pathlib import Path
 
 from octopus.core.id import derive_activity_id
 from octopus.core.models import (
-    ACTIVITY_STATUSES, ACTIVITY_TYPES, TASK_BUCKETS,
+    ACTIVITY_STATUSES,
+    ACTIVITY_TYPES,
+    TASK_BUCKETS,
     Activity,
 )
 from octopus.fs.io import write_activity

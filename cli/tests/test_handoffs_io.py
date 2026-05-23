@@ -6,9 +6,9 @@ from datetime import date
 
 import pytest
 
-from octopus.core.models import Handoff
 from octopus.fs.scaffold import init_activity
 from octopus.handoffs.io import (
+    HandoffNotFoundError,
     default_body,
     generate_filename,
     handoffs_dir,
@@ -17,7 +17,6 @@ from octopus.handoffs.io import (
     read_handoff,
     show_handoff,
     write_handoff,
-    HandoffNotFoundError,
 )
 
 

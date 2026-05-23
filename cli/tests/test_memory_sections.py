@@ -6,7 +6,6 @@ import pytest
 
 from octopus.memory.sections import (
     CANONICAL_SECTIONS,
-    AmbiguousSectionError,
     UnknownSectionError,
     resolve_section,
 )

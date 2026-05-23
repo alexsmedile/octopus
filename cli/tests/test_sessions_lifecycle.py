@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import os
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
 import pytest
 
@@ -18,7 +15,7 @@ from octopus.sessions import (
     start_session,
     switch_session,
 )
-from octopus.sessions.cache import cache_path, get_active
+from octopus.sessions.cache import get_active
 
 
 @pytest.fixture(autouse=True)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "octopus-cli"
-version = "0.0.1"
+version = "0.1.0"
 description = "A folder-native task system. Local-first project and task orchestration."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Alessandro Smedile" }]
 keywords = ["tasks", "productivity", "local-first", "obsidian", "cli"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
@@ -20,6 +20,7 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Scheduling",
 ]
 dependencies = [
@@ -55,6 +56,17 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+# Deferred to a future lint-cleanup pass — see #11 closing notes.
+# - E501: long lines are noisy in this codebase, especially in tests
+# - B904: each raise site needs deliberate `from exc` decision
+# - E402: cli.py uses deferred imports inside command bodies for startup speed
+# - F841: a few intentional debug-trace assignments
+# - SIM108/SIM105: stylistic, low value
+# - B008/B017/UP028/UP038: one-off edge cases in tests
+ignore = ["E501", "B904", "E402", "F841", "SIM108", "SIM105", "B008", "B017", "UP028", "UP038"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501", "F841", "B017"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

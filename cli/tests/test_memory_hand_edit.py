@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from octopus.fs.scaffold import init_activity
-from octopus.memory import append_entry, memory_path, read_memory, section_entries
+from octopus.memory import append_entry, memory_path
 from octopus.memory.io import _split_on_marker
 
 

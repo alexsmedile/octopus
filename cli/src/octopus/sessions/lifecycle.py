@@ -7,9 +7,9 @@ testable without touching stdin or the typer runner.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
 
 from octopus.core.models import Session
 from octopus.sessions.cache import (

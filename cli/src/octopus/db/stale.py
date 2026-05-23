@@ -11,7 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 from octopus.db.upsert import (
-    delete_by_path, upsert_activity, upsert_session, upsert_task,
+    upsert_activity,
+    upsert_task,
 )
 from octopus.fs.io import read_activity, read_task
 

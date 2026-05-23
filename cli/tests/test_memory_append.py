@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
 from octopus.fs.scaffold import init_activity
 from octopus.memory import (
-    DEFAULT_SECTION,
     MARKER,
     append_entry,
     memory_path,

@@ -18,34 +18,55 @@ from rich.table import Table
 from octopus import __version__
 from octopus.config import (
     add_root as config_add_root,
+)
+from octopus.config import (
     list_roots as config_list_roots,
+)
+from octopus.config import (
     load_config,
+)
+from octopus.config import (
     remove_root as config_remove_root,
 )
 from octopus.core.id import short_form
+from octopus.core.logging import get_logger, setup_logging
 from octopus.core.models import (
-    ACTIVITY_STATUSES, ACTIVITY_TYPES,
-    TASK_BUCKETS, TASK_PRIORITIES, TASK_RUN_STATES,
-    TERMINAL_BUCKETS,
+    ACTIVITY_STATUSES,
+    ACTIVITY_TYPES,
     DEFAULT_BUCKET,
+    TASK_BUCKETS,
+    TASK_PRIORITIES,
+    TASK_RUN_STATES,
     Task,
 )
 from octopus.core.slug import collision_suffix, slugify
 from octopus.db.connection import get_db
 from octopus.db.queries import (
-    count_by_bucket, get_activity_by_id_or_prefix,
-    list_activities as db_list_activities, loops as db_loops,
-    tasks_all, tasks_for_activity, total_row_counts,
+    count_by_bucket,
+    get_activity_by_id_or_prefix,
+    tasks_all,
+    tasks_for_activity,
+    total_row_counts,
+)
+from octopus.db.queries import (
+    list_activities as db_list_activities,
+)
+from octopus.db.queries import (
+    loops as db_loops,
 )
 from octopus.db.reindex import reindex_all
 from octopus.db.sync import (
-    sync_activity_after_write, sync_delete_task, sync_task_after_write,
+    sync_activity_after_write,
+    sync_delete_task,
+    sync_task_after_write,
 )
 from octopus.fs.discover import find_activity_root
 from octopus.fs.io import read_activity, read_task, write_task
 from octopus.fs.scaffold import (
-    BUCKET_FOLDERS, ActivityExistsError,
-    init_activity, read_storage_mode,
+    BUCKET_FOLDERS,
+    ActivityExistsError,
+    init_activity,
+    read_storage_mode,
 )
 
 app = typer.Typer(
@@ -90,6 +111,7 @@ def _root(
     ),
 ) -> None:
     """Root command."""
+    setup_logging()
 
 
 # ── init ─────────────────────────────────────────────────────────────
@@ -1035,12 +1057,18 @@ def reindex(
         )
         raise typer.Exit(EXIT_CONFIG_ERROR)
 
+    log = get_logger("reindex")
+    log.info("reindex start roots=%s prune=%s", [str(r) for r in roots], prune)
     conn = get_db()
     try:
         result = reindex_all(conn, roots, prune=prune, accept_renames=prune)
     finally:
         conn.close()
 
+    log.info(
+        "reindex done activities=%d tasks=%d sessions=%d errors=%d",
+        result.activities_seen, result.tasks_seen, result.sessions_seen, len(result.errors),
+    )
     console.print(
         f"[green]✓[/] reindex complete: "
         f"{result.activities_seen} activities, "
@@ -1071,6 +1099,45 @@ def reindex(
             for p in paths:
                 err_console.print(f"     {p}")
         raise typer.Exit(4)
+
+
+# ── diagnose ──────────────────────────────────────────────────────────
+
+
+@app.command()
+def diagnose(
+    out: str | None = typer.Option(None, "--out", help="Write zip to this path (skip prompt)."),
+    no_zip: bool = typer.Option(False, "--no-zip", help="Print summary only; don't write a zip."),
+) -> None:
+    """Print + bundle a diagnostic report (version, config, index stats, log tail).
+
+    All `$HOME` paths are redacted to `~/` so the bundle is safe to share.
+    """
+    from octopus.core.logging import default_log_path
+    from octopus.diagnose import (
+        _read_log_tail,  # type: ignore[attr-defined]
+        collect_diagnostics,
+        default_out_path,
+        format_summary,
+        write_zip,
+    )
+
+    payload = collect_diagnostics()
+    console.print(format_summary(payload))
+
+    if no_zip:
+        return
+
+    out_path = Path(out).expanduser().resolve() if out else default_out_path()
+    if out is None:
+        console.print(f"\nWrite zip to [bold]{out_path}[/]?")
+        if not typer.confirm("", default=True):
+            console.print("[dim]skipped[/]")
+            return
+
+    log_tail = _read_log_tail(default_log_path())
+    written = write_zip(payload, out_path, log_tail)
+    console.print(f"[green]✓[/] wrote diagnostic bundle: [bold]{written}[/]")
 
 
 # ── config root subcommands ───────────────────────────────────────────
@@ -1149,12 +1216,14 @@ from octopus.db.upsert import upsert_session  # noqa: E402
 from octopus.sessions import (  # noqa: E402
     NoActiveSessionError,
     end_session,
-    list_sessions as fs_list_sessions,
     log_session,
     prune_sessions,
     show_session,
     start_session,
     switch_session,
+)
+from octopus.sessions import (
+    list_sessions as fs_list_sessions,
 )
 from octopus.sessions.io import read_session  # noqa: E402
 
@@ -1233,6 +1302,7 @@ def session_start(
             raise typer.Exit(EXIT_USER_ERROR)
         raise
     _sync_session(activity_id, session)
+    get_logger("session").info("start activity=%s slug=%s", activity_id, session.filename)
     console.print(f"[green]✓[/] started session [bold]{session.filename}[/]")
 
 
@@ -1276,11 +1346,13 @@ def session_end(
         err_console.print(f"[red]✗[/] {exc}")
         raise typer.Exit(EXIT_USER_ERROR)
     _sync_session(activity_id, session)
+    get_logger("session").info(
+        "end activity=%s slug=%s status=%s", activity_id, session.filename, session.status
+    )
     console.print(f"[green]✓[/] ended session [bold]{session.filename}[/] ({session.status})")
 
     if handoff:
         from octopus.handoffs import new_handoff as _new_handoff  # noqa: E402
-        from octopus.handoffs.io import write_handoff as _write_handoff  # noqa: E402
 
         title = handoff_title
         to_actor = handoff_to_actor
@@ -1445,16 +1517,26 @@ import subprocess as _subprocess  # noqa: E402
 import tempfile as _tempfile  # noqa: E402
 
 from octopus.memory import (  # noqa: E402
-    AmbiguousSectionError,
     CANONICAL_SECTIONS,
     DEFAULT_SECTION,
+    AmbiguousSectionError,
     UnknownSectionError,
-    append_entry as memory_append_entry,
     memory_path,
     read_memory,
+)
+from octopus.memory import (
+    append_entry as memory_append_entry,
+)
+from octopus.memory import (
     resolve_section as memory_resolve_section,
+)
+from octopus.memory import (
     section_entries as memory_section_entries,
+)
+from octopus.memory import (
     set_summary as memory_set_summary,
+)
+from octopus.memory import (
     show_default as memory_show_default,
 )
 from octopus.memory.io import _split_on_marker  # noqa: E402
@@ -1655,8 +1737,14 @@ memory_app.add_typer(state_app, name="state")
 
 from octopus.handoffs import (  # noqa: E402
     HandoffNotFoundError,
+)
+from octopus.handoffs import (
     list_handoffs as fs_list_handoffs,
+)
+from octopus.handoffs import (
     new_handoff as fs_new_handoff,
+)
+from octopus.handoffs import (
     show_handoff as fs_show_handoff,
 )
 from octopus.handoffs.io import read_handoff  # noqa: E402
@@ -1693,6 +1781,7 @@ def handoff_new(
     except ValueError as exc:
         err_console.print(f"[red]✗[/] {exc}")
         raise typer.Exit(EXIT_USER_ERROR)
+    get_logger("handoff").info("new slug=%s from_session=%s", h.slug, from_session)
     console.print(f"[green]✓[/] created handoff [bold]{h.slug}[/]")
     if h.path is not None:
         console.print(f"[dim]{h.path}[/]")

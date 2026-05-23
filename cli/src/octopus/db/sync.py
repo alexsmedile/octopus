@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from octopus.core.models import Activity, Task
+from octopus.core.models import Task
 from octopus.db.connection import get_db
 from octopus.db.upsert import (
-    delete_by_path, upsert_activity, upsert_task,
+    delete_by_path,
+    upsert_activity,
+    upsert_task,
 )
 from octopus.fs.io import read_activity
 

@@ -16,8 +16,10 @@ from typing import Any
 import frontmatter
 
 from octopus.core.models import (
-    DEFAULT_ACTOR, DEFAULT_BUCKET,
-    Activity, Task,
+    DEFAULT_ACTOR,
+    DEFAULT_BUCKET,
+    Activity,
+    Task,
 )
 
 

@@ -531,6 +531,54 @@ Type `octo` instead of `octopus` if you're in a hurry. Same thing.
 
 ---
 
+## Installation
+
+Octopus ships as a Python package. Requires Python **3.11+**.
+
+### pipx (recommended)
+
+```bash
+pipx install octopus-cli
+octopus --version
+```
+
+> Until octopus-cli lands on PyPI, install from a built wheel:
+>
+> ```bash
+> git clone https://github.com/alexsmedile/octopus
+> cd octopus/cli
+> python -m build              # produces dist/octopus_cli-X.Y.Z-py3-none-any.whl
+> pipx install ./dist/octopus_cli-*.whl
+> ```
+
+### From source (editable)
+
+For development:
+
+```bash
+git clone https://github.com/alexsmedile/octopus
+cd octopus/cli
+pip install -e ".[dev]"
+```
+
+### Upgrade / uninstall
+
+```bash
+pipx upgrade octopus-cli      # or: pipx install --force ./dist/*.whl
+pipx uninstall octopus-cli
+```
+
+### Sanity check
+
+```bash
+octopus --version             # → octopus X.Y.Z
+octopus diagnose --no-zip     # prints version, config, index stats — for bug reports
+```
+
+`octopus diagnose` bundles a redacted report (paths under `$HOME` are rewritten to `~/`) into a zip you can attach to GitHub issues.
+
+---
+
 ## How an `.octopus/` folder is born
 
 ```bash

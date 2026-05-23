@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime, timedelta
 
 import pytest
 
 from octopus.config import load_config
 from octopus.fs.scaffold import init_activity
 from octopus.sessions import (
-    end_session,
-    list_sessions,
     prune_sessions,
     read_session,
     start_session,
