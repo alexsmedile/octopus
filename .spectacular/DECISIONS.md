@@ -366,3 +366,246 @@ Dogfood: 168-test suite passing (72 baseline + 24 sessions + 38 memory + 24 hand
 ### Test suite
 
 **221 passing** (was 212): +5 filter/help binding & substring tests, +4 polish/quit-confirm/broken-file tests.
+
+---
+
+## D45 — Task naming formula: F1 imperative `verb result`
+
+**Date:** 2026-05-23
+**Request:** #20 (folds in #19, superseded)
+
+### Locked
+
+Every task title is **`verb result`** in lowercase, imperative voice. No prefixes (`Friction:`, `Bug:`), no parenthetical suffixes (`(request NN)`), no trailing qualifiers.
+
+- Start with a concrete imperative verb. Common set: `build / wire / port / pull / push / migrate / refactor / fix / drop / polish / verify / define / clarify / document / lint / link / add`.
+- Don't over-use `add` — pick a sharper verb when the work transforms existing pieces.
+- Lowercase by default. Sentence case only for proper nouns or identifiers in backticks.
+- ~50-character soft cap.
+- Kind/area metadata belongs in frontmatter, not the title.
+
+Already practiced from v0.2.7. This entry records it as a locked convention.
+
+---
+
+## D46 — Task `kind` enum
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+Add `kind` as an **optional** first-class frontmatter field on tasks. Enum:
+
+| `kind` | When to use |
+|---|---|
+| `feat` | new capability shipped to users |
+| `bug` | something is broken |
+| `spec` | a decision needs locking before code |
+| `polish` | UX/output quality, not behavior |
+| `test` | verification work |
+| `chore` | maintenance, cleanup, deps, refactor, docs |
+
+- Six values. `chore` absorbs `doc`. `polish` stays distinct from `feat` (urgency signal differs).
+- Optional; tasks without `kind` render with no chip.
+- One value per task.
+- Mutable via `octopus set kind=...`.
+- Persisted in the index for `octopus list --kind <enum>`.
+- Soft validation v1: unknown values log a warning, do not abort.
+
+### Deferred
+
+- `area` as a first-class enum. Stays in `tags` (free-form); first tag = primary area by convention.
+- Auto-inferring `kind` from verb. Brittle.
+- Required-on-promote. `kind` is optional everywhere, including before promotion.
+
+---
+
+## D47 — Task promotion is one-way (Octopus → Spectacular)
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+A task can be **promoted** into a Spectacular request via `octopus promote`. Promotion is a rewrite, not a copy: the PLAN.md becomes the source of truth from then on; the task body is replaced with a short pointer stub.
+
+- **One-way.** Requests never demote back to tasks. If a request ships 95% and leaves stragglers, those become *new* Octopus tasks linking back via `promoted_to`.
+- **Marker:** `promoted_to: <provider>:<id>` on the task. Presence = promoted; absence = normal task.
+- **No new bucket.** Promoted tasks live in `tasks/done/`. The `bucket` enum is unchanged.
+- **Body replacement.** On promotion, the task body is replaced entirely with a hard-coded 3-line stub pointing to the PLAN.md. Original body preserved in git history.
+- **`kind: handoff` not used.** `.octopus/handoffs/` and the handoff schema retain their original directed-transfer meaning. Promotion is not a handoff.
+
+---
+
+## D48 — Provider-namespaced `promoted_to` format
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+`promoted_to` value format is `<provider>:<identifier>`. Always namespaced, always stored canonical (long form) regardless of CLI input form.
+
+- v1 registered providers: `spectacular`.
+- Format scales to future providers (`github:`, `linear:`, etc.) without schema migration.
+- Slug-based identifier (not path), so links survive archive moves (`_archive/<slug>/`).
+- Asymmetric: `promoted_from` on the request side is a bare task slug, no namespace (Octopus is the only origin Spectacular knows about).
+
+### Config
+
+```toml
+[providers]
+default = "spectacular"               # CLI shorthand resolves to this when prefix omitted
+
+[providers.chips]
+spectacular = "spec"                  # short label for TUI + chat
+github      = "git"
+linear      = "lin"
+
+[providers.spectacular]
+auto_number = true                    # prepend NN- to scaffolded slugs
+```
+
+- Chip values: ASCII, ≤6 chars. CLI warns on duplicate chip aliases.
+- With no chip configured, fall back to full provider name — never silently drop the namespace.
+- Config precedence: activity `.octopus/config.toml` > system `~/.config/octopus/config.toml`.
+
+### CLI input forms
+
+| Input | Resolution |
+|---|---|
+| `--to <provider>:<id>` | use as given |
+| `--to <chip>:<id>` | chip alias resolved to canonical provider before write |
+| `--to <id>` (no colon) | `<providers.default>:<id>` |
+| `--to <provider>` (provider-only) | `<provider>:<task-slug>` — single-task only |
+| `--to <provider>:new --slug <id>` | explicit "scaffold new with this slug" |
+
+Smart-resolve on `spectacular:<slug>`: existing dir → link; absent → scaffold (with `auto_number` if enabled and slug has no leading `NN-`).
+
+---
+
+## D49 — Idempotency: hard reject + `--force` + `--revert`
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+`octopus promote` is **not idempotent by default**. Already-promoted tasks reject with exit 4 and a specific actionable error.
+
+- **`--force`** repoints to a new target. Updates `promoted_to`, sets new `end_date`, does **not** rewrite the body (already a stub). Reindex propagates `related_tasks` changes to both old and new request PLAN.md.
+- **`--revert`** soft-clears: removes `promoted_to`, clears `end_date`. Body stays a stub (full restore is via git). Task can be `octopus mv`'d back to `backlog/` if needed.
+- **`promoted_from`** on requests is **historical** — records what originally scaffolded the request, not what currently links to it. Not cleared on repoint. The dynamic field is `related_tasks` (derived).
+
+---
+
+## D50 — Multi-task promotion: atomic, positional args
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+`octopus promote` accepts multiple positional task slugs.
+
+- All tasks in a batch share the same `--to` target. No per-task target.
+- **Atomic:** pre-flight validation across all tasks before any write. Any failure (not found, already promoted without `--force`) aborts the whole batch.
+- **`--force` and `--revert` are global** — apply uniformly to every listed task.
+- **Multi-task with provider-only shorthand** (`--to spec` with 2+ tasks) is rejected (exit 3) — ambiguous target, must specify slug.
+- On scaffold from multi-task: `promoted_from` records the first listed task; the full list lives in `related_tasks` (derived).
+
+---
+
+## D51 — Promotion stub template hard-coded v1
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+Stub template is **hard-coded** in the CLI. No config surface in v1.
+
+```markdown
+# <original title>
+
+Promoted to **[<canonical-target>](../../.spectacular/requests/<request-slug>/PLAN.md)** on <date>.
+
+The request PLAN.md is the source of truth from here on.
+```
+
+- Three lines. Pure pointer. No summary line (would drift against the PLAN).
+- Body replaced entirely. Original preserved in git history.
+
+### Deferred
+
+- Override hook (`.octopus/templates/promote-stub.md`) — one-line upgrade later if demand emerges. Built-in stays as fallback. Not v1.
+
+---
+
+## D52 — `kind` survives promotion; hidden by default scope
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+Classification fields (`kind`, `tags`, `priority`, `energy`, `pinned`, etc.) **survive promotion** as historical facts about the original task.
+
+- Indexed and queryable.
+- Hidden from default filters because promoted tasks live in `tasks/done/`, which the default `list` scope already excludes.
+- Surface via `--all`, `--promoted`, or `--spec <slug>`.
+
+### List scope rules
+
+| Flag | Buckets included |
+|---|---|
+| (default) | `backlog`, `next`, `now` |
+| `--all` | all buckets (`done`, `dropped`, promoted) |
+| `--promoted` | only tasks with `promoted_to:` set (overrides default scope) |
+| `--spec <slug>` | only tasks with `promoted_to: spectacular:<slug>` (overrides default scope) |
+
+---
+
+## D53 — Spec-native requests: absence-as-marker
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+A Spectacular request born inside Spectacular (no Octopus task origin) carries **no `promoted_from` field**. Absence is the marker; no positive `origin:` enum.
+
+- Consistent with the default-omission principle used throughout the schema.
+- Tooling distinguishes promoted vs spec-native by presence/absence of `promoted_from`.
+- No second field needed; no schema noise for "I am the default."
+
+---
+
+## D54 — Reindex derives `related_tasks` on the request side
+
+**Date:** 2026-05-23
+**Request:** #20
+
+### Locked
+
+`related_tasks` on request PLAN.md is **derived**, not authored. Task-side `promoted_to` is canonical; reindex regenerates request-side `related_tasks` by scanning all task files.
+
+- Reindex parses `promoted_to: <provider>:<id>`. Only `spectacular:` entries flow into `related_tasks` regeneration. Other providers are no-op until adapter logic ships.
+- For each `spectacular:<slug>`, derive a sorted, deduped list of task slugs and write to that request's PLAN.md.
+- If no tasks reference a request, `related_tasks` is removed (default-omission).
+- Malformed `promoted_to` values emit a warning but do not abort reindex.
+- Hand-edits to `related_tasks` are validated against the canonical task scan; conflicts are flagged in `CRITICAL-DEPENDENCIES.md`.
+
+---
+
+## D55 — Request #19 superseded by #20
+
+**Date:** 2026-05-23
+
+### Locked
+
+Request #19 (`task-naming-and-kinds`) is **superseded** by #20 (`task-promotion`). The naming-formula and `kind` enum scope is folded into #20 since both touch `SCHEMA-TASK.md` on the same migration.
+
+- #19 moved to `.spectacular/requests/_archive/19-task-naming-and-kinds/` with `status: superseded`, `superseded_by: 20-task-promotion`.
+- #20 frontmatter records `supersedes: [19-task-naming-and-kinds]`.
