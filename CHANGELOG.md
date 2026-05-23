@@ -5,22 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-## [Unreleased]
+## [0.2.7] — 2026-05-23
 
-Repo housekeeping — no code changes, no version bump.
+Housekeeping release — no code changes. Lifecycle hygiene + task-naming convention + chat-rendering rules for the agent skill.
 
 ### Changed
 
 - **5 done requests archived** to `.spectacular/requests/_archive/`: `03-index-sqlite`, `04-sessions-memory`, `05-tui`, `08-plugin-claude-code` (scaffold-shipped; install-assistant polish deferred), `11-distribution-pipx`. Brings the active request list from 17 down to 12.
 - **4 stale task files moved to `done/`** with `bucket: done` + `end_date` stamped: SQLite indexer (#03), sessions/memory verbs (#04), Textual TUI (#05), Claude Code plugin (#08). Frontmatter and slugs corrected.
 - **11 live tasks renamed** to the F1 imperative naming formula (`verb result`, lowercase, no `(request NN)` suffix, no `Friction:` / `Bug:` prefix). Eight different verbs across the set so the verb actually carries signal. Files git-mv'd, slugs regenerated. Reindex clean — 16 tasks, no zombies.
-- **`skills/octopus/SKILL.md`** gains two new sections:
-  - *Task naming — F1 imperative*: rule, verb list, examples (good + avoid), "don't over-use `add`" guidance.
-  - *Presenting tasks in chat*: three ASCII layouts (Focus quadrants, Board kanban, compact list) matching the `octopus tui` glyphs, with a routing table that picks layout based on user phrasing.
+- **`skills/octopus/SKILL.md`** gains two new sections (130 → 203 lines):
+  - *Task naming — F1 imperative*: rule, verb list, examples (good + avoid), "don't over-use `add`" guidance with a concrete test for when `add` is correct.
+  - *Presenting tasks in chat*: three ASCII layouts (Focus quadrants, Board kanban, compact list) matching the `octopus tui` glyphs, with a routing table that picks layout from user phrasing.
+- **README phase table** cleaned up — request #08 promoted to explicit done row.
 
 ### Added
 
-- **Request #19 (task naming + kinds)** parked in backlog. F1 naming is locked now; `kind` enum + area-as-tags exploration deferred to a real spec pass.
+- **Request #19 — task naming + kinds** parked in backlog. F1 naming is locked now; `kind` enum + `area`-as-tags exploration deferred to a real spec pass.
 
 ---
 
