@@ -5,6 +5,43 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.0] — 2026-05-24
+
+The **task → request promotion seam**: a single CLI verb makes Octopus and Spectacular work as one system, with one-way migration and derived back-references. Folds in the F1 naming + `kind` enum work that was tracked separately under request #19 (now superseded).
+
+### Added
+
+- **`octopus promote <slug>... --to <target>` verb.** Promotes one or more tasks into a Spectacular request (or any future external target). Rewrites the task body to a 3-line stub pointing at the PLAN.md; scaffolds the request if absent; sets `end_date` and `bucket: done`. Input forms: `provider:id`, `chip:id`, bare `id` (uses `[providers.default]`), provider-only shorthand (single-task only), and `provider:new --slug <id>`. Multi-task atomic pre-flight — all-or-nothing.
+- **`--force` repoint** for already-promoted tasks (no re-body-rewrite). **`--revert`** soft-clears `promoted_to` + `end_date` and moves the task back to `bucket: backlog`. `promoted_from` on the request side is historical and survives repoint.
+- **`kind` field on tasks** (D46). Optional enum: `feat | bug | spec | polish | test | chore`. Soft validation v1 — unknown values warn but don't reject. Indexed in SQLite. Renders as `[kind]` chip in both CLI list output and the TUI.
+- **`octopus set --kind <value>`** to assign/clear.
+- **`octopus list --kind <enum>` / `--promoted` / `--spec <slug>`** filter flags on both `list` and `task list`. `--promoted` and `--spec` override the default `done/`-excluded scope so promoted tasks (which live in `done/`) actually surface.
+- **`[providers]` config section** in `~/.config/octopus/config.toml`: `default`, `[providers.chips]` aliases (ASCII ≤6 chars), `[providers.spectacular] auto_number` (default `true`).
+- **Reindex propagation of `related_tasks`** to request PLAN.md (D54). Task-side `promoted_to` is the canonical link; the request side is a derived mirror. Sorted, deduped, default-omitted when empty. Malformed values surface as warnings, never abort. `_archive/` requests are skipped.
+- **Schema migration v1 → v2**: in-place `ALTER TABLE tasks ADD COLUMN kind/promoted_to` + new indexes. Existing databases are upgraded transparently on first connection.
+- **11 decisions locked** (D45–D55) in `.spectacular/DECISIONS.md`.
+- **46 new tests** (`test_promote.py`, plus filter tests in `test_db_queries.py`, plus reindex tests in `test_db_reindex.py`). Total suite now **271 passing** (was 225).
+
+### Changed
+
+- **`skills/octopus/SKILL.md` → v0.3.0.** New sections "Task `kind`" and "Task promotion" with full input-form table, idempotency rules, multi-task semantics, and reverse-flow guidance. Chat-presentation layouts updated with `[kind]` chips and `→ chip:id` promotion arrows. Verb index gains a "Promotion" group.
+- **`SCHEMA-TASK.md`**: `kind` added to the taxonomy group, `promoted_to` added to integrations & provenance. Field reference sections + validation rules for both.
+- **`CLI-VERBS.md`**: documents `promote`, `--kind/--promoted/--spec` flags, exit codes 0/2/3/4, all input forms.
+- **`CRITICAL-DEPENDENCIES.md`**: new sections S (kind) and T (promotion + reindex of `related_tasks`).
+- **`SCHEMA-CONFIG.md`**: `[providers]` section + chip alias validation (reject non-ASCII / >6 chars, warn on collision).
+- **`SCHEMA-TASK.md`** no longer rejects `kind` as a legacy field — it's a v1 work-classification.
+- **Skill references mirrored** (`schemas/task.md`, `cli-verbs.md`, `critical-dependencies.md`).
+- **TUI rows** render the `[kind]` chip and `→ chip:id` arrow when applicable, in both Focus and Board screens. Provider chips loaded once per session from `[providers.chips]`.
+- **11 live tasks classified** with `kind` (3 feat · 2 bug · 1 spec · 2 polish · 1 test · 1 chore-finished).
+
+### Removed
+
+- **Request #19** archived as **superseded by #20**. Its naming-formula + kind-enum scope folded into this release.
+- **`link-tasks-to-requests-via-tags`** task dropped — superseded by the canonical `promoted_to` field shipped here.
+- **`drop-request-nn-suffix-from-task-titles`** task finished — the cleanup was already done in v0.2.7's rename pass.
+
+---
+
 ## [0.2.7] — 2026-05-23
 
 Housekeeping release — no code changes. Lifecycle hygiene + task-naming convention + chat-rendering rules for the agent skill.

@@ -1,7 +1,7 @@
 ---
 request: 20-task-promotion
-status: active
-updated: 2026-05-23
+status: done
+updated: 2026-05-24
 ---
 
 # Tasks — 20-task-promotion
@@ -148,19 +148,26 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
   - [x] skips archived requests
   - [x] non-spectacular providers are no-op
 
-## Group 12 — Data migration
+## Group 12 — Data migration ✅
 
-- [ ] Assign `kind` to the 11 existing live tasks (best effort; optional field, can be deferred per-task)
-- [ ] Verify F1 naming compliance across all task files; rename outliers via `octopus rename`
-- [ ] Sanity-run `octopus reindex` after migration
+- [x] `feat`: wire-obsidian-symlink-bridge, build-apple-reminders-pull-adapter, add-activity-relative-scoped-view-filter
+- [x] `bug`: fix-blank-line-between-memory-sections, fix-duplicate-timestamps-in-rapid-session-log-entries
+- [x] `spec`: define-forget-verb-semantics
+- [x] `polish`: polish-error-messages-and-rich-output, clarify-n-sessions-output-in-reindex
+- [x] `test`: verify-run-state-in-a-real-automation
+- [x] `chore`: drop-request-nn-suffix-from-task-titles → **finished** (work was already complete from v0.2.7)
+- [x] **dropped**: link-tasks-to-requests-via-tags (superseded by #20's `promoted_to` field)
+- [x] F1 naming verified compliant on all live tasks (no renames needed)
+- [x] Sanity-run `octopus reindex` — 2 activities (live + smoke fixture), 19 tasks
 
-## Group 13 — Ship
+## Group 13 — Ship ✅
 
-- [ ] Update CHANGELOG.md with 0.3.0 (minor — new verb, new flags, new schema fields)
-- [ ] Bump `cli/pyproject.toml` version to 0.3.0
-- [ ] Update README.md if any user-facing surface changed (verb list, config, kind chip)
-- [ ] Run `/update-docs` workflow
-- [ ] Tag v0.3.0, push
+- [x] CHANGELOG.md `[0.3.0] — 2026-05-24` entry written (Added / Changed / Removed sections)
+- [x] `cli/pyproject.toml` version 0.2.7 → 0.3.0
+- [x] README.md status line + install command updated to 0.3.0 (mentions 271 tests)
+- [x] Request PLAN status: active → done
+- [x] TASKS.md status: active → done
+- [x] Tag v0.3.0 (next step)
 
 ---
 

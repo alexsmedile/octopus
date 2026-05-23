@@ -697,7 +697,7 @@ All mutations route through `octopus.actions` — the same write layer the CLI u
 
 ## Status & what's next
 
-**v0.2.7** released 2026-05-23 — housekeeping: archived done requests, F1 task-naming formula, ASCII chat layouts in the skill. **224 tests passing**. Install with `pipx install ./dist/octopus_cli-0.2.7-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
+**v0.3.0** released 2026-05-24 — the **Octopus → Spectacular promotion seam**. New `octopus promote` verb, `kind` work-classification field (`feat/bug/spec/polish/test/chore`), `list --kind/--promoted/--spec` filters, reindex-derived `related_tasks` on request PLAN.md, `[providers]` config with chip aliases. SQLite schema v1→v2 migrated in-place. **271 tests passing** (was 225). Install with `pipx install ./dist/octopus_cli-0.3.0-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
 
 | Phase | What | State |
 |---|---|---|
