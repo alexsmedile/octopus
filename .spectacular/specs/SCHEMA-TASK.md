@@ -77,12 +77,14 @@ actor:                        # optional, enum: human | ai | automation         
 owner:                        # optional, string
 
 # ── taxonomy ─────────────────────────────────────────────────────────
+kind:                         # optional, enum: feat | bug | spec | polish | test | chore
 tags:                         # optional, list of strings                              (absent = [])
 
 # ── integrations & provenance ────────────────────────────────────────
 external_refs:                # optional, map: <adapter-name> → <opaque-string>
 import_date:                  # optional, ISO date
 imported_from:                # optional, string
+promoted_to:                  # optional, string in `<provider>:<identifier>` format   (presence = promoted)
 ---
 ```
 
@@ -114,8 +116,8 @@ The schema is grouped into seven semantic sections. Each group answers one quest
 | Dates | When does it need to happen? When did it? | `due`, `scheduled`, `start_date`, `end_date` |
 | Prioritization | How urgent? How costly? | `priority`, `energy` |
 | Actors | Who does it? Who owns it? | `actor`, `owner` |
-| Taxonomy | How is it categorized? | `tags` |
-| Integrations | Where else does it live? | `external_refs`, `import_date`, `imported_from` |
+| Taxonomy | What kind of work? How is it categorized? | `kind`, `tags` |
+| Integrations & provenance | Where else does it live? Where did it come from / go to? | `external_refs`, `import_date`, `imported_from`, `promoted_to` |
 
 `actor` and `owner` are deliberately adjacent.
 
@@ -265,11 +267,29 @@ The schema is grouped into seven semantic sections. Each group answers one quest
 
 ### Taxonomy
 
+#### `kind` — optional
+
+- Type: enum
+- Range: `feat` | `bug` | `spec` | `polish` | `test` | `chore`
+- Default: absent (no classification chip rendered).
+- One value per task. Mutable via `octopus set kind=...`.
+- **Definitions:**
+  - `feat` — new capability shipped to users.
+  - `bug` — something is broken.
+  - `spec` — a decision needs locking before code.
+  - `polish` — UX/output quality, not behavior.
+  - `test` — verification work (manual or automated).
+  - `chore` — maintenance, cleanup, deps, refactor, docs.
+- **Soft validation v1:** unknown values log a warning, do not abort. Index stores whatever is written.
+- Survives promotion — see `promoted_to`. Hidden from default filters because promoted tasks live in `tasks/done/`; surface via `--all`, `--promoted`, or `--spec`.
+- See `D46` in `DECISIONS.md`.
+
 #### `tags` — optional
 
 - Type: list of strings
 - Range: free-form. No validation.
 - Default: absent = empty list. Field is omitted entirely when no tags.
+- **Convention:** the first tag, if present, is the *primary area* (e.g. `cli`, `tui`, `reminders`). Soft convention — not enforced, not validated.
 
 ### Integrations & provenance
 
@@ -288,6 +308,33 @@ The schema is grouped into seven semantic sections. Each group answers one quest
 
 - Type: string
 - Range: free-form source identifier (e.g. `apple-reminders`, `notion-export-2025-12`).
+
+#### `promoted_to` — optional
+
+- Type: string in `<provider>:<identifier>` format.
+- Default: absent (normal task).
+- **Presence is the marker** that this task was promoted to another system (a Spectacular request, a GitHub issue, etc.). Absence means a normal task.
+- Always stored canonical (long provider name), regardless of CLI input form.
+- v1 registered providers: `spectacular`.
+- **Format scales without schema migration**: future providers like `github:`, `linear:`, `notion:` use the same field with a different prefix.
+- Identifier is slug-based (not path) so links survive archive moves (`.spectacular/requests/_archive/<slug>/`).
+- Set by `octopus promote`. Cleared by `octopus promote --revert`.
+- A promoted task lives in `tasks/done/` with `end_date` set on the same day promotion occurred.
+- See `D47`, `D48` in `DECISIONS.md`.
+
+**Examples:**
+
+```yaml
+promoted_to: spectacular:20-task-promotion
+promoted_to: github:alexsmedile/octopus#42         # future
+promoted_to: linear:ENG-123                        # future
+```
+
+**Validation:**
+- Value MUST match `^<provider>:<identifier>$` with non-empty provider and identifier.
+- Provider MUST be registered. Unknown providers reject with a clear error suggesting registered ones.
+- For `spectacular:<slug>`, slug MUST resolve to a directory under `.spectacular/requests/` OR `.spectacular/requests/_archive/`. (Archived targets are still valid — the link doesn't break.)
+- See `CRITICAL-DEPENDENCIES.md` for full validation rules.
 
 ---
 
@@ -312,7 +359,7 @@ The "open loops" query is what `octopus loops` returns.
 Explicitly excluded — see `TODO.md` and `_archive/docs/_task.schema.md`.
 
 - `status` — collapsed into `bucket` (terminal states) + dates (lifecycle).
-- `kind` — folder location determines type. Tasks live in `tasks/`, handoffs in `handoffs/`, notes in `memory.md`.
+- `kind` (file-type sense) — folder location determines artifact type. Tasks live in `tasks/`, handoffs in `handoffs/`, notes in `memory.md`. The `kind` field that IS in the schema (added in D46) is a *work-classification* field (`feat`/`bug`/etc.), not a file-type discriminator.
 - `recurrence`, `last_run`, `next_run` — routines are deferred (see TODO.md).
 - `needs`, `project`, `subtasks`, `parent`, `children`, `see_also`, `ai_status`, `handoff_to`, `handoff_status`, `handoff_at`, `reviewed_at`, `reviewed_by`, `estimate`, `time_spent` — dropped from archive.
 

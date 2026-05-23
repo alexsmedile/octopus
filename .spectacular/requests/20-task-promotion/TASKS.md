@@ -24,17 +24,17 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] D54 — Reindex derives `related_tasks` on the request side.
 - [x] D55 — Request #19 superseded by #20.
 
-## Group 2 — Schema docs (Spectacular side)
+## Group 2 — Schema docs (Spectacular side) ✅
 
-- [ ] `SCHEMA-TASK.md`: add `kind` field to canonical order (taxonomy group) + field reference section
-- [ ] `SCHEMA-TASK.md`: add `promoted_to` field (integrations & provenance group) + format spec + field reference
-- [ ] `SCHEMA-TASK.md`: document `<provider>:<identifier>` format + validation rules
-- [ ] `CLI-VERBS.md`: document `octopus promote` (verb, flags, examples, exit codes)
-- [ ] `CLI-VERBS.md`: document `--revert` flag on `promote`
-- [ ] `CLI-VERBS.md`: document `list --kind`, `list --promoted`, `list --spec`, `list --all` scope rules
-- [ ] `CRITICAL-DEPENDENCIES.md`: validation rules for `promoted_to` (parse format, known provider, identifier shape)
-- [ ] `CRITICAL-DEPENDENCIES.md`: validation rule for `kind` enum membership (soft — log warning on unknown, do not reject v1)
-- [ ] `CRITICAL-DEPENDENCIES.md`: validation rule preventing manual edits to derived `related_tasks` on request PLAN.md
+- [x] `SCHEMA-TASK.md`: add `kind` field to canonical order (taxonomy group) + field reference section
+- [x] `SCHEMA-TASK.md`: add `promoted_to` field (integrations & provenance group) + format spec + field reference
+- [x] `SCHEMA-TASK.md`: document `<provider>:<identifier>` format + validation rules
+- [x] `CLI-VERBS.md`: document `octopus promote` (verb, flags, examples, exit codes)
+- [x] `CLI-VERBS.md`: document `--revert` flag on `promote`
+- [x] `CLI-VERBS.md`: document `list --kind`, `list --promoted`, `list --spec`, `list --all` scope rules
+- [x] `CRITICAL-DEPENDENCIES.md`: validation rules for `promoted_to` (parse format, known provider, identifier shape) — section T
+- [x] `CRITICAL-DEPENDENCIES.md`: validation rule for `kind` enum membership (soft — log warning on unknown, do not reject v1) — section S
+- [x] `CRITICAL-DEPENDENCIES.md`: validation rule preventing manual edits to derived `related_tasks` on request PLAN.md — section T (Reindex)
 
 ## Group 3 — Schema docs (skill mirror)
 

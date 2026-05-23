@@ -133,6 +133,53 @@ octopus restore <slug>
   delta  : archived: <cleared>
 ```
 
+## Promotion verbs (v1)
+
+```
+octopus promote <slug> [<slug>...] --to <provider>:<id>
+                                   [--slug <new-slug>]
+                                   [--force]
+octopus promote <slug> [<slug>...] --revert
+
+  intent : promote one or more Octopus tasks into a Spectacular request
+           (or other external target), making the request the new source of
+           truth. Pure rewrite — task body becomes a 3-line stub pointer.
+  delta  : promoted_to: <canonical-provider>:<id>
+           end_date: <today>
+           bucket: done (file moved to tasks/done/)
+           body: replaced with hard-coded stub
+  side   : if target doesn't exist, scaffolds a new spec request from template
+           with promoted_from: <first-task-slug>.
+           reindex regenerates related_tasks: on the request side from
+           scanning task files (read-only, derived).
+
+input forms (--to):
+  --to <provider>:<id>      explicit provider + identifier
+  --to <chip>:<id>          chip alias accepted; canonical stored
+  --to <id>                 uses [providers.default]:<id>
+  --to <provider>           shorthand: <provider>:<task-slug> (single-task only)
+  --to <provider>:new       force scaffold; requires --slug <id>
+
+idempotency:
+  octopus promote X --to ... --force         repoints already-promoted task
+  octopus promote X --revert                 soft-clear: removes promoted_to
+                                             and end_date; body stays stub
+
+multi-task:
+  octopus promote A B C --to spec:obsidian-bridge
+    atomic; pre-flight validates all tasks before any write
+    all share one target; --force/--revert apply uniformly
+    provider-only shorthand (--to spec) rejected with 2+ tasks (exit 3)
+
+exit codes:
+  0  success
+  2  task not found
+  3  --to target invalid (unknown provider, malformed id, ambiguous shorthand)
+  4  task already promoted; use --force to repoint or --revert to unlink
+```
+
+See `D47`–`D51` in `DECISIONS.md` for the full model.
+
 ## Forget verb — pending decision
 
 ```
@@ -210,22 +257,43 @@ octopus status [<activity-prefix>]
   output : full activity record + task breakdown + open sessions + pinned items
   notes  : index-backed; uses stale-check on the activity's rows.
 
-octopus list [--all]
+octopus list [--all] [--kind <enum>] [--promoted] [--spec <slug>]
   intent : list activities / tasks. CONTEXT-AWARE.
   scope  : if cwd is inside an activity → lists that activity's tasks (like task list)
            if cwd is NOT inside an activity → lists all indexed activities
            --all forces cross-activity listing regardless of cwd
   flags  : --all, --status STATUS, --type TYPE, --area AREA,
-           --bucket BUCKET, --show-ids, --no-stale-check, --format json
+           --bucket BUCKET, --show-ids, --no-stale-check, --format json,
+           --kind <enum>, --promoted, --spec <slug>
   notes  : if index is empty (no activities found), prints
            "no activities indexed — run `octopus reindex`".
 
-octopus task list [--all]
+octopus task list [--all] [--kind <enum>] [--promoted] [--spec <slug>]
   intent : list tasks. CONTEXT-AWARE (same scope rules as `list`).
   scope  : if cwd is inside an activity → that activity's tasks (default)
            --all → tasks across every indexed activity
-  flags  : --all, --bucket BUCKET, --no-stale-check, --format json
+  flags  : --all, --bucket BUCKET, --no-stale-check, --format json,
+           --kind <enum>, --promoted, --spec <slug>
 ```
+
+### New filter flags (v1)
+
+`--kind <enum>` — filter by `kind` field. Comma-separated for multi: `--kind bug,polish`. Unknown values pass through (soft validation).
+
+`--promoted` — scope override: show only tasks with `promoted_to:` set. Since promoted tasks live in `tasks/done/`, this flag implicitly includes that bucket. Combine with `--kind` for views like "all promoted bugs."
+
+`--spec <slug>` — scope override: show only tasks with `promoted_to: spectacular:<slug>`. Useful for "what tasks did this request originate from?"
+
+Scope rules:
+
+| Flag combination | Buckets included |
+|---|---|
+| (default) | `backlog`, `next`, `now` |
+| `--all` | all buckets (`done`, `dropped`, promoted) |
+| `--promoted` | only tasks with `promoted_to:` set (overrides default scope) |
+| `--spec <slug>` | only tasks with `promoted_to: spectacular:<slug>` (overrides default scope) |
+
+See `D52` in `DECISIONS.md`.
 
 ## Session verbs (v1)
 

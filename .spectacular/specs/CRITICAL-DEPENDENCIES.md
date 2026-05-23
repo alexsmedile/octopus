@@ -309,6 +309,56 @@ The SQLite index is derived; the filesystem is the source of truth (see `SCHEMA-
 | Non-interactive (pipe/agent/CI): `reindex` never prompts. Honors `--prune` flag only. | Agent automation. |
 | Context-aware `list` / `task list`: cwd inside an activity → that activity's tasks; cwd outside → cross-activity; `--all` forces cross-activity regardless. | Sensible default for the common case. |
 
+## S — Task `kind` field (D46)
+
+| Rule | Reason |
+|---|---|
+| `kind` is optional. Tasks without `kind` are valid. | Backward compatibility; not all tasks deserve classification. |
+| `kind` value SHOULD be one of `feat`, `bug`, `spec`, `polish`, `test`, `chore`. | Locked enum (D46). |
+| Unknown `kind` values MUST log a warning (stderr) but MUST NOT abort the write. | Soft validation v1; allow free strings until the enum proves itself. |
+| `kind` is mutable. `octopus set kind=<value>` is valid. | Tasks evolve (`spec` → `feat` is common). |
+| Indexed in SQLite. `octopus list --kind <enum>` queries the column. | Filter ergonomics. |
+| `kind` is NOT required to promote. | `kind` is optional everywhere, including before `promote`. |
+| `kind` SURVIVES promotion. Hidden from default filters because promoted tasks live in `tasks/done/` (default scope excludes done). | Historical fact preservation; surface via `--all` / `--promoted` / `--spec`. |
+
+## T — Task promotion (D47–D51)
+
+### `promoted_to` field validation
+
+| Rule | Reason |
+|---|---|
+| `promoted_to` value MUST match `^<provider>:<identifier>$` with non-empty provider and identifier. | Namespaced format prevents target confusion as providers grow. |
+| Provider MUST be a registered provider in `[providers]` config. v1 registry: `spectacular`. | Unknown providers reject with a clear error. |
+| For `spectacular:<slug>`, the slug MUST resolve to a directory under `.spectacular/requests/` OR `.spectacular/requests/_archive/`. | Archived targets remain valid — link doesn't break. |
+| Stored value is always **canonical** (long provider name), regardless of CLI input form (aliases, defaults, shorthand). | One canonical form; aliases are display/input ergonomics only. |
+| `promoted_to` value MUST be slug-based, not path-based. | Slugs survive archive moves; paths don't. |
+
+### `octopus promote` verb invariants
+
+| Rule | Reason |
+|---|---|
+| If task already has `promoted_to:` set, `promote` MUST reject with exit 4 unless `--force` or `--revert` is passed. | Promotion is destructive (body rewrite); accidental re-promotion would lose data. |
+| `--force` MUST repoint `promoted_to` and update `end_date` but MUST NOT re-rewrite the body (already a stub). | Idempotent for repointing without further data loss. |
+| `--revert` MUST clear `promoted_to` and `end_date` but MUST NOT restore the original body. | Soft revert v1; full body restore is via git. |
+| Multi-task promotion MUST be atomic: pre-flight validates every task before any write. Any failure aborts the entire batch. | All-or-nothing semantics avoid half-promoted batches. |
+| Multi-task promotion (2+ tasks) with provider-only shorthand (`--to spec`) MUST reject (exit 3) as ambiguous. | Each task slug would produce a different request slug. |
+| On promote, task body MUST be replaced entirely with the hard-coded stub template (D51). | No partial drift between original body and the PLAN it points to. |
+| On promote, `bucket: done` MUST be set and the file moved to `tasks/done/<slug>.md`. | `done` is the terminal bucket from Octopus's perspective. |
+| On promote, `end_date: <today>` MUST be set. | Standard lifecycle close. |
+| When the target request doesn't exist, `promote` MUST scaffold it with `promoted_from: <first-task-slug>` in PLAN.md frontmatter. | Records origin for posterity (historical, not derived). |
+| `promoted_from` on request frontmatter MUST NOT be cleared by `--force` repointing. | Historical fact — what originally scaffolded the request. |
+
+### Reindex of `related_tasks` (D54)
+
+| Rule | Reason |
+|---|---|
+| `related_tasks:` on a request PLAN.md is **derived, not authored**. Hand-edits are overwritten on next reindex. | Single source of truth: task-side `promoted_to`. |
+| `reindex` MUST scan all task files for `promoted_to: spectacular:<slug>` and regenerate `related_tasks:` on the matching request PLAN.md. | Drift impossible by construction. |
+| `reindex` MUST sort and dedupe the derived `related_tasks` list. | Determinism; idempotent regen. |
+| If no tasks reference a given request, `related_tasks:` MUST be removed from PLAN.md (default-omission). | Schema hygiene. |
+| Reindex MUST emit a warning (not abort) on malformed `promoted_to` values (no colon, unknown provider, empty identifier). | Robust to user error; don't kill the index over bad data. |
+| Non-`spectacular:` `promoted_to` values are no-op for `related_tasks` regen in v1. | Other providers (github, linear) require their own adapter logic. |
+
 ---
 
 ## Reference
