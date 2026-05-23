@@ -64,12 +64,14 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] `[providers]` config in `Config` dataclass with defaults
 - [x] All 225 existing tests pass
 
-## Group 6 — Code: CLI verb
+## Group 6 — Code: CLI verb ✅
 
-- [ ] `octopus/commands/promote.py`: implement Typer command (positional task slugs, `--to`, `--slug`, `--force`, `--revert`)
-- [ ] Wire into `cli.py` (alias `octopus promote`, no abbrev like `prom`)
-- [ ] Exit codes: 0/2/3/4 per PLAN
-- [ ] Confirmation output: summary line + per-task line on success
+- [x] `octopus promote` Typer command implemented inline in `cli.py` (positional task slugs, `--to`, `--slug`, `--force`, `--revert`)
+- [x] Wired into `cli.py` between `restore` and `set` verb groups
+- [x] Exit codes: 0/2/3/4 per PLAN — 4 (already promoted) verified end-to-end
+- [x] Confirmation output: scaffolded/linked line + per-task promoted/repointed/reverted line
+- [x] Refinement to D49: `--revert` also moves task to `bucket: backlog` (forced by validation rule that `done` requires `end_date`). Mirrored to spec + skill + PLAN.
+- [x] Smoke-tested in /tmp fixture: capture → promote → repoint (--force) → revert all work end-to-end
 
 ## Group 7 — Code: list filters
 

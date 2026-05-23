@@ -495,7 +495,7 @@ Smart-resolve on `spectacular:<slug>`: existing dir → link; absent → scaffol
 `octopus promote` is **not idempotent by default**. Already-promoted tasks reject with exit 4 and a specific actionable error.
 
 - **`--force`** repoints to a new target. Updates `promoted_to`, sets new `end_date`, does **not** rewrite the body (already a stub). Reindex propagates `related_tasks` changes to both old and new request PLAN.md.
-- **`--revert`** soft-clears: removes `promoted_to`, clears `end_date`. Body stays a stub (full restore is via git). Task can be `octopus mv`'d back to `backlog/` if needed.
+- **`--revert`** soft-clears: removes `promoted_to`, clears `end_date`, **and moves the task back to `backlog/`**. Why: `bucket: done` requires `end_date` (rule A in CRITICAL-DEPENDENCIES), so clearing `end_date` while staying in `done/` would fail validation. Body stays as the stub (full restore is via git). The user can `octopus mv` to a different bucket from there.
 - **`promoted_from`** on requests is **historical** — records what originally scaffolded the request, not what currently links to it. Not cleared on repoint. The dynamic field is `related_tasks` (derived).
 
 ---

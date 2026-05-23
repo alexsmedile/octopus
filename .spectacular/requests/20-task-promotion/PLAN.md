@@ -244,7 +244,7 @@ ERROR: task is already promoted to spectacular:20-task-promotion (on 2026-05-22)
 ```
 
 - `--force`: overwrite `promoted_to`, set new `end_date`, do **not** rewrite the body (it was already rewritten on the first promote — leave it). Reindex picks up the change and rewrites `related_tasks` on both old and new request PLAN.md files.
-- `--revert`: clear `promoted_to`, clear `end_date`. **Soft revert** — the task body stays rewritten as a promotion stub. If you want the original body back, use git. The task returns to whatever bucket it's currently in (typically `done/`); the user can `octopus mv` it back to `backlog/` if needed.
+- `--revert`: clear `promoted_to`, clear `end_date`, **and move the task to `bucket: backlog`**. **Soft revert** — the task body stays rewritten as a promotion stub. If you want the original body back, use git. The forced bucket move is because `bucket: done` requires `end_date`; we can't keep the task in `done/` after clearing the date. The user can `octopus mv` to a different bucket from there.
 
 `promoted_from` on the old request's PLAN.md is **historical** — not cleared on repoint. It records what originally scaffolded the request, not what currently links to it. The dynamic field is `related_tasks` (derived by reindex).
 

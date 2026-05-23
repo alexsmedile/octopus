@@ -339,7 +339,7 @@ The SQLite index is derived; the filesystem is the source of truth (see `SCHEMA-
 |---|---|
 | If task already has `promoted_to:` set, `promote` MUST reject with exit 4 unless `--force` or `--revert` is passed. | Promotion is destructive (body rewrite); accidental re-promotion would lose data. |
 | `--force` MUST repoint `promoted_to` and update `end_date` but MUST NOT re-rewrite the body (already a stub). | Idempotent for repointing without further data loss. |
-| `--revert` MUST clear `promoted_to` and `end_date` but MUST NOT restore the original body. | Soft revert v1; full body restore is via git. |
+| `--revert` MUST clear `promoted_to` and `end_date`, AND move the task to `bucket: backlog`. MUST NOT restore the original body. | Soft revert v1. Bucket move is forced because `bucket: done` requires `end_date` (rule A) — clearing one without the other fails validation. Full body restore is via git. |
 | Multi-task promotion MUST be atomic: pre-flight validates every task before any write. Any failure aborts the entire batch. | All-or-nothing semantics avoid half-promoted batches. |
 | Multi-task promotion (2+ tasks) with provider-only shorthand (`--to spec`) MUST reject (exit 3) as ambiguous. | Each task slug would produce a different request slug. |
 | On promote, task body MUST be replaced entirely with the hard-coded stub template (D51). | No partial drift between original body and the PLAN it points to. |

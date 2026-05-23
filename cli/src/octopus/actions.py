@@ -406,8 +406,12 @@ def promote_task(
             if task.promoted_to is None:
                 # Idempotent revert — nothing to clear, skip quietly.
                 continue
+            # Soft revert (D49): clear promoted_to + end_date. Because
+            # bucket=done requires end_date, also move the task back to
+            # backlog/. Body stays as the stub (full restore is via git).
             task.promoted_to = None
             task.end_date = None
+            task.bucket = "backlog"
             _validate(task)
             _save(task, body, path, octo, storage, activity_root)
             reverted.append(slug)

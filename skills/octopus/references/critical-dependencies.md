@@ -177,7 +177,7 @@ Filenames are CLI-owned. Hand-renaming a file breaks the index and any cross-ref
 
 - Already-promoted task without `--force`/`--revert` → reject with exit 4.
 - `--force` repoints `promoted_to` + updates `end_date`. Body NOT re-rewritten (already a stub).
-- `--revert` clears `promoted_to` + `end_date`. Body stays stub (full restore via git).
+- `--revert` clears `promoted_to` + `end_date`, AND moves the task to `bucket: backlog` (because `bucket: done` requires `end_date` — clearing one without the other fails validation). Body stays stub (full restore via git).
 - Multi-task batch is atomic — pre-flight validates every task before any write.
 - Multi-task with provider-only shorthand (`--to spec`) → reject with exit 3.
 - On promote, body replaced entirely with the hard-coded 3-line stub. `bucket: done` set. File moved to `tasks/done/<slug>.md`. `end_date: <today>` set.

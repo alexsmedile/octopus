@@ -87,6 +87,9 @@ EXIT_OK = 0
 EXIT_USER_ERROR = 1
 EXIT_NOT_IN_ACTIVITY = 2
 EXIT_CONFIG_ERROR = 3
+# Promotion-specific (D49). promote uses 2 (task not found), 3 (target invalid),
+# 4 (already promoted; use --force or --revert).
+EXIT_PROMOTE_ALREADY = 4
 
 
 def _require_activity() -> Path:
@@ -721,6 +724,96 @@ def restore(slug: str = typer.Argument(..., help="Task slug.")) -> None:
     task.archived = None
     _save_task(task, body, path, octopus_dir, storage_mode)
     console.print(f"[green]✓[/] {slug} restored")
+
+
+# ── promotion verb ────────────────────────────────────────────────────
+
+
+@app.command()
+def promote(
+    slugs: list[str] = typer.Argument(..., help="One or more task slugs to promote."),
+    to: str | None = typer.Option(
+        None, "--to",
+        help="Target. <provider>:<id>, <chip>:<id>, <id>, <provider>, or <provider>:new.",
+    ),
+    slug: str | None = typer.Option(
+        None, "--slug",
+        help="Explicit slug when scaffolding with <provider>:new.",
+    ),
+    force: bool = typer.Option(
+        False, "--force",
+        help="Repoint an already-promoted task to a new target.",
+    ),
+    revert: bool = typer.Option(
+        False, "--revert",
+        help="Soft-clear promoted_to + end_date. Body stays stub.",
+    ),
+) -> None:
+    """Promote one or more tasks to a Spectacular request (or other target).
+
+    One-way; pure rewrite. Task body becomes a stub pointer to the PLAN.md.
+    See D47–D51 in DECISIONS.md and references/cli-verbs.md for the full
+    semantics.
+    """
+    from octopus.actions import ActionError, promote_task
+
+    activity_root = _require_activity()
+    if revert and to:
+        err_console.print("[red]✗[/] --revert cannot be combined with --to")
+        raise typer.Exit(EXIT_USER_ERROR)
+    if not revert and not to:
+        err_console.print("[red]✗[/] --to is required (or use --revert)")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    try:
+        result = promote_task(
+            activity_root,
+            list(slugs),
+            to=to,
+            explicit_slug=slug,
+            force=force,
+            revert=revert,
+        )
+    except ActionError as exc:
+        msg = str(exc)
+        # Map by message content — promote_task carries the rule, the CLI
+        # just translates to the documented exit code.
+        if "not found" in msg:
+            err_console.print(f"[red]✗[/] {msg}")
+            raise typer.Exit(EXIT_NOT_IN_ACTIVITY) from exc
+        if "already promoted" in msg:
+            err_console.print(f"[red]✗[/] {msg}")
+            raise typer.Exit(EXIT_PROMOTE_ALREADY) from exc
+        # Everything else — bad --to target, ambiguous shorthand, validation.
+        err_console.print(f"[red]✗[/] {msg}")
+        raise typer.Exit(EXIT_CONFIG_ERROR) from exc
+
+    # ── render success output ────────────────────────────────────────
+    if result.reverted:
+        for s in result.reverted:
+            console.print(f"[green]✓[/] {s} reverted (promoted_to cleared)")
+        return
+
+    target = result.target or ""
+    if result.scaffolded and result.request_path is not None:
+        rel = result.request_path
+        try:
+            rel = result.request_path.relative_to(activity_root)
+        except ValueError:
+            pass
+        console.print(f"[cyan]→[/] scaffolded {target} at [dim]{rel}[/]")
+    elif result.request_path is not None:
+        rel = result.request_path
+        try:
+            rel = result.request_path.relative_to(activity_root)
+        except ValueError:
+            pass
+        console.print(f"[cyan]→[/] linked to existing {target} at [dim]{rel}[/]")
+
+    for s in result.promoted:
+        console.print(f"[green]✓[/] {s} promoted to {target}")
+    for s in result.repointed:
+        console.print(f"[green]✓[/] {s} repointed to {target}")
 
 
 # ── views ─────────────────────────────────────────────────────────────
