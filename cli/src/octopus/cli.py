@@ -348,6 +348,18 @@ def _sort_key(task: Task) -> tuple:
 def task_list(
     bucket: str | None = typer.Option(None, "--bucket", help=f"Filter by bucket: {sorted(TASK_BUCKETS)}"),
     show_all: bool = typer.Option(False, "--all", help="Include archived tasks."),
+    kind: str | None = typer.Option(
+        None, "--kind",
+        help="Filter by kind (feat/bug/spec/polish/test/chore). Comma-separated for multi.",
+    ),
+    promoted: bool = typer.Option(
+        False, "--promoted",
+        help="Scope override: only tasks with promoted_to set.",
+    ),
+    spec: str | None = typer.Option(
+        None, "--spec",
+        help="Scope override: only tasks promoted to spectacular:<slug>.",
+    ),
 ) -> None:
     """List tasks in the current activity, grouped by bucket."""
     root = _require_activity()
@@ -361,12 +373,38 @@ def task_list(
         tasks = [t for t in tasks if t.bucket == bucket]
     if not show_all:
         tasks = [t for t in tasks if t.archived is not True]
+    if kind:
+        kinds = {k.strip() for k in kind.split(",")}
+        tasks = [t for t in tasks if t.kind in kinds]
+    if spec:
+        target = f"spectacular:{spec}"
+        tasks = [t for t in tasks if t.promoted_to == target]
+    elif promoted:
+        tasks = [t for t in tasks if t.promoted_to is not None]
 
     if not tasks:
         console.print("[dim]no tasks[/]")
         return
 
     _print_grouped(tasks)
+
+
+def _promoted_chip(promoted_to: str) -> str:
+    """Format a `promoted_to` value with the configured chip alias.
+
+    Example: `spectacular:20-task-promotion` → `spec:20-task-promotion`
+    if `[providers.chips] spectacular = "spec"`. Falls back to full provider
+    name when no chip is configured.
+    """
+    if ":" not in promoted_to:
+        return promoted_to
+    provider, _, identifier = promoted_to.partition(":")
+    try:
+        cfg = load_config()
+    except Exception:
+        return promoted_to
+    chip = cfg.provider_chips.get(provider, provider)
+    return f"{chip}:{identifier}"
 
 
 def _print_grouped(tasks: list[Task]) -> None:
@@ -389,6 +427,8 @@ def _print_grouped(tasks: list[Task]) -> None:
             elif t.priority == "high":
                 marker = "!"
             tail: list[str] = []
+            if t.kind:
+                tail.append(f"[blue]\\[{t.kind}][/]")
             if t.start_date and not t.is_terminal():
                 tail.append("[yellow]doing[/]")
             if t.issue:
@@ -396,7 +436,12 @@ def _print_grouped(tasks: list[Task]) -> None:
             if t.run_state:
                 tail.append(f"[magenta]{t.run_state}[/]")
             tail_str = " " + " ".join(tail) if tail else ""
-            console.print(f"  {marker} [cyan]{t.slug}[/]{tail_str}  {t.title}")
+            promoted_str = ""
+            if t.promoted_to:
+                # Render with chip alias when available; fall back to full provider name.
+                chip = _promoted_chip(t.promoted_to)
+                promoted_str = f"  [dim]→ {chip}[/]"
+            console.print(f"  {marker} [cyan]{t.slug}[/]{tail_str}  {t.title}{promoted_str}")
 
 
 def _scan_tasks(octopus_dir: Path, storage_mode: str) -> list[Task]:
@@ -858,6 +903,10 @@ def set_(
     actor: str | None = typer.Option(None, "--actor"),
     owner: str | None = typer.Option(None, "--owner"),
     # Taxonomy
+    kind: str | None = typer.Option(
+        None, "--kind",
+        help="Work classification: feat | bug | spec | polish | test | chore. Use '' to clear.",
+    ),
     tags: str | None = typer.Option(None, "--tags", help="Comma-separated."),
     title: str | None = typer.Option(None, "--title"),
 ) -> None:
@@ -943,6 +992,9 @@ def set_(
         task.actor = None if actor == "human" else actor
     if owner is not None:
         task.owner = owner or None
+    if kind is not None:
+        # Empty string clears. Soft enum — unknown values warn via smells().
+        task.kind = kind or None
     if tags is not None:
         task.tags = [t.strip() for t in tags.split(",") if t.strip()]
 
@@ -995,10 +1047,26 @@ def list_cmd(
     type_: str | None = typer.Option(None, "--type", help="Filter activities by type."),
     area: str | None = typer.Option(None, "--area", help="Filter activities by area."),
     bucket: str | None = typer.Option(None, "--bucket", help="Filter tasks by bucket."),
+    kind: str | None = typer.Option(
+        None, "--kind",
+        help="Filter tasks by kind (feat/bug/spec/polish/test/chore). Comma-separated for multi.",
+    ),
+    promoted: bool = typer.Option(
+        False, "--promoted",
+        help="Scope override: only tasks with promoted_to set.",
+    ),
+    spec: str | None = typer.Option(
+        None, "--spec",
+        help="Scope override: only tasks promoted to spectacular:<slug>.",
+    ),
     show_ids: bool = typer.Option(False, "--show-ids", "-i", help="Reveal full activity IDs."),
 ) -> None:
     """List activities or tasks. Context-aware (use --all to force cross-activity)."""
     cwd_activity = None if all_ else find_activity_root(Path.cwd())
+    kinds = [k.strip() for k in kind.split(",")] if kind else None
+    # --promoted / --spec force a task listing even at cross-activity scope
+    # (otherwise the activity-summary branch would render and ignore the filter).
+    task_view = bool(bucket or kinds or promoted or spec)
     conn = get_db()
     try:
         if cwd_activity is not None:
@@ -1009,15 +1077,22 @@ def list_cmd(
             except Exception as e:
                 err_console.print(f"[red]✗[/] cannot read activity: {e}")
                 raise typer.Exit(EXIT_USER_ERROR) from e
-            rows = tasks_for_activity(conn, activity.id, bucket=bucket)
+            rows = tasks_for_activity(
+                conn, activity.id,
+                bucket=bucket,
+                kinds=kinds, promoted=promoted, spec=spec,
+            )
             _print_task_rows(rows, show_ids=show_ids)
         else:
             # Cross-activity scope
             if _is_empty_index():
                 console.print(EMPTY_INDEX_HINT)
                 return
-            if bucket:
-                rows = tasks_all(conn, bucket=bucket)
+            if task_view:
+                rows = tasks_all(
+                    conn, bucket=bucket,
+                    kinds=kinds, promoted=promoted, spec=spec,
+                )
                 _print_task_rows(rows, show_ids=show_ids, show_activity=True)
             else:
                 rows = db_list_activities(conn, status=status, type_=type_, area=area)
@@ -1074,7 +1149,13 @@ def _print_task_rows(rows: list, *, show_ids: bool = False, show_activity: bool 
             if show_activity:
                 act = r["activity_id"] if show_ids else short_form(r["activity_id"])
                 prefix = f"[dim]{act}/[/]"
-            console.print(f"  {marker} {prefix}[cyan]{r['slug']}[/]  {r['title']}")
+            kind_chip = f" [blue]\\[{r['kind']}][/]" if r["kind"] else ""
+            promoted_str = ""
+            if r["promoted_to"]:
+                promoted_str = f"  [dim]→ {_promoted_chip(r['promoted_to'])}[/]"
+            console.print(
+                f"  {marker} {prefix}[cyan]{r['slug']}[/]{kind_chip}  {r['title']}{promoted_str}"
+            )
 
 
 @app.command()

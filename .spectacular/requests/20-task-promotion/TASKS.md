@@ -73,13 +73,16 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] Refinement to D49: `--revert` also moves task to `bucket: backlog` (forced by validation rule that `done` requires `end_date`). Mirrored to spec + skill + PLAN.
 - [x] Smoke-tested in /tmp fixture: capture → promote → repoint (--force) → revert all work end-to-end
 
-## Group 7 — Code: list filters
+## Group 7 — Code: list filters ✅
 
-- [ ] `octopus/commands/list.py`: add `--kind <enum>` flag (multi via comma)
-- [ ] Add `--promoted` flag (scope override: only tasks with `promoted_to:` set)
-- [ ] Add `--spec <slug>` flag (filter by `promoted_to: spectacular:<slug>`)
-- [ ] Update `--all` scope semantics to include promoted tasks naturally (since they're in `done/`)
-- [ ] Update list output renderer to show `[kind]` chip when present
+- [x] `db/queries.py`: `_apply_promotion_filters` helper; `tasks_for_activity` + `tasks_all` accept kinds/promoted/spec
+- [x] `cli.py` `list` command: `--kind` (comma-sep multi), `--promoted`, `--spec` flags
+- [x] `cli.py` `task list` command (file-native): same three filters
+- [x] `cli.py` `set` command: `--kind` field added
+- [x] `_print_grouped` (file-native) renders `[kind]` chip + `→ chip:id` promotion arrow
+- [x] `_print_task_rows` (index-backed) renders `[kind]` chip + `→ chip:id` promotion arrow
+- [x] Provider chip lookup via `_promoted_chip()` helper using `[providers.chips]` config
+- [x] Smoke-tested: filter by single kind, multi-kind (comma), `--all` shows promoted tasks with arrow
 
 ## Group 8 — Code: reindex
 

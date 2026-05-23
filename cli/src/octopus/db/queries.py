@@ -45,14 +45,44 @@ def get_activity_by_id_or_prefix(
     ).fetchall()
 
 
+def _apply_promotion_filters(
+    sql: str,
+    args: list[Any],
+    *,
+    kinds: list[str] | None,
+    promoted: bool,
+    spec: str | None,
+) -> tuple[str, list[Any]]:
+    """Append --kind / --promoted / --spec filter clauses (D52)."""
+    if kinds:
+        placeholders = ",".join("?" * len(kinds))
+        sql += f" AND kind IN ({placeholders})"
+        args.extend(kinds)
+    if spec:
+        # --spec is a scope override: implies --promoted to that target.
+        sql += " AND promoted_to = ?"
+        args.append(f"spectacular:{spec}")
+    elif promoted:
+        sql += " AND promoted_to IS NOT NULL"
+    return sql, args
+
+
 def tasks_for_activity(
     conn: sqlite3.Connection,
     activity_id: str,
     *,
     bucket: str | None = None,
     include_archived: bool = False,
+    kinds: list[str] | None = None,
+    promoted: bool = False,
+    spec: str | None = None,
 ) -> list[sqlite3.Row]:
-    """Tasks for one activity, sorted pinned-first / priority / due / slug."""
+    """Tasks for one activity, sorted pinned-first / priority / due / slug.
+
+    --kind / --promoted / --spec filter args follow D52 scope rules. When
+    `promoted=True` or `spec` is set, this overrides the default scope
+    implicitly (callers don't need to lift `include_archived`).
+    """
     sql = "SELECT * FROM tasks WHERE activity_id = ?"
     args: list[Any] = [activity_id]
     if bucket:
@@ -60,6 +90,9 @@ def tasks_for_activity(
         args.append(bucket)
     if not include_archived:
         sql += " AND (archived IS NULL OR archived = 0)"
+    sql, args = _apply_promotion_filters(
+        sql, args, kinds=kinds, promoted=promoted, spec=spec
+    )
     sql += """
         ORDER BY
           CASE WHEN pinned = 1 THEN 0 ELSE 1 END,
@@ -80,6 +113,9 @@ def tasks_all(
     *,
     bucket: str | None = None,
     include_archived: bool = False,
+    kinds: list[str] | None = None,
+    promoted: bool = False,
+    spec: str | None = None,
 ) -> list[sqlite3.Row]:
     """Tasks across ALL activities — backing `--all` flag and `octopus loops`."""
     sql = "SELECT * FROM tasks WHERE 1=1"
@@ -89,6 +125,9 @@ def tasks_all(
         args.append(bucket)
     if not include_archived:
         sql += " AND (archived IS NULL OR archived = 0)"
+    sql, args = _apply_promotion_filters(
+        sql, args, kinds=kinds, promoted=promoted, spec=spec
+    )
     sql += """
         ORDER BY
           CASE WHEN pinned = 1 THEN 0 ELSE 1 END,
