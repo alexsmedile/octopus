@@ -5,6 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.6] — 2026-05-23
+
+Patch — fixes zombie task rows in the TUI. If the SQLite index referenced a task whose `.md` file had been moved or archived, the TUI showed it but mutations (drop, finish, advance) failed with `task not found`.
+
+### Fixed
+
+- **TUI zombie rows** — Focus and Board now call `_drop_zombies()` in `_refresh_data()` to verify each indexed row has a backing file on disk before display. Index drift no longer leaks ghost tasks. The mutation layer (`octopus.actions`) already walks the filesystem, so this aligns what's shown with what's actionable.
+
+### Added
+
+- **3 new tests** (`test_tui_zombies.py`): live-file passthrough, missing-file removal, mixed live/missing case. **224 total passing**.
+
+---
+
 ## [0.2.5] — 2026-05-23
 
 Closes request #05 (Textual TUI v1). Adds the last two polish groups — live filter, help overlay, quit-confirm when a session is open — and locks D44 alongside the previously-promised D43.

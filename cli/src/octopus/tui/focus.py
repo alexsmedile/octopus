@@ -51,6 +51,32 @@ from octopus.tui.status_bar import StatusBar
 from octopus.tui.toast import Toast
 
 
+def _drop_zombies(activity_root: Path, rows):
+    """Drop rows whose backing task file is missing on disk.
+
+    Index drift (e.g. a task file was moved or archived without reindex) used
+    to surface as ghost rows in the TUI that errored on every mutation with
+    'task not found'. Trust the filesystem.
+    """
+    from octopus.actions import find_task_file
+    from octopus.fs.scaffold import read_storage_mode
+
+    try:
+        mode = read_storage_mode(activity_root / ".octopus")
+    except Exception:
+        return list(rows)
+
+    out = []
+    octopus_dir = activity_root / ".octopus"
+    for r in rows:
+        slug = r["slug"] if "slug" in r.keys() else None
+        if not slug:
+            continue
+        if find_task_file(octopus_dir, mode, slug) is not None:
+            out.append(r)
+    return out
+
+
 def _filter_rows(rows, needle: str):
     """Case-insensitive title-substring filter. Empty needle = passthrough."""
     n = (needle or "").strip().lower()
@@ -335,6 +361,13 @@ class FocusScreen(Screen):
                 conn.close()
             except Exception:
                 pass
+
+        # Drop zombie rows — index entries whose backing file has vanished.
+        # Without this, the TUI shows ghost tasks that the mutation layer
+        # can't act on (every action errors with "task not found").
+        backlog_rows = _drop_zombies(self._activity_root, backlog_rows)
+        now_rows = _drop_zombies(self._activity_root, now_rows)
+        next_rows = _drop_zombies(self._activity_root, next_rows)
 
         # Apply filter (case-insensitive title substring match).
         if self._filter_text:

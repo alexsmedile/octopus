@@ -697,7 +697,7 @@ All mutations route through `octopus.actions` — the same write layer the CLI u
 
 ## Status & what's next
 
-**v0.2.5** released 2026-05-23 — TUI v1 closed (filter `/`, help `?`, quit-confirm). **221 tests passing**. Install with `pipx install ./dist/octopus_cli-0.2.5-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
+**v0.2.6** released 2026-05-23 — patch: drop zombie rows in the TUI when the index references missing task files. **224 tests passing**. Install with `pipx install ./dist/octopus_cli-0.2.6-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
 
 | Phase | What | State |
 |---|---|---|

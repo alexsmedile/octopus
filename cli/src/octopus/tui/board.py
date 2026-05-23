@@ -36,7 +36,7 @@ from octopus.db.connection import get_db
 from octopus.db.queries import tasks_for_activity
 from octopus.fs.io import read_activity
 from octopus.tui.filter_bar import FilterBar
-from octopus.tui.focus import _TaskListItem, _filter_rows
+from octopus.tui.focus import _TaskListItem, _drop_zombies, _filter_rows
 from octopus.tui.header_bar import HeaderBar
 from octopus.tui.help import HelpOverlay
 from octopus.tui.overlay import TaskDetailOverlay
@@ -174,6 +174,10 @@ class BoardScreen(Screen):
                 conn.close()
             except Exception:
                 pass
+
+        # Drop zombie rows — index entries with missing backing files.
+        for c in COLUMNS:
+            rows_by_col[c] = _drop_zombies(self._activity_root, rows_by_col[c])
 
         if self._filter_text:
             for c in COLUMNS:
