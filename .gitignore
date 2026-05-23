@@ -1,0 +1,66 @@
+# ── Python ──────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.cython_debug/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ── Editors / IDEs ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.\#*
+\#*\#
+
+# ── macOS ───────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# ── Backups & archives (per ~/.claude/CLAUDE.md rule) ───────────────
+_archive/
+_archived/
+_backup/
+_backups/
+
+# ── Local / per-machine configs ─────────────────────────────────────
+.claude/settings.local.json
+.spectacular.local/
+CLAUDE.local.md
+
+# ── Octopus runtime / soft-delete ───────────────────────────────────
+.octopus/.trash/
+
+# ── Tool-generated hidden dirs ──────────────────────────────────────
+.scrapekit/
+.playwright-mcp/
+.smart-env/
+
+# ── Logs / temp ─────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak

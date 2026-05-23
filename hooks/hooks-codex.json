@@ -1,0 +1,12 @@
+{
+  "hooks": [
+    {
+      "event": "session_start",
+      "command": "octopus where 2>/dev/null || true"
+    },
+    {
+      "event": "session_stop",
+      "command": "octopus session show 2>/dev/null | grep -q '^title:' && echo '💡 Active octopus session — consider /octopus:log to capture what happened.' || true"
+    }
+  ]
+}

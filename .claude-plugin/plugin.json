@@ -1,0 +1,19 @@
+{
+  "name": "octopus",
+  "version": "0.1.0",
+  "description": "Folder-native task and continuity system. Captures tasks, sessions, memory, and handoffs as plain markdown next to your work.",
+  "author": {
+    "name": "Alessandro Smedile"
+  },
+  "homepage": "https://github.com/alexsmedile/octopus",
+  "repository": "https://github.com/alexsmedile/octopus",
+  "license": "MIT",
+  "keywords": [
+    "tasks",
+    "productivity",
+    "folder-native",
+    "local-first",
+    "obsidian",
+    "claude-code"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "octopus",
+  "owner": "Alessandro Smedile",
+  "plugins": [
+    {
+      "name": "octopus",
+      "source": {
+        "type": "local",
+        "path": "./"
+      },
+      "description": "Folder-native task and continuity system. Activities, tasks, sessions, memory, handoffs — all as markdown.",
+      "version": "0.1.0"
+    }
+  ]
+}

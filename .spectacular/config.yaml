@@ -1,0 +1,8 @@
+name: octopus
+summary: Autonomous folder-native project and task orchestration system. Filesystem-native, local-first, viewer-pluggable.
+owner: alex
+agents:
+  file: AGENTS.md
+prd:
+  file: PRD.md
+  version: 0.1.0

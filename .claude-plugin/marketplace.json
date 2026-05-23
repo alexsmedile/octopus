@@ -1,0 +1,19 @@
+{
+  "name": "octopus",
+  "owner": {
+    "name": "Alessandro Smedile"
+  },
+  "metadata": {
+    "description": "Folder-native task and continuity system for Claude Code.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "octopus",
+      "source": "./",
+      "description": "Folder-native task and continuity system. Activities, tasks, sessions, memory, handoffs — all as markdown.",
+      "version": "0.1.0",
+      "category": "productivity"
+    }
+  ]
+}

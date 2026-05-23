@@ -1,0 +1,16 @@
+{
+  "name": "octopus",
+  "version": "0.1.0",
+  "description": "Folder-native task and continuity system. Captures tasks, sessions, memory, and handoffs as plain markdown next to your work.",
+  "author": "Alessandro Smedile",
+  "license": "MIT",
+  "skills": [
+    "skills/octopus"
+  ],
+  "agents": [
+    "agents/octopus-session-keeper.md",
+    "agents/octopus-handoff-writer.md",
+    "agents/octopus-context-loader.md"
+  ],
+  "hooks": "hooks/hooks-codex.json"
+}
