@@ -97,6 +97,22 @@ link_dir = "data/activities/_links"
 enabled = false
 capture_list = "Octopus Capture"
 default_activity = ""            # if empty, CLI prompts per import
+
+# ── promotion providers (D48) ────────────────────────────────────────
+# Controls where tasks can be promoted via `octopus promote --to ...`.
+# v1 ships with `spectacular` as the only registered provider.
+[providers]
+default = "spectacular"          # CLI --to <id> (no colon) resolves to this provider
+
+[providers.chips]
+# Short display labels for the TUI + chat skill. ASCII, ≤6 chars.
+# Falls back to the full provider name when no chip is configured.
+spectacular = "spec"
+# github = "git"                 # future
+# linear = "lin"                 # future
+
+[providers.spectacular]
+auto_number = true               # prepend next-available NN- to scaffolded slugs
 ```
 
 ## 3. Per-activity config (`.octopus/config.toml`)
@@ -134,6 +150,9 @@ scheduled = "do_date"
 - `default_mode` value outside `{folders, fields}`.
 - Field-alias maps where two canonical fields map to the same alias.
 - Field-alias maps where an alias clashes with a canonical field name (e.g., aliasing `due` to `scheduled`).
+- `[providers] default` set to a value that is not a registered provider. v1 registry: `spectacular`.
+- `[providers.chips]` key that is not a registered provider.
+- `[providers.chips]` value that is non-ASCII or longer than 6 characters.
 
 ### MUST tolerate
 
@@ -144,6 +163,7 @@ scheduled = "do_date"
 
 - `[roots] paths` containing entries that don't exist on disk.
 - `[adapters.obsidian] enabled = true` without a valid `vault` path.
+- `[providers.chips]` values that collide (two providers mapped to the same chip) — render becomes indistinguishable.
 
 ---
 

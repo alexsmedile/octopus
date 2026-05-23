@@ -42,13 +42,13 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] `skills/octopus/references/cli-verbs.md`: mirror `promote` + new `list` flags
 - [x] `skills/octopus/references/critical-dependencies.md`: mirror new validation rules (X4–X7)
 
-## Group 4 — Config schema
+## Group 4 — Config schema ✅
 
-- [ ] Add `[providers]` section to config docs: `default` field + registered provider enum
-- [ ] Add `[providers.chips]` section: aliases map, validation rules (ASCII, ≤6 chars)
-- [ ] Add `[providers.spectacular]` section: `auto_number` (default `true`)
-- [ ] Document config precedence (system `~/.config/octopus/config.toml` < activity `.octopus/config.toml`)
-- [ ] Ship default config values for v1 (`default = spectacular`, `chips.spectacular = spec`)
+- [x] Add `[providers]` section to config docs: `default` field + registered provider enum
+- [x] Add `[providers.chips]` section: aliases map, validation rules (ASCII, ≤6 chars)
+- [x] Add `[providers.spectacular]` section: `auto_number` (default `true`)
+- [x] Document config precedence (already covered by existing SCHEMA-CONFIG §1)
+- [x] Ship default config values for v1 (`default = spectacular`, `chips.spectacular = spec`)
 
 ## Group 5 — Code: shared actions layer
 
