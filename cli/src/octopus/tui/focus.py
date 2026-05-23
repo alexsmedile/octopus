@@ -100,16 +100,37 @@ def _short_path(p: Path) -> str:
         return str(p)
 
 
-def _row_chips(row: sqlite3.Row) -> Text:
-    """Right-side chips (pinned, blocked) — rendered as a separate Text suffix."""
-    chips: list[tuple[str, str]] = []
+def _provider_chip(promoted_to: str, chips: dict[str, str]) -> str:
+    """Format promoted_to with [providers.chips] alias. Defensive against malformed."""
+    if not promoted_to or ":" not in promoted_to:
+        return promoted_to or ""
+    provider, _, identifier = promoted_to.partition(":")
+    return f"{chips.get(provider, provider)}:{identifier}"
+
+
+def _row_chips(row: sqlite3.Row, *, provider_chips: dict[str, str] | None = None) -> Text:
+    """Right-side chips (kind, pinned, blocked, promoted) — separate Text suffix."""
+    t = Text(no_wrap=True, overflow="ellipsis")
+    parts: list[tuple[str, str]] = []
+
+    # kind chip (D46) — shown left-most among chips when present
+    kind = row["kind"] if "kind" in row.keys() else None
+    if kind:
+        parts.append((f"[{kind}]", "#89DCEB"))
+
     if "pinned" in row.keys() and row["pinned"]:
-        chips.append((PINNED, "#CBA6F7"))
+        parts.append((PINNED, "#CBA6F7"))
     run_state = row["run_state"] if "run_state" in row.keys() else None
     if run_state == "blocked":
-        chips.append((BLOCKED, "#FAB387"))
-    t = Text(no_wrap=True, overflow="ellipsis")
-    for i, (glyph, color) in enumerate(chips):
+        parts.append((BLOCKED, "#FAB387"))
+
+    # promotion arrow (D48) — right-most chip, dim
+    promoted_to = row["promoted_to"] if "promoted_to" in row.keys() else None
+    if promoted_to:
+        chip_label = _provider_chip(promoted_to, provider_chips or {})
+        parts.append((f"→ {chip_label}", "#8A8D9A"))
+
+    for i, (glyph, color) in enumerate(parts):
         if i:
             t.append(" ")
         t.append(glyph, style=color)
@@ -154,12 +175,20 @@ def _row_text(
 
 
 class _TaskListItem(ListItem):
-    def __init__(self, row: sqlite3.Row) -> None:
+    def __init__(
+        self,
+        row: sqlite3.Row,
+        *,
+        provider_chips: dict[str, str] | None = None,
+    ) -> None:
         # Two static columns inside a Horizontal: title (flex) + chips (right).
+        self._provider_chips = provider_chips or {}
         self._title_static = Static(
             _row_text(row, selected=False), classes="row-title"
         )
-        self._chips_static = Static(_row_chips(row), classes="row-chips")
+        self._chips_static = Static(
+            _row_chips(row, provider_chips=self._provider_chips), classes="row-chips"
+        )
         super().__init__(
             Horizontal(self._title_static, self._chips_static, classes="row-line")
         )
@@ -218,6 +247,15 @@ class FocusScreen(Screen):
         self._activity_root = activity_root
         activity, _ = read_activity(activity_root / ".octopus" / "activity.md")
         self._activity_id = activity.id
+        # Snapshot provider chip aliases so kind/promotion rendering doesn't
+        # re-hit disk on every row build. Safe default: empty dict.
+        try:
+            from octopus.config import load_config
+            self._provider_chips = dict(
+                load_config(activity_root / ".octopus").provider_chips
+            )
+        except Exception:
+            self._provider_chips = {}
 
         # Three lists, one per quadrant.
         self._lists: dict[str, ListView] = {
@@ -395,7 +433,7 @@ class FocusScreen(Screen):
             self._render_empty(quadrant, empty_msg)
             return
         for r in rows:
-            lst.append(_TaskListItem(r))
+            lst.append(_TaskListItem(r, provider_chips=self._provider_chips))
         try:
             lst.index = 0
         except Exception:

@@ -96,13 +96,16 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] SQLite schema migration handled in Group 5 (v1→v2 ALTER TABLE)
 - [x] Round-trip verified: promote → reindex (sets field) → revert → reindex (removes field)
 
-## Group 9 — Code: TUI
+## Group 9 — Code: TUI ✅
 
-- [ ] `tui/focus.py`: render `[kind]` chip in task rows when frontmatter has `kind`
-- [ ] `tui/board.py`: same chip rendering in board columns
-- [ ] Render promotion arrow on tasks in `done/` with `promoted_to`: `→ <chip>:<id>`
-- [ ] Use `[providers.chips]` for chip rendering; fall back to full provider name
-- [ ] Truncate target chip if column-width exceeded; keep provider visible
+- [x] `tui/focus.py` `_row_chips`: render `[kind]` chip (cyan #89DCEB) when kind present
+- [x] `_provider_chip()` helper: format `<provider>:<id>` → `<chip>:<id>` via [providers.chips]
+- [x] Promotion arrow `→ chip:id` rendered as right-most chip (dim grey)
+- [x] FocusScreen + BoardScreen load `[providers.chips]` once in `__init__`, pass to `_TaskListItem`
+- [x] `_TaskListItem` accepts `provider_chips` kwarg; same renderer used in both screens
+- [x] Falls back to full provider name when no chip alias is configured
+- [x] Text overflow=ellipsis already handles truncation (existing behavior)
+- [x] Smoke-rendered: `[bug] → spec:20-task-promotion`, `⚐ → git:foo/bar#42`
 
 ## Group 10 — Skill updates
 

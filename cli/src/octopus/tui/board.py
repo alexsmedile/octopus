@@ -89,6 +89,13 @@ class BoardScreen(Screen):
         self._activity_root = activity_root
         activity, _ = read_activity(activity_root / ".octopus" / "activity.md")
         self._activity_id = activity.id
+        try:
+            from octopus.config import load_config
+            self._provider_chips = dict(
+                load_config(activity_root / ".octopus").provider_chips
+            )
+        except Exception:
+            self._provider_chips = {}
 
         self._lists: dict[str, ListView] = {
             c: ListView(id=f"board-{c}-list") for c in COLUMNS
@@ -206,7 +213,7 @@ class BoardScreen(Screen):
             self._render_empty(col, empty_msg)
             return
         for r in rows:
-            lst.append(_TaskListItem(r))
+            lst.append(_TaskListItem(r, provider_chips=self._provider_chips))
         try:
             lst.index = 0
         except Exception:
