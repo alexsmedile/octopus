@@ -121,6 +121,118 @@ If multiple references apply, load all of them up front rather than re-loading m
 
 ---
 
+## Task naming — F1 imperative
+
+Every task title is **`verb result`** in lowercase, imperative voice. No prefixes (`Friction:`, `Bug:`), no parenthetical suffixes (`(request NN)`), no trailing qualifiers.
+
+### Rules
+- Start with a concrete imperative verb. Common set: `build / wire / port / pull / push / migrate / refactor / fix / drop / polish / verify / define / clarify / document / lint / link / add`.
+- **Don't over-use `add`.** It's the fallback when nothing more specific applies. If you can say `wire`, `build`, `pull`, `port`, `link`, or `migrate`, pick the sharper verb — it tells the reader what *kind* of work it is. `add` is correct when the task really is "make a new thing appear" with no transformation of existing pieces (e.g. a new flag, a new column, a new section).
+- Lowercase by default. Sentence case only for proper nouns or identifiers in backticks.
+- ~50-character soft cap. If you can't fit, split the task.
+- Use backticks around CLI verbs, flag names, or schema field names: `` `run_state` ``, `` `--activity-relative` ``.
+- Drop noise words: "and styling", "with a real", "to associate", "between section content and next section heading" — say what changes, not how.
+
+### Examples (good)
+
+```
+build apple reminders pull adapter
+wire obsidian symlink bridge
+add `--activity-relative` scoped view filter
+fix duplicate timestamps in rapid session log entries
+clarify "N sessions" output in `reindex`
+polish error messages + rich output
+verify `run_state` in a real automation
+drop "(request NN)" suffix from task titles
+```
+
+### Examples (avoid)
+
+```
+Add Apple Reminders pull adapter (request 09)       ← parenthetical link belongs in frontmatter, not title
+Friction: titles with 'request NN' duplicate…       ← "Friction:" is a kind label; goes in metadata
+Decide forget verb semantics                         ← prefer concrete verb: "define"
+Consider an --activity-relative scoped view…        ← "consider" hides the actual action
+Memory show: missing blank line between section…    ← burying the verb behind a noun-phrase prefix
+```
+
+Kind/area metadata (bug, feat, polish, etc.) is **out of scope for the title** — that's a frontmatter exploration tracked in request #19. For now, captures should pass through F1 cleanly.
+
+---
+
+## Presenting tasks in chat
+
+When the user asks to see their tasks (overview, status, what's in backlog, focus view, board, kanban, etc.), render them as **ASCII layouts** that mirror the `octopus tui` glyphs and structure — not generic markdown lists. Visual continuity with the TUI is part of the brand.
+
+### Sourcing
+- Always pull from `octopus list` (or read `.octopus/tasks/<bucket>/*.md` directly when the CLI isn't enough). Never invent rows.
+- For counts, prefer `octopus status` output. For per-task chips, read frontmatter (`pinned`, `run_state`).
+
+### Glyphs (match the TUI exactly)
+- `▢` task row · `▸` cursor (only if you're highlighting a specific task)
+- `⚐` pinned · `⏸` blocked · `✓` done · `✗` dropped
+- `●` NOW · `○` NEXT (bucket headers)
+- `…N more` when truncating
+
+### Layout routing
+
+Pick the layout based on the user's phrasing — don't ask, just match.
+
+| User phrasing contains… | Use layout |
+|---|---|
+| "focus", "overview", "what should I work on", "active" | **Focus quadrants (A)** |
+| "board", "kanban", "all buckets", "everything" | **Board kanban (B)** |
+| "backlog", "what's in X", "list", default | **Compact list (C)** |
+
+### Layout A — Focus quadrants (BACKLOG | NOW/NEXT)
+
+```
+┌─ BACKLOG ──────────────────────────┬─ ● NOW ────────────────────────────┐
+│   ▢ wire obsidian symlink bridge   │   ▢ ship the TUI                   │
+│   ⚐ polish error messages          │   ⏸ verify run_state semantics     │
+│   ▢ apple reminders pull adapter   ├─ ○ NEXT ───────────────────────────┤
+│   …5 more                          │   ▢ build sqlite migrations        │
+└────────────────────────────────────┴────────────────────────────────────┘
+  9 backlog · 2 now · 1 next · 1 blocked
+```
+
+### Layout B — Board kanban (four columns)
+
+```
+┌─ BACKLOG ──────┬─ ○ NEXT ───────┬─ ● NOW ────────┬─ ✓ DONE ───────┐
+│ ▢ wire obsid…  │ ▢ verify run…  │ ▢ ship the…    │ ✓ add textual… │
+│ ⚐ polish err…  │                │ ⏸ build sqli…  │ ✓ build sqli…  │
+│ ▢ apple remi…  │                │                │ ✓ implement…   │
+│ …5 more        │                │                │ …2 more        │
+└────────────────┴────────────────┴────────────────┴────────────────┘
+```
+
+### Layout C — Compact list (default)
+
+```
+backlog (9)
+  ▢ wire obsidian symlink bridge
+  ⚐ polish error messages and rich output styling
+  ▢ apple reminders pull adapter
+  …6 more — ask to see all
+
+next (1)
+  ▢ verify run_state semantics with a real automation
+
+now (0)
+  (empty — use m from next to activate)
+```
+
+### Rendering rules
+- Truncate titles to fit the column. Use `…` to indicate truncation; never wrap.
+- Cap each column at **5 rows** in chat — append `…N more` if exceeded. Show the full list only when the user explicitly asks ("show all", "everything in backlog").
+- One blank line between buckets in layout C.
+- Strip the "(request NN)" suffix from titles when it crowds the column.
+- Wrap the block in a code fence so monospace renders correctly.
+- After the block, add **one short sentence** of context (next action, what's blocked) — not a re-summary of what's already on screen.
+
+---
+
 ## Bridges (v1 scope)
 
 - **Obsidian**: `octopus link` symlinks `.octopus/` into a configured vault location. Read-only viewing layer.

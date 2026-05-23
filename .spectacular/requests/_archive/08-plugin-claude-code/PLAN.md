@@ -1,8 +1,10 @@
 ---
-status: queued
+status: done
 priority: medium
 owner: alex
-updated: 2026-05-21
+updated: 2026-05-23
+closed: 2026-05-23
+closed_note: "Scaffold shipped in v0.1.0 (6 slash commands, 3 agents, 2 hooks, .claude-plugin/ + .codex-plugin/ + .agents/plugins/marketplace.json). Install assistant, session-start hook, and bundle polish deferred to a follow-up when the repo goes public."
 summary: "Claude Code plugin — skill, agents, command, install assistant, session-start hook, bundle commands."
 related:
   - 07-adapter-obsidian

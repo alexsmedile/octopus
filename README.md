@@ -706,16 +706,16 @@ All mutations route through `octopus.actions` — the same write layer the CLI u
 | 02b | Schema collapse — five-value bucket, dropped status/kind, pinned/stage/run_state added | ✅ done |
 | 03 | SQLite index, reindex, list, status, config root | ✅ done |
 | 04 | Sessions + memory + handoffs (multi-open cache, 5-section memory, fs-only handoffs) | ✅ done |
-| — | Claude Code + Codex plugin scaffold at repo root (6 commands, 3 agents, 2 hooks) | ✅ done |
 | — | Self-contained agent skill at `skills/octopus/` (SKILL.md + references/) | ✅ done |
 | 11 | pipx distribution + `octopus diagnose` + CI + logging | ✅ done |
 | 05 | Textual TUI — Focus + Board modes, pixel mascot, shared `octopus.actions` write layer | ✅ done |
+| 08 | Claude Code + Codex plugin scaffold (6 commands, 3 agents, 2 hooks; install assistant deferred) | ✅ done |
 | **06** | **Adapter framework** | 🟢 **next-up** |
 | 07 | Obsidian symlink bridge | queued |
-| 08 | Claude Code plugin polish + install assistant | queued |
 | 09 | Apple Reminders pull | queued |
 | 12 | Lint cleanup (re-tighten ruff — debt deferred from #11) | queued |
 | 18 | Mascot animation (tentacle wave + idle bob) | backlog |
+| 19 | Task naming formula + kind/area schema exploration | backlog |
 
 v1 ships when 06 + 07 are done. The protocol — `.octopus/` on disk — is the lock-in, not the Python.
 
