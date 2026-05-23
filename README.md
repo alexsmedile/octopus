@@ -653,9 +653,51 @@ If you want to see how the sausage is made: **`.spectacular/PRD.md`** for vision
 
 ---
 
+## Daily driver — the TUI
+
+`octopus tui` opens a Textual TUI scoped to the current activity (CWD walk-up to the nearest `.octopus/`). Two modes, one keymap.
+
+**Focus mode** (default, `1`) — three quadrants for the act loop:
+
+```
+┌── BACKLOG ───────────┬── ● NOW ─────────────┐
+│   ▸ ship the TUI      │   handoff template   │
+│     wire skill ref…   ├── ○ NEXT ────────────┤
+│     refactor router   │   sqlite migrations  │
+└──────────────────────┴─────────────────────┘
+```
+
+**Board mode** (`2`) — four-column kanban (`backlog → next → now → done`).
+
+### Keymap
+
+| Key | What |
+|---|---|
+| `1` / `2` | Focus / Board mode |
+| `←` `→` | move between quadrants / columns |
+| `↑` `↓` | move within a list (edges jump panes) |
+| `Tab` / `S-Tab` | cycle panes |
+| `Enter` | open task detail overlay |
+| `n` | capture new task into focused pane |
+| `m` | advance one step along the pipeline |
+| `M` | move to a chosen bucket |
+| `f` | finish task |
+| `d` | drop (with y/n confirm) |
+| `p` | toggle pin |
+| `e` | open in `$EDITOR` |
+| `s` / `S` | start session (quick / with title) |
+| `/` | filter by title substring |
+| `r` | refresh from index (clears filter) |
+| `?` | help overlay (full keymap) |
+| `q` | quit (confirms if a session is open) |
+
+All mutations route through `octopus.actions` — the same write layer the CLI uses. There is no second source of truth.
+
+---
+
 ## Status & what's next
 
-**v0.2.0** released 2026-05-23 — Textual TUI shipped. **212 tests passing**. Install with `pipx install ./dist/octopus_cli-0.2.0-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
+**v0.2.5** released 2026-05-23 — TUI v1 closed (filter `/`, help `?`, quit-confirm). **221 tests passing**. Install with `pipx install ./dist/octopus_cli-0.2.5-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
 
 | Phase | What | State |
 |---|---|---|

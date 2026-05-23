@@ -1,10 +1,13 @@
 ---
-status: active
+status: done
 updated: 2026-05-23
+closed: 2026-05-23
 plan: PLAN.md
 ---
 
 # Tasks — Textual TUI v1
+
+All 8 groups closed in v0.2.5. Task list kept as historical record; the live `octopus tui` may differ from individual bullets where the design evolved during dogfooding (e.g., 3-quadrant Focus instead of NowList + OnDeckRow; no inline blank-row capture; no light/dark auto-switch). See `DECISIONS.md` §D43–D44 for the shipped shape.
 
 Work top-to-bottom. Check off as you go. Each top-level group is one focused session.
 

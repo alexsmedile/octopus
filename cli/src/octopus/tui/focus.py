@@ -41,12 +41,27 @@ from octopus.actions import ActionError
 from octopus.db.connection import get_db
 from octopus.db.queries import tasks_for_activity
 from octopus.fs.io import read_activity
+from octopus.tui.filter_bar import FilterBar
 from octopus.tui.header_bar import HeaderBar
+from octopus.tui.help import HelpOverlay
 from octopus.tui.icons import BLOCKED, CURSOR, PINNED
 from octopus.tui.overlay import TaskDetailOverlay
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
 from octopus.tui.toast import Toast
+
+
+def _filter_rows(rows, needle: str):
+    """Case-insensitive title-substring filter. Empty needle = passthrough."""
+    n = (needle or "").strip().lower()
+    if not n:
+        return list(rows)
+    out = []
+    for r in rows:
+        title = (r["title"] if "title" in r.keys() else "") or ""
+        if n in title.lower():
+            out.append(r)
+    return out
 
 
 def _short_path(p: Path) -> str:
@@ -143,7 +158,8 @@ class FocusScreen(Screen):
     BINDINGS = [
         # Navigation
         Binding("q", "quit", "quit", show=True),
-        Binding("?", "noop", "help", show=True),
+        Binding("?", "help", "help", show=True),
+        Binding("slash", "filter", "filter", show=True),
         Binding("r", "reindex", "refresh", show=True),
         Binding("enter", "open_detail", "detail", show=False),
         Binding("right", "nav_right", "→", show=False),
@@ -189,6 +205,7 @@ class FocusScreen(Screen):
         self._status_bar = StatusBar()
         self._toast = Toast()
         self._header = HeaderBar()
+        self._filter_text: str = ""
 
         # Refs to the Vertical wrappers so we can flip border classes.
         self._panels: dict[str, Vertical] = {}
@@ -318,6 +335,12 @@ class FocusScreen(Screen):
                 conn.close()
             except Exception:
                 pass
+
+        # Apply filter (case-insensitive title substring match).
+        if self._filter_text:
+            backlog_rows = _filter_rows(backlog_rows, self._filter_text)
+            now_rows = _filter_rows(now_rows, self._filter_text)
+            next_rows = _filter_rows(next_rows, self._filter_text)
 
         self._fill(Q_BACKLOG, backlog_rows, empty_msg=(
             "  No backlog.   Press [#F38BA8 bold]n[/] to capture."
@@ -505,21 +528,64 @@ class FocusScreen(Screen):
     def action_noop(self) -> None:
         pass
 
+    def action_quit(self) -> None:
+        # Quit-confirm if the activity has an active session — avoids stranding
+        # an open session pointer when the user just hits q out of habit.
+        try:
+            from octopus.sessions.cache import get_active
+            active = get_active(self._activity_id)
+        except Exception:
+            active = None
+        if not active:
+            self.app.exit()
+            return
+
+        def _on_confirm(confirmed: bool | None) -> None:
+            if confirmed:
+                self.app.exit()
+            else:
+                self._toast.flash("cancelled — session still open")
+
+        self.app.push_screen(
+            ConfirmModal(f"Quit while session [bold]{active}[/] is open?"),
+            _on_confirm,
+        )
+
     def action_focus_mode(self) -> None:
         # Already in Focus — no-op.
         pass
+
+    def action_help(self) -> None:
+        self.app.push_screen(HelpOverlay())
+
+    def action_filter(self) -> None:
+        def _on_change(value: str) -> None:
+            self._filter_text = value
+            self._refresh_data()
+
+        def _on_done(_committed: str | None) -> None:
+            # Filter persists after commit; Esc inside the bar clears it.
+            if self._filter_text:
+                self._toast.flash(f"filter: {self._filter_text!r}  (r to clear)")
+
+        self.app.push_screen(
+            FilterBar(initial=self._filter_text, on_change=_on_change),
+            _on_done,
+        )
 
     def action_board_mode(self) -> None:
         if hasattr(self.app, "switch_to_board"):
             self.app.switch_to_board()
 
     def action_reindex(self) -> None:
+        had_filter = bool(self._filter_text)
+        self._filter_text = ""
         self._status_bar.set_state("refreshing…", busy=True)
         self._header.set_state("refreshing…", busy=True)
         self._refresh_data()
         self._status_bar.set_state("ready", busy=False)
         self._header.set_state("ready", busy=False)
-        self._toast.flash("⟳ refreshed")
+        self._toast.flash("⟳ refreshed · filter cleared" if had_filter else "⟳ refreshed")
 
     def action_open_detail(self) -> None:
         slug = self._current_slug()

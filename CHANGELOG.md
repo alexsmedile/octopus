@@ -5,6 +5,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.5] — 2026-05-23
+
+Closes request #05 (Textual TUI v1). Adds the last two polish groups — live filter, help overlay, quit-confirm when a session is open — and locks D44 alongside the previously-promised D43.
+
+### Added
+
+- **`/` filter bar** — bottom modal slide-up input. Live title-substring filter (case-insensitive) narrows the visible task lists across all quadrants/columns. Esc clears + restores; Enter commits but keeps the filter applied. `r` (reindex) also clears the filter as a one-key reset.
+- **`?` help overlay** — modal with the full 17-key keymap, grouped by Navigation / Modes / Mutations / View. Esc or `?` closes.
+- **`q` quit-confirm** — if the activity has an open session (`sessions.cache.get_active`), quitting prompts y/n. No active session → exits immediately. Avoids stranding a session pointer when `q` is hit out of habit.
+- **README "Daily driver — the TUI"** section: 3-quadrant Focus diagram + full keymap table.
+- **9 new tests** (`test_tui_filter_help.py`, `test_tui_polish.py`): filter substring helper, key bindings present on both screens, quit-action override, broken-task resilience. **221 total passing**.
+- **D43 + D44 logged** in `DECISIONS.md` — TUI v1 shape and the polish-group close-out.
+
+### Changed
+
+- Request #05 marked `status: done` in PLAN.md and TASKS.md (with a note in TASKS.md that the shipped TUI diverged from some bullets during dogfooding — see DECISIONS.md §D43–D44 for the canonical shape).
+
+---
+
 ## [0.2.0] — 2026-05-23
 
 Textual TUI ships. `octopus tui` opens a Focus or Board view of the current activity, with a 13-key mutation keymap, a pixel-art mascot in the header, and a shared `octopus.actions` write layer used by both CLI and TUI.

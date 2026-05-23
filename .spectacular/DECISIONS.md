@@ -318,3 +318,51 @@ Dogfood: 168-test suite passing (72 baseline + 24 sessions + 38 memory + 24 hand
 ### Test suite
 
 183 passing (was 168 + 6 logging + 9 diagnose). Coverage now includes XDG paths, redaction guarantees, zip contents, idempotent setup, and child-logger naming.
+
+---
+
+## D43 — Textual TUI v1 (Focus + Board, shared actions layer)
+
+**Date:** 2026-05-23
+**Request:** #05
+**Scope:** `octopus tui` ships as the daily-driver view over the SQLite index.
+
+### Locked
+
+- **Two modes**: Focus (three quadrants — BACKLOG / NOW / NEXT) and Board (four-column kanban — backlog → next → now → done). Switch via `1` / `2`.
+- **13-key mutation keymap** identical across modes. `n` captures into the focused pane; `m` advances one pipeline step; `M` opens a bucket picker.
+- **Shared `octopus.actions` mutation layer** — TUI calls it directly. CLI port deferred (CLI still goes through Typer commands).
+- **Theme**: Catppuccin Mocha palette, lavender (`#CBA6F7`) as primary accent, teal footer keys. Plain unicode glyphs only — no emoji, no Nerd Font dependency.
+- **Header**: tall 7-row bar with a pixel-accurate octo mascot rendered via `rich-pixels` + PIL from a 16×14 ASCII pixel grid. Title, activity, CWD (collapsed to `~/`), session label, bucket counts, state, and mode tabs all live in the header.
+- **Capture does not auto-pin** — pin is a separate axis (per AXIS-MODEL §ATTENTION).
+- **Single-line rows** with marquee scroll for clipped titles. Cursor (`▸`) glyph scoped to the active quadrant's selected row only.
+
+### Deferred
+
+- CLI verbs ported to `octopus.actions` (only TUI uses it currently).
+- Mascot animation — parked as request #18.
+- Snapshot tests via `pytest-textual-snapshot` (no version pin yet).
+
+---
+
+## D44 — TUI polish: filter, help, quit-confirm (Groups 7 + 8)
+
+**Date:** 2026-05-23
+**Request:** #05 (closing groups 7 + 8)
+
+### Locked
+
+- **`/`** opens a bottom modal filter bar; live title-substring narrows the visible task lists (case-insensitive). Esc clears, Enter commits the value but leaves filter applied. `r` (reindex) also clears the filter.
+- **`?`** opens a help overlay with the full keymap grouped by Navigation / Modes / Mutations / View. Esc or `?` again closes.
+- **`q`** confirms before exit if the activity has an open session (per `sessions/cache.get_active`). No active session → exits immediately.
+- **Broken task files** — the detail overlay already catches `read_task` failures and renders an inline error card. No crash path.
+- **README** gains a "Daily driver — the TUI" section with the keymap table.
+
+### Deferred
+
+- Slide/fade animations on the filter and help overlays (Textual 0.46 supports `tcss` transitions but not all properties; skipped to ship).
+- Snapshot tests (same reason as D43).
+
+### Test suite
+
+**221 passing** (was 212): +5 filter/help binding & substring tests, +4 polish/quit-confirm/broken-file tests.

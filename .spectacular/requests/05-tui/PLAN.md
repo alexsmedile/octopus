@@ -1,9 +1,10 @@
 ---
-status: active
+status: done
 priority: medium
 owner: alex
 updated: 2026-05-23
 activated: 2026-05-23
+closed: 2026-05-23
 summary: "Textual TUI v1 — Focus + Board modes, CWD-scoped, manual refresh, 13-key v1 keymap, modern minimal aesthetic."
 related:
   - 03-index-sqlite

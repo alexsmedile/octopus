@@ -318,6 +318,48 @@ Footer > .footer--highlight-key {
     height: 1fr;
 }
 
+/* ── Filter bar (modal slide-up) ────────────────────────────────────── */
+
+#filter-bar {
+    dock: bottom;
+    height: 3;
+    background: #16171E;
+    border-top: heavy #CBA6F7;
+    padding: 0 2;
+}
+
+#filter-prefix {
+    width: 3;
+    height: 1;
+    content-align: left middle;
+    color: #CBA6F7;
+    text-style: bold;
+}
+
+#filter-input {
+    width: 1fr;
+    background: #16171E;
+    color: #F5F5F7;
+    border: none;
+}
+
+/* ── Help overlay ───────────────────────────────────────────────────── */
+
+#help-modal {
+    width: 60%;
+    height: 80%;
+    border: round #CBA6F7;
+    background: #16171E;
+    padding: 1 2;
+    align: center middle;
+}
+
+#help-body {
+    width: 100%;
+    height: auto;
+    padding: 0 1;
+}
+
 /* ── Board mode four-column layout ──────────────────────────────────── */
 
 #board-columns {

@@ -35,8 +35,10 @@ from octopus.actions import ActionError
 from octopus.db.connection import get_db
 from octopus.db.queries import tasks_for_activity
 from octopus.fs.io import read_activity
-from octopus.tui.focus import _TaskListItem
+from octopus.tui.filter_bar import FilterBar
+from octopus.tui.focus import _TaskListItem, _filter_rows
 from octopus.tui.header_bar import HeaderBar
+from octopus.tui.help import HelpOverlay
 from octopus.tui.overlay import TaskDetailOverlay
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
@@ -56,7 +58,8 @@ class BoardScreen(Screen):
 
     BINDINGS = [
         Binding("q", "quit", "quit", show=True),
-        Binding("?", "noop", "help", show=True),
+        Binding("?", "help", "help", show=True),
+        Binding("slash", "filter", "filter", show=True),
         Binding("r", "reindex", "refresh", show=True),
         Binding("enter", "open_detail", "detail", show=False),
         Binding("right", "nav_right", "→", show=False),
@@ -96,6 +99,7 @@ class BoardScreen(Screen):
         self._status_bar = StatusBar()
         self._toast = Toast()
         self._header = HeaderBar()
+        self._filter_text: str = ""
 
         self._marquee_offset: int = 0
         self._marquee_timer = None
@@ -170,6 +174,10 @@ class BoardScreen(Screen):
                 conn.close()
             except Exception:
                 pass
+
+        if self._filter_text:
+            for c in COLUMNS:
+                rows_by_col[c] = _filter_rows(rows_by_col[c], self._filter_text)
 
         empties = {
             C_BACKLOG: "  Empty.   Press [#F38BA8 bold]n[/] to capture.",
@@ -314,6 +322,23 @@ class BoardScreen(Screen):
         # Already in Board — no-op.
         pass
 
+    def action_help(self) -> None:
+        self.app.push_screen(HelpOverlay())
+
+    def action_filter(self) -> None:
+        def _on_change(value: str) -> None:
+            self._filter_text = value
+            self._refresh_data()
+
+        def _on_done(_committed: str | None) -> None:
+            if self._filter_text:
+                self._toast.flash(f"filter: {self._filter_text!r}  (r to clear)")
+
+        self.app.push_screen(
+            FilterBar(initial=self._filter_text, on_change=_on_change),
+            _on_done,
+        )
+
     # ── marquee ───────────────────────────────────────────────────────
 
     def _tick_marquee(self) -> None:
@@ -350,13 +375,36 @@ class BoardScreen(Screen):
     def action_noop(self) -> None:
         pass
 
+    def action_quit(self) -> None:
+        try:
+            from octopus.sessions.cache import get_active
+            active = get_active(self._activity_id)
+        except Exception:
+            active = None
+        if not active:
+            self.app.exit()
+            return
+
+        def _on_confirm(confirmed: bool | None) -> None:
+            if confirmed:
+                self.app.exit()
+            else:
+                self._toast.flash("cancelled — session still open")
+
+        self.app.push_screen(
+            ConfirmModal(f"Quit while session [bold]{active}[/] is open?"),
+            _on_confirm,
+        )
+
     def action_reindex(self) -> None:
+        had_filter = bool(self._filter_text)
+        self._filter_text = ""
         self._status_bar.set_state("refreshing…", busy=True)
         self._header.set_state("refreshing…", busy=True)
         self._refresh_data()
         self._status_bar.set_state("ready", busy=False)
         self._header.set_state("ready", busy=False)
-        self._toast.flash("⟳ refreshed")
+        self._toast.flash("⟳ refreshed · filter cleared" if had_filter else "⟳ refreshed")
 
     def action_open_detail(self) -> None:
         slug = self._current_slug()
