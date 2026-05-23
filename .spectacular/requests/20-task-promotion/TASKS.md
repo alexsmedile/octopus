@@ -107,12 +107,17 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] Text overflow=ellipsis already handles truncation (existing behavior)
 - [x] Smoke-rendered: `[bug] → spec:20-task-promotion`, `⚐ → git:foo/bar#42`
 
-## Group 10 — Skill updates
+## Group 10 — Skill updates ✅
 
-- [ ] `skills/octopus/SKILL.md`: add "Task promotion" section explaining when + how to promote
-- [ ] `skills/octopus/SKILL.md`: update "Presenting tasks in chat" — kind chip in compact list + promotion arrow
-- [ ] `skills/octopus/SKILL.md`: add `kind` chip rendering rules
-- [ ] `skills/octopus/SKILL.md`: ensure F1 naming section is consistent with new request linkage workflow
+- [x] `SKILL.md` v0.3.0 — version bump for substantive additions
+- [x] Verb index: added "Promotion" group and `list --kind/--promoted/--spec`
+- [x] New "Task `kind`" section (D46 enum, rules, soft validation)
+- [x] New "Task promotion" section (when to use / not, --to forms, semantics, idempotency, multi-task, reverse flow)
+- [x] "Presenting tasks in chat" glyphs updated with `[kind]` and `→ chip:id`
+- [x] Chip + arrow rendering rules added
+- [x] Layout C example updated with kind chips
+- [x] Promoted-list sub-layout added
+- [x] F1 naming section reconciled — kind metadata moved out of #19 reference into the live `kind` section
 
 ## Group 11 — Tests
 

@@ -1,7 +1,7 @@
 ---
 name: octopus
 description: Use when capturing, planning, focusing, starting, finishing, dropping, blocking, or reviewing tasks; querying open loops, stuck items, or the current activity; managing the .octopus/ folder system on disk; recording sessions; writing memory or handoffs. Folder-native, CLI-driven (octopus / octo); prefer verbs over hand-editing.
-version: 0.2.0
+version: 0.3.0
 category: productivity
 status: active
 tags: [activities, tasks, sessions, memory, handoffs, local-first, agents, cli, folder-native]
@@ -72,8 +72,9 @@ This is a verb directory only. For flags, exit codes, and full examples, load `r
 | Impediment | `block`, `wait`, `unblock` |
 | Attention & visibility | `pin`, `unpin`, `archive`, `restore` |
 | Editing | `set`, `rename`, `mv` |
+| Promotion | `promote` (Octopus → Spectacular and other targets) |
 | Inspection | `show`, `task list`, `task show` |
-| Views | `loops`, `today`, `stuck`, `stale`, `context` |
+| Views | `loops`, `today`, `stuck`, `stale`, `context`, `list --kind/--promoted/--spec` |
 | Sessions | `session start`, `log`, `end`, `switch`, `list`, `show`, `prune` |
 | Memory | `memory show`, `append`, `summary`, `summary set`, `state`, `state set` |
 | Handoffs | `handoff new`, `list`, `show` |
@@ -156,7 +157,86 @@ Consider an --activity-relative scoped view…        ← "consider" hides the a
 Memory show: missing blank line between section…    ← burying the verb behind a noun-phrase prefix
 ```
 
-Kind/area metadata (bug, feat, polish, etc.) is **out of scope for the title** — that's a frontmatter exploration tracked in request #19. For now, captures should pass through F1 cleanly.
+Kind/area metadata (bug, feat, polish, etc.) is **out of scope for the title** — it lives in the `kind` frontmatter field (D46), rendered as a `[kind]` chip in TUI rows and chat layouts. See "Task `kind`" below.
+
+---
+
+## Task `kind` (D46)
+
+Optional work-classification field on every task. Soft enum:
+
+| `kind` | When to use |
+|---|---|
+| `feat` | new capability shipped to users |
+| `bug` | something is broken |
+| `spec` | a decision needs locking before code |
+| `polish` | UX/output quality, not behavior |
+| `test` | verification work |
+| `chore` | maintenance, cleanup, deps, refactor, docs |
+
+Rules:
+- Optional. Tasks without `kind` render with no chip — fully backward-compatible.
+- One value per task. Mutable via `octopus set <slug> --kind=<value>`.
+- Soft validation — unknown values log a warning, don't reject.
+- Indexed. Filter via `octopus list --kind <enum>` (comma-sep for multi).
+- Survives promotion. Hidden from default scope (because promoted tasks live in `done/`); surface via `--all`, `--promoted`, or `--spec`.
+
+---
+
+## Task promotion (D47–D54)
+
+When an Octopus task graduates to a Spectacular request (or another external target), promote it — don't duplicate it.
+
+```
+octopus promote <slug> [<slug>...] --to <target>     # promote
+octopus promote <slug> --to <target> --force         # repoint already-promoted
+octopus promote <slug> --revert                      # soft-clear (returns to backlog)
+```
+
+### When to use
+
+- A backlog idea has matured enough that you're ready to write a real spec for it.
+- A small task naturally folds into a larger build that needs a PLAN.md + decisions.
+- Multiple related tasks should be addressed in one cohesive request — promote them all to the same target.
+
+### When NOT to use
+
+- The task is small and self-contained — just `finish` it.
+- You're not ready to write the spec yet — leave it in `backlog/`.
+- The work doesn't need Spectacular-style ceremony (PLAN, decisions, deliverables).
+
+### `--to` input forms
+
+| Form | Meaning |
+|---|---|
+| `--to spectacular:20-task-promotion` | explicit existing/new request |
+| `--to spec:20-task-promotion` | chip alias accepted |
+| `--to 20-task-promotion` | uses `[providers.default]` (= `spectacular`) |
+| `--to spec` | single-task only — uses task slug as request slug |
+| `--to spec:new --slug 21-foo` | explicit new request |
+
+If the target request doesn't exist, `promote` scaffolds it. If `auto_number` is on (default), the slug gets a leading `NN-` based on the next free integer.
+
+### What promote does
+
+1. Sets `promoted_to: <provider>:<id>` on the task.
+2. Sets `end_date: <today>` and `bucket: done`.
+3. Moves the file to `tasks/done/<slug>.md`.
+4. Replaces the body with a 3-line stub pointing at the PLAN.md.
+5. Scaffolds `.spectacular/requests/<slug>/PLAN.md` if absent, with `promoted_from: <task-slug>`.
+6. Reindex regenerates `related_tasks:` on the request side (read-only, derived).
+
+### Idempotency
+
+Already-promoted tasks reject with exit 4 unless `--force` (repoint) or `--revert` (soft-clear). The PLAN.md and `promoted_from` field are **historical** — never cleared on repoint.
+
+### Multi-task
+
+`octopus promote A B C --to spec:obsidian-bridge` folds three tasks into one request atomically. Pre-flight validates everything before any write. Provider-only shorthand (`--to spec`) is rejected with 2+ tasks (ambiguous).
+
+### Reverse flow
+
+If a shipped request leaves stragglers, those become **new** Octopus tasks linking back via `promoted_to`. Promotion is one-way; reverse promotion (request → task) is not a thing.
 
 ---
 
@@ -172,7 +252,14 @@ When the user asks to see their tasks (overview, status, what's in backlog, focu
 - `▢` task row · `▸` cursor (only if you're highlighting a specific task)
 - `⚐` pinned · `⏸` blocked · `✓` done · `✗` dropped
 - `●` NOW · `○` NEXT (bucket headers)
+- `[kind]` work-classification chip (cyan in TUI; plain in chat)
+- `→ chip:id` promotion arrow on tasks with `promoted_to` (dim in TUI; plain in chat)
 - `…N more` when truncating
+
+### Chip + arrow rendering rules
+- **`[kind]` chip:** show in compact list and Focus quadrants. In Board (narrow columns), omit if it forces title truncation past the 50% mark.
+- **Promotion arrow:** only show in `--all` / `--promoted` / `--spec` scopes. Use the configured chip alias (`spec:` not `spectacular:`).
+- Both chips are inline AFTER the title in compact list (`▢ pull apple reminders into backlog [feat] · reminders`), or as a right-aligned suffix in quadrant/board cells when space permits.
 
 ### Layout routing
 
@@ -211,16 +298,24 @@ Pick the layout based on the user's phrasing — don't ask, just match.
 
 ```
 backlog (9)
-  ▢ wire obsidian symlink bridge
-  ⚐ polish error messages and rich output styling
-  ▢ apple reminders pull adapter
+  ▢ [feat] wire obsidian symlink bridge
+  ⚐ [polish] polish error messages and rich output
+  ▢ [feat] pull apple reminders into backlog
   …6 more — ask to see all
 
 next (1)
-  ▢ verify run_state semantics with a real automation
+  ▢ [test] verify run_state in a real automation
 
 now (0)
   (empty — use m from next to activate)
+```
+
+If the user asked for `--promoted` or `--spec <slug>`, append the arrow:
+
+```
+promoted (2)
+  ✓ [chore] drop "(request NN)" suffix → spec:20-task-promotion
+  ✓ [feat]  wire obsidian symlink bridge → spec:20-task-promotion
 ```
 
 ### Rendering rules
