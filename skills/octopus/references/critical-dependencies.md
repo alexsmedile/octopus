@@ -155,3 +155,38 @@ Any other write that changes body bytes is a bug. Report it.
 ### Rule X3 — Filename stability
 
 Filenames are CLI-owned. Hand-renaming a file breaks the index and any cross-refs pointing at the old slug. Use `octopus rename` (tasks) or the relevant lifecycle verb (sessions, handoffs are never renamed).
+
+### Rule X4 — `kind` field validation (D46)
+
+- `kind` is optional. Tasks without it are valid.
+- `kind` SHOULD be one of `feat | bug | spec | polish | test | chore`.
+- Unknown values log a warning (stderr) but DO NOT abort the write — soft validation v1.
+- Indexed in SQLite; queryable via `list --kind <enum>`.
+- NOT required to promote.
+- Survives promotion. Hidden from default `list` filters by the `done/`-exclusion scope rule. Surface via `--all`, `--promoted`, or `--spec`.
+
+### Rule X5 — `promoted_to` field validation (D47–D48)
+
+- Format MUST match `^<provider>:<identifier>$` (non-empty both sides).
+- Provider MUST be registered. v1 providers: `spectacular`.
+- For `spectacular:<slug>`, slug MUST resolve to a directory under `.spectacular/requests/` OR `.spectacular/requests/_archive/`. Archived targets are valid.
+- Stored value is canonical (long provider name) regardless of CLI input (aliases, defaults, shorthand are input-only).
+- Slug-based, not path-based — survives archive moves.
+
+### Rule X6 — `octopus promote` verb invariants (D49–D51)
+
+- Already-promoted task without `--force`/`--revert` → reject with exit 4.
+- `--force` repoints `promoted_to` + updates `end_date`. Body NOT re-rewritten (already a stub).
+- `--revert` clears `promoted_to` + `end_date`. Body stays stub (full restore via git).
+- Multi-task batch is atomic — pre-flight validates every task before any write.
+- Multi-task with provider-only shorthand (`--to spec`) → reject with exit 3.
+- On promote, body replaced entirely with the hard-coded 3-line stub. `bucket: done` set. File moved to `tasks/done/<slug>.md`. `end_date: <today>` set.
+- Scaffolds the request if absent. `promoted_from` records the first listed task. Not cleared on repoint.
+
+### Rule X7 — Reindex of `related_tasks` (D54)
+
+- `related_tasks:` on request PLAN.md is DERIVED, not authored. Hand-edits are overwritten on next reindex.
+- `reindex` scans tasks for `promoted_to: spectacular:<slug>`; regenerates `related_tasks:` on the matching PLAN.md.
+- Sorted, deduped, default-omitted when empty.
+- Malformed `promoted_to` → warn but don't abort.
+- Non-`spectacular:` values are no-op for v1 (other providers ship with their adapters).

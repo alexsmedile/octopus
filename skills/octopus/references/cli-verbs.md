@@ -54,15 +54,29 @@ octopus unarchive <slug>  # archived: false
 
 ```
 octopus list [--all] [--bucket <name>] [--pinned] [--archived]
+             [--kind <enum>] [--promoted] [--spec <slug>]
   Tasks grouped by bucket. Context-aware: scoped to current activity if inside one,
   cross-activity otherwise. --all forces cross-activity even from inside.
+
+  --kind <enum>   filter by kind (feat/bug/spec/polish/test/chore). Comma-separated for multi.
+  --promoted      scope override: only tasks with promoted_to: set (overrides default scope).
+  --spec <slug>   scope override: only tasks promoted to spectacular:<slug>.
 
 octopus show <slug>
   Full task content (frontmatter + body).
 
-octopus task list [--bucket <name>] [--pinned]
+octopus task list [--bucket <name>] [--pinned] [--kind <enum>] [--promoted] [--spec <slug>]
 octopus task show <slug>
 ```
+
+### Scope rules
+
+| Flag | Buckets included |
+|---|---|
+| (default) | `backlog`, `next`, `now` |
+| `--all` | all buckets including `done`, `dropped`, promoted |
+| `--promoted` | only tasks with `promoted_to:` set |
+| `--spec <slug>` | only tasks with `promoted_to: spectacular:<slug>` |
 
 ## Curated views
 
@@ -85,6 +99,49 @@ octopus rename <slug> <new-slug>
 
 octopus mv <slug> <bucket>
   Move a task to a different bucket explicitly (bypasses pipeline verbs).
+```
+
+## Promotion
+
+```
+octopus promote <slug> [<slug>...] --to <provider>:<id>
+                                   [--slug <new-slug>]
+                                   [--force]
+octopus promote <slug> [<slug>...] --revert
+  Promote one or more Octopus tasks into a Spectacular request (or other
+  external target). One-way; pure rewrite — task body becomes a stub pointer
+  to the new source of truth.
+
+  --to forms:
+    --to <provider>:<id>      explicit
+    --to <chip>:<id>          chip alias accepted; canonical stored
+    --to <id>                 uses [providers.default]:<id>
+    --to <provider>           shorthand: <provider>:<task-slug> (single-task only)
+    --to <provider>:new       force scaffold; requires --slug <id>
+
+  --force        repoint an already-promoted task to a new target
+  --revert       soft-clear: removes promoted_to and end_date; body stays stub
+  --slug <id>    explicit slug when scaffolding new request
+
+  Side effects (on promote):
+    - promoted_to: <canonical> on task
+    - end_date: <today>
+    - bucket: done (file moved to tasks/done/)
+    - body replaced with 3-line stub pointing at PLAN.md
+    - if target doesn't exist, scaffolds .spectacular/requests/<slug>/PLAN.md
+      with promoted_from: <first-task-slug>
+    - reindex regenerates related_tasks: on the request (read-only, derived)
+
+  Multi-task semantics:
+    Atomic pre-flight: all listed tasks validated before any write.
+    All share one --to target. --force/--revert apply uniformly.
+    Provider-only shorthand (--to spec) rejected with 2+ tasks (exit 3).
+
+  Exit codes:
+    0  success
+    2  task not found
+    3  --to target invalid (unknown provider, malformed id, ambiguous shorthand)
+    4  already promoted; use --force to repoint or --revert to unlink
 ```
 
 ## Sessions

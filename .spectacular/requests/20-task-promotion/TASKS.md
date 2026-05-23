@@ -36,11 +36,11 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] `CRITICAL-DEPENDENCIES.md`: validation rule for `kind` enum membership (soft — log warning on unknown, do not reject v1) — section S
 - [x] `CRITICAL-DEPENDENCIES.md`: validation rule preventing manual edits to derived `related_tasks` on request PLAN.md — section T (Reindex)
 
-## Group 3 — Schema docs (skill mirror)
+## Group 3 — Schema docs (skill mirror) ✅
 
-- [ ] `skills/octopus/references/schemas/task.md`: mirror `kind` + `promoted_to` additions
-- [ ] `skills/octopus/references/cli-verbs.md`: mirror `promote` + new `list` flags
-- [ ] `skills/octopus/references/critical-dependencies.md`: mirror new validation rules
+- [x] `skills/octopus/references/schemas/task.md`: mirror `kind` + `promoted_to` additions
+- [x] `skills/octopus/references/cli-verbs.md`: mirror `promote` + new `list` flags
+- [x] `skills/octopus/references/critical-dependencies.md`: mirror new validation rules (X4–X7)
 
 ## Group 4 — Config schema
 
