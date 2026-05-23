@@ -119,23 +119,34 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] Promoted-list sub-layout added
 - [x] F1 naming section reconciled — kind metadata moved out of #19 reference into the live `kind` section
 
-## Group 11 — Tests
+## Group 11 — Tests ✅ (271 passing, was 225 — +46)
 
-- [ ] `tests/commands/test_promote.py`: happy path single-task, existing target
-- [ ] `tests/commands/test_promote.py`: happy path single-task, scaffolds new request (smart-resolve)
-- [ ] `tests/commands/test_promote.py`: shorthand input forms (`--to spec`, `--to <id>`, `--to <provider>`)
-- [ ] `tests/commands/test_promote.py`: chip-alias input accepted, canonical written
-- [ ] `tests/commands/test_promote.py`: auto-numbering on/off behavior
-- [ ] `tests/commands/test_promote.py`: multi-task atomic, all-or-nothing pre-flight
-- [ ] `tests/commands/test_promote.py`: multi-task with provider-only shorthand → exit 3
-- [ ] `tests/commands/test_promote.py`: `--force` repoints already-promoted (single + multi)
-- [ ] `tests/commands/test_promote.py`: `--revert` soft-clears
-- [ ] `tests/commands/test_promote.py`: exit codes 2/3/4
-- [ ] `tests/commands/test_list.py`: `--kind` filter (single + multi via comma)
-- [ ] `tests/commands/test_list.py`: `--promoted` scope override
-- [ ] `tests/commands/test_list.py`: `--spec <slug>` filter
-- [ ] `tests/test_reindex.py`: `related_tasks` regenerates from task scan
-- [ ] `tests/test_reindex.py`: malformed `promoted_to` warns but doesn't abort
+- [x] `tests/test_promote.py` — 34 tests covering all of below:
+  - [x] parse_target: explicit `provider:id`, chip alias, bare id, provider shorthand (single/multi), `:new`, unknown provider, empty id
+  - [x] find_spectacular_request: live, archived, missing
+  - [x] next_request_number: empty, gap-filling
+  - [x] apply_auto_number: already-numbered, prepended, off-via-config
+  - [x] scaffold_request: creates PLAN, refuses overwrite
+  - [x] promote_task happy path: scaffolds, links existing, multi-task shared target
+  - [x] promote_task: shorthand uses task slug, multi+shorthand rejected, already-promoted rejected
+  - [x] `--force` repoints (body NOT re-rewritten — stub preserved)
+  - [x] `--revert` moves to backlog and clears
+  - [x] `--revert` idempotent on unpromoted task
+  - [x] atomic pre-flight: aborts whole batch if any task fails
+  - [x] `:new` requires `--slug`; explicit slug accepted
+  - [x] derive_related_tasks: groups by spec slug, skips non-spectacular, skips malformed, sorted + deduped
+- [x] `tests/test_db_queries.py` — 6 new tests:
+  - [x] single-kind, multi-kind filter
+  - [x] `--promoted` scope
+  - [x] `--spec <slug>` scope, unknown spec → empty
+  - [x] cross-activity (`tasks_all`) with kind filter
+- [x] `tests/test_db_reindex.py` — 6 new tests:
+  - [x] writes related_tasks to PLAN
+  - [x] removes related_tasks when no promoted (default-omission)
+  - [x] idempotent (second reindex doesn't rewrite if state unchanged)
+  - [x] warns on malformed promoted_to without aborting
+  - [x] skips archived requests
+  - [x] non-spectacular providers are no-op
 
 ## Group 12 — Data migration
 

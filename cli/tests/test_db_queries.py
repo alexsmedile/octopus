@@ -124,3 +124,90 @@ def test_find_task_by_slug_scoped(temp_db, tmp_path):
     # Scoped search
     rows = find_task_by_slug(temp_db, "pitch", activity_id=id_a)
     assert rows == []
+
+
+# ── --kind / --promoted / --spec filters (D52) ────────────────────────
+
+
+def _seed_with_kinds_and_promotion(root: Path) -> str:
+    """Seed an activity with mixed kinds + a promoted task."""
+    folder = root / "kinded"
+    folder.mkdir(parents=True)
+    a = init_activity(folder, activity_type="code")
+
+    rows = [
+        ("backlog", "fix-login", "bug", None),
+        ("backlog", "add-tos-page", "feat", None),
+        ("next", "polish-errs", "polish", None),
+        ("done", "old-bug", "bug", None),
+        ("done", "wire-bridge", "feat", "spectacular:20-task-promotion"),
+    ]
+    for bucket, slug, kind, promoted_to in rows:
+        path = folder / ".octopus" / "tasks" / bucket / f"{slug}.md"
+        t = Task(
+            title=slug.replace("-", " ").title(),
+            created=date(2026, 5, 1),
+            bucket=bucket,
+            slug=slug,
+            path=path,
+            kind=kind,
+            promoted_to=promoted_to,
+            start_date=date(2026, 5, 2) if bucket == "done" else None,
+            end_date=date(2026, 5, 3) if bucket == "done" else None,
+        )
+        write_task(path, t, "")
+    return a.id
+
+
+def test_tasks_filter_by_single_kind(temp_db, tmp_path):
+    aid = _seed_with_kinds_and_promotion(tmp_path)
+    reindex_all(temp_db, [tmp_path])
+    rows = tasks_for_activity(temp_db, aid, kinds=["bug"])
+    slugs = {r["slug"] for r in rows}
+    # 'old-bug' is bucket=done → excluded by default (include_archived guard
+    # doesn't drop it, but the default scope still includes done in queries —
+    # this filter just narrows by kind, no scope changes).
+    assert "fix-login" in slugs
+    assert "old-bug" in slugs
+    assert "polish-errs" not in slugs
+
+
+def test_tasks_filter_by_multi_kind(temp_db, tmp_path):
+    aid = _seed_with_kinds_and_promotion(tmp_path)
+    reindex_all(temp_db, [tmp_path])
+    rows = tasks_for_activity(temp_db, aid, kinds=["feat", "polish"])
+    slugs = {r["slug"] for r in rows}
+    assert "add-tos-page" in slugs
+    assert "polish-errs" in slugs
+    assert "fix-login" not in slugs
+
+
+def test_tasks_filter_promoted_only(temp_db, tmp_path):
+    aid = _seed_with_kinds_and_promotion(tmp_path)
+    reindex_all(temp_db, [tmp_path])
+    rows = tasks_for_activity(temp_db, aid, promoted=True)
+    slugs = {r["slug"] for r in rows}
+    assert slugs == {"wire-bridge"}
+
+
+def test_tasks_filter_by_spec_slug(temp_db, tmp_path):
+    aid = _seed_with_kinds_and_promotion(tmp_path)
+    reindex_all(temp_db, [tmp_path])
+    rows = tasks_for_activity(temp_db, aid, spec="20-task-promotion")
+    slugs = {r["slug"] for r in rows}
+    assert slugs == {"wire-bridge"}
+
+
+def test_tasks_filter_spec_unknown_returns_empty(temp_db, tmp_path):
+    aid = _seed_with_kinds_and_promotion(tmp_path)
+    reindex_all(temp_db, [tmp_path])
+    rows = tasks_for_activity(temp_db, aid, spec="999-nope")
+    assert rows == []
+
+
+def test_tasks_all_cross_activity_kind_filter(temp_db, tmp_path):
+    _seed_with_kinds_and_promotion(tmp_path)
+    reindex_all(temp_db, [tmp_path])
+    rows = tasks_all(temp_db, kinds=["polish"])
+    slugs = {r["slug"] for r in rows}
+    assert slugs == {"polish-errs"}

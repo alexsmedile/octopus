@@ -127,3 +127,114 @@ def test_reindex_picks_up_all_buckets(temp_db, tmp_path):
     assert res.tasks_seen == 3
     buckets = {r["bucket"] for r in temp_db.execute("SELECT bucket FROM tasks").fetchall()}
     assert buckets == {"backlog", "next", "now"}
+
+
+# ── related_tasks propagation (D54) ───────────────────────────────────
+
+
+def _make_activity_with_promoted_task(
+    root: Path,
+    *,
+    name: str = "alpha",
+    task_slug: str = "wire-thing",
+    promoted_to: str | None = "spectacular:20-task-promotion",
+    request_slug: str = "20-task-promotion",
+) -> Path:
+    folder = root / name
+    folder.mkdir(parents=True)
+    init_activity(folder, activity_type="code")
+    # Task in done/ with promoted_to set
+    path = folder / ".octopus" / "tasks" / "done" / f"{task_slug}.md"
+    write_task(
+        path,
+        Task(
+            title=task_slug,
+            created=date(2026, 5, 1),
+            bucket="done",
+            slug=task_slug,
+            path=path,
+            start_date=date(2026, 5, 2),
+            end_date=date(2026, 5, 3),
+            promoted_to=promoted_to,
+        ),
+        "",
+    )
+    # Pre-existing PLAN.md to write related_tasks into
+    plan_dir = folder / ".spectacular" / "requests" / request_slug
+    plan_dir.mkdir(parents=True)
+    (plan_dir / "PLAN.md").write_text("---\nstatus: backlog\n---\n# x\n")
+    return folder
+
+
+def test_reindex_writes_related_tasks_to_plan(temp_db, tmp_path):
+    import frontmatter
+
+    folder = _make_activity_with_promoted_task(tmp_path)
+    res = reindex_all(temp_db, [tmp_path])
+    assert res.related_tasks_propagated == 1
+    plan = folder / ".spectacular" / "requests" / "20-task-promotion" / "PLAN.md"
+    meta = frontmatter.load(plan).metadata
+    assert meta["related_tasks"] == ["wire-thing"]
+
+
+def test_reindex_removes_related_tasks_when_no_promoted(temp_db, tmp_path):
+    """When no tasks reference a request, related_tasks must be default-omitted."""
+    import frontmatter
+
+    folder = _make_activity_with_promoted_task(
+        tmp_path, promoted_to=None  # task has no promoted_to
+    )
+    plan = folder / ".spectacular" / "requests" / "20-task-promotion" / "PLAN.md"
+    # Pre-seed with a stale related_tasks entry
+    plan.write_text("---\nstatus: backlog\nrelated_tasks: [old-task]\n---\n# x\n")
+    res = reindex_all(temp_db, [tmp_path])
+    meta = frontmatter.load(plan).metadata
+    assert "related_tasks" not in meta
+    assert res.related_tasks_propagated == 1  # the rewrite happened
+
+
+def test_reindex_idempotent_on_related_tasks(temp_db, tmp_path):
+    """A second reindex with no changes should not rewrite the PLAN.md."""
+    _make_activity_with_promoted_task(tmp_path)
+    res1 = reindex_all(temp_db, [tmp_path])
+    assert res1.related_tasks_propagated == 1
+    res2 = reindex_all(temp_db, [tmp_path])
+    assert res2.related_tasks_propagated == 0
+
+
+def test_reindex_warns_on_malformed_promoted_to(temp_db, tmp_path):
+    _make_activity_with_promoted_task(
+        tmp_path, promoted_to="no-colon-here"
+    )
+    res = reindex_all(temp_db, [tmp_path])
+    assert any("no-colon-here" in v for _, v in res.promoted_to_warnings)
+
+
+def test_reindex_skips_archived_requests(temp_db, tmp_path):
+    """Archived (`_archive/`) requests must not have their PLAN.md touched."""
+    import frontmatter
+
+    folder = _make_activity_with_promoted_task(tmp_path)
+    src = folder / ".spectacular" / "requests" / "20-task-promotion"
+    dst = folder / ".spectacular" / "requests" / "_archive" / "20-task-promotion"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    src.rename(dst)
+    res = reindex_all(temp_db, [tmp_path])
+    assert res.related_tasks_propagated == 0
+    meta = frontmatter.load(dst / "PLAN.md").metadata
+    assert "related_tasks" not in meta
+
+
+def test_reindex_non_spectacular_provider_is_noop(temp_db, tmp_path):
+    """A `github:` promoted_to should NOT cause a spectacular regen."""
+    import frontmatter
+
+    folder = _make_activity_with_promoted_task(
+        tmp_path, promoted_to="github:foo/bar#42"
+    )
+    plan = folder / ".spectacular" / "requests" / "20-task-promotion" / "PLAN.md"
+    res = reindex_all(temp_db, [tmp_path])
+    meta = frontmatter.load(plan).metadata
+    assert "related_tasks" not in meta
+    assert res.promoted_to_warnings == []
+
