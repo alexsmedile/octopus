@@ -118,6 +118,16 @@ class SessionResult:
     message: str
 
 
+@dataclass(frozen=True)
+class PromoteResult:
+    promoted: list[str]  # task slugs that were promoted
+    repointed: list[str]  # task slugs that were repointed via --force
+    reverted: list[str]  # task slugs that were soft-cleared via --revert
+    target: str | None  # canonical "<provider>:<identifier>" or None on revert
+    scaffolded: bool  # True when a new request directory was created
+    request_path: Path | None  # PLAN.md path when scaffolded or linked
+
+
 # ── task verbs ─────────────────────────────────────────────────────────
 
 
@@ -344,4 +354,171 @@ def start_session_for(
         filename=session.filename,
         title=getattr(session, "title", None),
         message=f"started session {session.filename}",
+    )
+
+
+# ── promotion ──────────────────────────────────────────────────────────
+
+
+def promote_task(
+    activity_root: Path,
+    slugs: list[str],
+    *,
+    to: str | None = None,
+    explicit_slug: str | None = None,
+    force: bool = False,
+    revert: bool = False,
+) -> PromoteResult:
+    """Promote one or more tasks to a Spectacular request (or other target).
+
+    Semantics per D47–D51. See `promotion.py` for parsing + scaffolding helpers.
+
+    Args:
+        slugs: task slugs to promote (must be non-empty).
+        to: `--to <provider>[:<id>]` raw value. Required unless `revert=True`.
+        explicit_slug: when `to == "<provider>:new"`, the slug to use.
+        force: repoint already-promoted tasks instead of rejecting.
+        revert: soft-clear `promoted_to` + `end_date`; body stays stub.
+    """
+    from octopus.promotion import (
+        PromotionError,
+        apply_auto_number,
+        find_spectacular_request,
+        parse_target,
+        render_stub,
+        scaffold_request,
+    )
+
+    if not slugs:
+        raise ActionError("at least one task slug required")
+
+    octopus_dir = activity_root / ".octopus"
+    cfg = load_config(octopus_dir)
+
+    # ── revert path ───────────────────────────────────────────────────
+    if revert:
+        reverted: list[str] = []
+        # Pre-flight: every task must exist.
+        loaded: list[tuple[Path, Task, str, Path, str]] = []
+        for slug in slugs:
+            loaded.append(_load(activity_root, slug))
+        for slug, (path, task, body, octo, storage) in zip(slugs, loaded):
+            if task.promoted_to is None:
+                # Idempotent revert — nothing to clear, skip quietly.
+                continue
+            task.promoted_to = None
+            task.end_date = None
+            _validate(task)
+            _save(task, body, path, octo, storage, activity_root)
+            reverted.append(slug)
+        return PromoteResult(
+            promoted=[],
+            repointed=[],
+            reverted=reverted,
+            target=None,
+            scaffolded=False,
+            request_path=None,
+        )
+
+    # ── forward path ──────────────────────────────────────────────────
+    if not to:
+        raise ActionError("--to is required (or use --revert)")
+
+    try:
+        target = parse_target(to, task_slugs=slugs, cfg=cfg)
+    except PromotionError as exc:
+        # Re-raise as ActionError so the CLI layer maps consistently.
+        # Embed exit code in the message for the command layer to parse.
+        raise ActionError(str(exc)) from exc
+
+    # Resolve identifier when --to was ":new"
+    if target.create_new:
+        if not explicit_slug:
+            raise ActionError(
+                f"--to {to!r} requires --slug <new-slug> to create a new request"
+            )
+        target = type(target)(
+            provider=target.provider,
+            identifier=explicit_slug,
+            create_new=True,
+            explicit_slug=True,
+        )
+
+    # Pre-flight: load all tasks, validate, check idempotency rule.
+    loaded = []
+    for slug in slugs:
+        loaded.append(_load(activity_root, slug))
+
+    if not force:
+        already = [s for s, l in zip(slugs, loaded) if l[1].promoted_to is not None]
+        if already:
+            msg = "; ".join(f"{s} → {l[1].promoted_to}" for s, l in zip(slugs, loaded) if l[1].promoted_to is not None)
+            raise ActionError(
+                f"task(s) already promoted: {msg}. Use --force to repoint or --revert to unlink."
+            )
+
+    # Smart-resolve identifier (spectacular: only). For other providers,
+    # accept any identifier — adapter-specific validation is deferred.
+    canonical_identifier = target.identifier
+    scaffolded = False
+    request_plan_path: Path | None = None
+
+    if target.provider == "spectacular":
+        existing = find_spectacular_request(activity_root, target.identifier)
+        if existing is None:
+            # Scaffold. Apply auto-numbering when slug has no NN- prefix.
+            final_slug = apply_auto_number(target.identifier, activity_root, cfg)
+            canonical_identifier = final_slug
+            first_task_title = loaded[0][1].title
+            try:
+                request_plan_path = scaffold_request(
+                    activity_root,
+                    slug=final_slug,
+                    title=first_task_title,
+                    promoted_from=slugs[0],
+                )
+                scaffolded = True
+            except PromotionError as exc:
+                raise ActionError(str(exc)) from exc
+        else:
+            request_plan_path = existing / "PLAN.md"
+
+    canonical = f"{target.provider}:{canonical_identifier}"
+    today = date.today()
+    promoted: list[str] = []
+    repointed: list[str] = []
+
+    for slug, (path, task, body, octo, storage) in zip(slugs, loaded):
+        was_promoted = task.promoted_to is not None
+        task.promoted_to = canonical
+        if task.start_date is None:
+            task.start_date = today
+        task.end_date = today
+        task.bucket = "done"
+        task.pinned = None
+        task.issue = None
+        task.blocked_by = None
+        task.waiting_for = None
+        task.run_state = None
+        # Body replacement happens only on FIRST promote, not on --force.
+        if not was_promoted:
+            body = render_stub(
+                title=task.title,
+                canonical=canonical,
+                identifier=canonical_identifier,
+            )
+        _validate(task)
+        _save(task, body, path, octo, storage, activity_root)
+        if was_promoted:
+            repointed.append(slug)
+        else:
+            promoted.append(slug)
+
+    return PromoteResult(
+        promoted=promoted,
+        repointed=repointed,
+        reverted=[],
+        target=canonical,
+        scaffolded=scaffolded,
+        request_path=request_plan_path,
     )

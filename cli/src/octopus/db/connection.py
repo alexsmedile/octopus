@@ -1,7 +1,7 @@
 """SQLite connection management.
 
-Schema v1; `PRAGMA user_version = 1`. Future v2 schemas bump user_version
-and ship a real migration runner — v1 is just create-if-missing.
+Schema v2 (D46/D48): adds `kind` and `promoted_to` columns + their indexes.
+Migration runs in-place via ALTER TABLE when an existing v1 DB is opened.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SCHEMA_SQL = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -48,12 +48,26 @@ def get_db(path: Path | None = None) -> sqlite3.Connection:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create tables / indexes if user_version is 0. Refuse if newer than supported."""
+    """Create tables / indexes; migrate v1 → v2 in-place if needed."""
     current = conn.execute("PRAGMA user_version").fetchone()[0]
     if current == 0:
         conn.executescript(SCHEMA_SQL)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-    elif current > SCHEMA_VERSION:
+        return
+    if current == 1:
+        # Migrate to v2: add kind + promoted_to columns and their indexes.
+        # ALTER TABLE ADD COLUMN is the only safe in-place option in SQLite.
+        conn.executescript(
+            """
+            ALTER TABLE tasks ADD COLUMN kind TEXT;
+            ALTER TABLE tasks ADD COLUMN promoted_to TEXT;
+            CREATE INDEX IF NOT EXISTS idx_tasks_kind        ON tasks(kind);
+            CREATE INDEX IF NOT EXISTS idx_tasks_promoted_to ON tasks(promoted_to);
+            """
+        )
+        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        return
+    if current > SCHEMA_VERSION:
         raise RuntimeError(
             f"index.db schema version {current} > supported {SCHEMA_VERSION}; "
             "upgrade octopus-cli"

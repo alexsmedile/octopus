@@ -39,6 +39,16 @@ class Config:
     # in `[sessions]` in `~/.config/octopus/config.toml`.
     session_stale_warn_days: int = 7
     session_prune_days: int = 14
+    # Promotion providers (D48). Default ships with `spectacular` only.
+    provider_default: str = "spectacular"
+    provider_chips: dict[str, str] = field(
+        default_factory=lambda: {"spectacular": "spec"}
+    )
+    spectacular_auto_number: bool = True
+
+
+# Registered providers — extend here when new adapters land.
+REGISTERED_PROVIDERS = {"spectacular"}
 
 
 def _load_toml(path: Path) -> dict:
@@ -75,6 +85,23 @@ def _merge(base: Config, data: dict) -> Config:
     stale_warn = int(sessions_block.get("stale_warn_days", base.session_stale_warn_days))
     prune_days = int(sessions_block.get("prune_days", base.session_prune_days))
 
+    providers_block = data.get("providers", {})
+    default_provider = providers_block.get("default", base.provider_default)
+    if default_provider not in REGISTERED_PROVIDERS:
+        default_provider = base.provider_default
+    chips_block = providers_block.get("chips", {})
+    chips = dict(base.provider_chips)
+    for provider, chip in chips_block.items():
+        if not isinstance(chip, str):
+            continue
+        if not chip.isascii() or len(chip) > 6 or not chip:
+            continue
+        if provider not in REGISTERED_PROVIDERS:
+            continue
+        chips[provider] = chip
+    spec_block = providers_block.get("spectacular", {})
+    auto_number = bool(spec_block.get("auto_number", base.spectacular_auto_number))
+
     return Config(
         storage_mode=storage_mode,
         noise_words=noise_words,
@@ -82,6 +109,9 @@ def _merge(base: Config, data: dict) -> Config:
         roots=roots,
         session_stale_warn_days=stale_warn,
         session_prune_days=prune_days,
+        provider_default=default_provider,
+        provider_chips=chips,
+        spectacular_auto_number=auto_number,
     )
 
 

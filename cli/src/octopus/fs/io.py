@@ -113,12 +113,13 @@ TASK_FIELDS = {
     "due", "scheduled", "start_date", "end_date",
     "priority", "energy",
     "actor", "owner",
-    "tags",
-    "external_refs", "import_date", "imported_from",
+    "kind", "tags",
+    "external_refs", "import_date", "imported_from", "promoted_to",
 }
 
-# Legacy field names rejected on read so old files surface as errors.
-LEGACY_FIELDS = {"status", "kind", "open"}
+# Legacy field names. `kind` was previously here but is now a v1 work-classification
+# field (D46) and is parsed into Task.kind. The remaining two are still rejected.
+LEGACY_FIELDS = {"status", "open"}
 
 
 def read_task(path: Path) -> tuple[Task, str]:
@@ -150,10 +151,12 @@ def read_task(path: Path) -> tuple[Task, str]:
         energy=data.get("energy"),
         actor=data.get("actor"),
         owner=data.get("owner"),
+        kind=data.get("kind"),
         tags=list(data.get("tags") or []),
         external_refs=dict(data.get("external_refs") or {}),
         import_date=_coerce_date(data.get("import_date")),
         imported_from=data.get("imported_from"),
+        promoted_to=data.get("promoted_to"),
         slug=path.stem,
         path=path,
         extra=extra,
@@ -210,16 +213,20 @@ def write_task(path: Path, task: Task, body: str) -> None:
         data["actor"] = task.actor
     if task.owner is not None:
         data["owner"] = task.owner
-    # tags — omitted when empty
+    # taxonomy — kind first, then tags
+    if task.kind is not None:
+        data["kind"] = task.kind
     if task.tags:
         data["tags"] = task.tags
-    # integrations
+    # integrations & provenance
     if task.external_refs:
         data["external_refs"] = task.external_refs
     if task.import_date is not None:
         data["import_date"] = task.import_date.isoformat()
     if task.imported_from is not None:
         data["imported_from"] = task.imported_from
+    if task.promoted_to is not None:
+        data["promoted_to"] = task.promoted_to
 
     # Preserve unknown fields at the end (excluding legacy fields)
     for k, v in task.extra.items():

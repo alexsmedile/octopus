@@ -50,16 +50,19 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] Document config precedence (already covered by existing SCHEMA-CONFIG §1)
 - [x] Ship default config values for v1 (`default = spectacular`, `chips.spectacular = spec`)
 
-## Group 5 — Code: shared actions layer
+## Group 5 — Code: shared actions layer ✅
 
-- [ ] `octopus/actions.py`: add `promote_task(slugs, target_spec, *, force, revert) -> PromoteResult`
-- [ ] Pre-flight validation function (all tasks exist, none already promoted unless `--force`)
-- [ ] Target parser: `<provider>:<id>` | `<id>` | `<provider>` → canonical `<provider>:<id>`
-- [ ] Smart-resolve helper: existing dir → link; absent → scaffold (apply auto-numbering)
-- [ ] Stub template renderer (hard-coded string, substitutes title/target/date)
-- [ ] Body-replacement + frontmatter update primitive (atomic; rollback on failure)
-- [ ] File-move primitive (`tasks/<bucket>/<slug>.md` → `tasks/done/<slug>.md`)
-- [ ] Request scaffolder: create `.spectacular/requests/<slug>/PLAN.md` from template with `promoted_from`
+- [x] `octopus/actions.py`: add `promote_task(slugs, to, *, explicit_slug, force, revert) -> PromoteResult`
+- [x] Pre-flight validation function (all tasks exist, none already promoted unless `--force`)
+- [x] Target parser (`octopus/promotion.py`): `<provider>:<id>` | `<id>` | `<provider>` → canonical
+- [x] Smart-resolve helper: existing dir → link; absent → scaffold (apply auto-numbering)
+- [x] Stub template renderer (hard-coded string, substitutes title/target/date)
+- [x] Body-replacement + frontmatter update primitive (uses existing `_save`)
+- [x] File-move primitive (existing `_save` already handles bucket → folder move)
+- [x] Request scaffolder: create `.spectacular/requests/<slug>/PLAN.md` from template with `promoted_from`
+- [x] `kind` + `promoted_to` in Task model, `fs/io.py` round-trip, SQLite schema v2 migration
+- [x] `[providers]` config in `Config` dataclass with defaults
+- [x] All 225 existing tests pass
 
 ## Group 6 — Code: CLI verb
 

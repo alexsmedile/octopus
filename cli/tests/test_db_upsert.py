@@ -136,9 +136,12 @@ def test_delete_task_by_activity_and_slug(temp_db, tmp_path):
     assert temp_db.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 0
 
 
-def test_user_version_set_to_one(temp_db):
+def test_user_version_set_to_supported(temp_db):
+    """Schema bumped to v2 in D46/D48 (kind + promoted_to columns)."""
+    from octopus.db.connection import SCHEMA_VERSION
+
     v = temp_db.execute("PRAGMA user_version").fetchone()[0]
-    assert v == 1
+    assert v == SCHEMA_VERSION == 2
 
 
 def test_foreign_keys_enforced(temp_db, tmp_path):

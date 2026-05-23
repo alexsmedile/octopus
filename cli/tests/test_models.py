@@ -111,10 +111,18 @@ def test_legacy_status_field_rejected():
     assert any("legacy field 'status'" in e for e in t.validate())
 
 
-def test_legacy_kind_field_rejected():
-    t = _task()
-    t.extra["kind"] = "task"
-    assert any("legacy field 'kind'" in e for e in t.validate())
+def test_kind_field_accepted():
+    """D46 — kind is no longer legacy; it's a v1 work-classification enum."""
+    t = _task(kind="bug")
+    errors = t.validate()
+    assert not any("legacy field 'kind'" in e for e in errors)
+
+
+def test_unknown_kind_warns_not_rejected():
+    """D46 — unknown kind values warn (via smells), don't reject."""
+    t = _task(kind="weirdkind")
+    assert t.validate() == [] or "legacy" not in " ".join(t.validate())
+    assert any("weirdkind" in w for w in t.smells())
 
 
 def test_legacy_open_field_rejected():

@@ -45,6 +45,9 @@ TASK_ENERGIES = {"low", "mid", "high"}
 # Actor — added `automation` for deterministic scripts (distinct from `ai`).
 TASK_ACTORS = {"human", "ai", "automation"}
 
+# Taxonomy (D46) — work-classification, optional. Soft validation v1.
+TASK_KINDS = {"feat", "bug", "spec", "polish", "test", "chore"}
+
 # Defaults that should be omitted from written frontmatter.
 DEFAULT_ACTOR = "human"
 DEFAULT_BUCKET = "backlog"
@@ -92,14 +95,16 @@ class Activity:
 
 @dataclass
 class Task:
-    """tasks/<slug>.md frontmatter — v1 schema (02b collapse).
+    """tasks/<slug>.md frontmatter — v1 schema (02b collapse + D46/D48).
 
     Notable changes from pre-02b:
     - bucket is 5-valued (added done, dropped).
-    - status, kind, open fields removed.
+    - status, open fields removed.
     - pinned, stage, run_state added.
     - actor includes 'automation'.
     - priority normal is absent (no 'medium' value).
+    - kind added back as work-classification (feat/bug/spec/polish/test/chore) — D46.
+    - promoted_to added as <provider>:<id> promotion marker — D48.
     """
 
     title: str
@@ -134,12 +139,14 @@ class Task:
     owner: str | None = None
 
     # Taxonomy
+    kind: str | None = None  # D46 — soft enum; unknown values warn but don't reject
     tags: list[str] = field(default_factory=list)
 
     # Integrations & provenance
     external_refs: dict[str, str] = field(default_factory=dict)
     import_date: date | None = None
     imported_from: str | None = None
+    promoted_to: str | None = None  # D48 — "<provider>:<identifier>"
 
     # Not serialized:
     slug: str = field(default="", repr=False)
@@ -200,11 +207,27 @@ class Task:
             errors.append("issue: waiting requires waiting_for")
 
         # Forbidden legacy fields surfaced via `extra`
-        for forbidden in ("status", "kind", "open"):
+        # NOTE: `kind` was previously forbidden but is now a v1 work-classification
+        # field (D46). It's parsed into self.kind, not self.extra. If something
+        # ended up in extra under "kind" it's a parser bug.
+        for forbidden in ("status", "open"):
             if forbidden in self.extra:
                 errors.append(
                     f"legacy field {forbidden!r} is not allowed in v1 (see DECISIONS D32/D33/D34)"
                 )
+
+        # promoted_to format check (D48): "<provider>:<identifier>"
+        if self.promoted_to is not None:
+            if ":" not in self.promoted_to:
+                errors.append(
+                    f"promoted_to={self.promoted_to!r} must be '<provider>:<identifier>'"
+                )
+            else:
+                provider, _, identifier = self.promoted_to.partition(":")
+                if not provider or not identifier:
+                    errors.append(
+                        f"promoted_to={self.promoted_to!r} has empty provider or identifier"
+                    )
 
         return errors
 
@@ -224,6 +247,11 @@ class Task:
             )
         if self.issue == "waiting" and not self.waiting_for:
             warnings.append("issue: waiting without waiting_for")
+        # Soft kind validation (D46): unknown values warn but don't reject.
+        if self.kind is not None and self.kind not in TASK_KINDS:
+            warnings.append(
+                f"kind={self.kind!r} not in v1 enum {sorted(TASK_KINDS)} — proceeding anyway"
+            )
         return warnings
 
 
