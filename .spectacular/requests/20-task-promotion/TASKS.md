@@ -84,14 +84,17 @@ Ordered top-to-bottom. Each group below should land in its own commit (or small 
 - [x] Provider chip lookup via `_promoted_chip()` helper using `[providers.chips]` config
 - [x] Smoke-tested: filter by single kind, multi-kind (comma), `--all` shows promoted tasks with arrow
 
-## Group 8 — Code: reindex
+## Group 8 — Code: reindex ✅
 
-- [ ] `octopus/index.py`: scan task files for `promoted_to:` values
-- [ ] Parse `<provider>:<id>`; only route `spectacular:` entries into request `related_tasks` regeneration
-- [ ] For each spectacular target, derive `related_tasks` list (sorted, deduped) and write to PLAN.md frontmatter
-- [ ] Remove `related_tasks` from PLAN.md if no tasks reference it (default-omission)
-- [ ] Emit warning (not abort) on malformed `promoted_to` values
-- [ ] Update SQLite schema if needed to store `kind` + `promoted_to` (or add columns via migration)
+- [x] `db/reindex.py`: collect `(task_slug, promoted_to)` pairs during task scan
+- [x] `_propagate_related_tasks()`: parse provider, route only spectacular:, group by slug
+- [x] `_rewrite_related_tasks()`: write derived list to PLAN.md frontmatter (sorted, deduped)
+- [x] Default-omit: remove `related_tasks` from PLAN.md when no tasks reference it
+- [x] Skip `_archive/` requests
+- [x] Malformed values surface as `promoted_to_warnings`, not aborts
+- [x] CLI prints "→ propagated related_tasks to N request(s)" and warning lines
+- [x] SQLite schema migration handled in Group 5 (v1→v2 ALTER TABLE)
+- [x] Round-trip verified: promote → reindex (sets field) → revert → reindex (removes field)
 
 ## Group 9 — Code: TUI
 

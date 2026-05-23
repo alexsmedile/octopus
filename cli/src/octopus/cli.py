@@ -1262,6 +1262,16 @@ def reindex(
         f"{result.tasks_seen} tasks, "
         f"{result.sessions_seen} sessions"
     )
+    if result.related_tasks_propagated:
+        console.print(
+            f"  [cyan]→[/] propagated related_tasks to "
+            f"{result.related_tasks_propagated} request(s)"
+        )
+    if result.promoted_to_warnings:
+        for task_slug, value in result.promoted_to_warnings:
+            err_console.print(
+                f"[yellow]⚠[/] malformed promoted_to on {task_slug}: {value!r}"
+            )
     if prune:
         console.print(
             f"  pruned: {result.pruned_activities} activities, "
