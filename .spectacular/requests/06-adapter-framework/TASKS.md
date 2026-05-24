@@ -25,29 +25,15 @@ Top-to-bottom; commit per group (or small cluster) so the migration is reviewabl
 - [x] D66 Repo layout (flat modules) + exit codes (PRD §5, no new codes); `octopus link` deferred to #07
 - Note: NOTIFY/RECONCILE flag-only status documented in D56; pipeline defaults in D63.
 
-## Group 2 — Spec docs
+## Group 2 — Spec docs ✅
 
-- [ ] `.spectacular/specs/SCHEMA-ADAPTER.md` — new spec file
-  - Capability enum
-  - Adapter protocol (every method)
-  - Data types (`ExternalTask`, `PullResult`, `PushResult`, `AdapterStatus`, `ExternalRef`)
-  - Config layout (hybrid: main + per-adapter)
-  - `lists` field semantics
-  - Registry mechanism
-- [ ] `CLI-VERBS.md` — document `octopus bridge {list|enable|disable|status|peek|pull|search}`
-  - Per-adapter flag conventions
-  - `--list` + `--capture-all` matrix
-  - Exit codes
-- [ ] `CRITICAL-DEPENDENCIES.md` — new section U for adapter framework
-  - validate_config rejection rules
-  - Multi-list / capture-all mutual exclusion
-  - Pipeline materialization invariants (always sets imported_from/import_date)
-  - Dedup invariant (no double-creation on re-pull)
-- [ ] `SCHEMA-CONFIG.md` — split adapter config: `enabled` in main, content in bridges/
-  - Replaces current `[adapters.obsidian] vault = ...` pattern
-  - Documents `lists = []` field
-- [ ] `SCHEMA-INDEX.md` — document `task_external_refs` table
-- [ ] `PRD.md` §7.1 — sync with new protocol (drop `link()`, add `peek/search/list_groups`)
+- [x] `.spectacular/specs/SCHEMA-ADAPTER.md` — new spec file (10 sections, ~330 lines)
+  - Capability enum, full protocol, data types, config layout, registry, sync journal, pipeline, stub shape, repo layout
+- [x] `CLI-VERBS.md` — new "Bridge verbs" section: `list/enable/disable/status/peek/pull/search`, flag matrix, per-adapter naming, exit codes
+- [x] `CRITICAL-DEPENDENCIES.md` — new section U: config rules, capability gating, flag matrix, pipeline invariants, dedup index rules, sync journal, registry
+- [x] `SCHEMA-CONFIG.md` — hybrid layout: main config has `enabled` only; new §2b for `bridges/<name>.toml` content + `lists` field
+- [x] `SCHEMA-INDEX.md` — `task_external_refs` table + indexes for `kind` and `promoted_to` (carry-over from D46/D48); user_version = 3
+- [ ] `PRD.md` §7.1 sync — deferred to ship phase (Group 13)
 
 ## Group 3 — Skill mirror
 

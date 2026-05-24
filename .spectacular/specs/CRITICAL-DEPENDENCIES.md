@@ -359,6 +359,75 @@ The SQLite index is derived; the filesystem is the source of truth (see `SCHEMA-
 | Reindex MUST emit a warning (not abort) on malformed `promoted_to` values (no colon, unknown provider, empty identifier). | Robust to user error; don't kill the index over bad data. |
 | Non-`spectacular:` `promoted_to` values are no-op for `related_tasks` regen in v1. | Other providers (github, linear) require their own adapter logic. |
 
+## U — Adapter framework (D56–D66)
+
+### Configuration
+
+| Rule | Reason |
+|---|---|
+| Main `config.toml [adapters.<name>] enabled = true` requires a matching `bridges/<name>.toml`. Missing file → exit 3 with hint. | `enabled` without config is unusable. |
+| `bridges/<name>.toml` without a matching `[adapters.<name>]` section is tolerated silently. | Parked settings — re-enable should be one command. |
+| `octopus bridge enable <name>` MUST call `adapter.validate_config(data)` first; non-empty result list aborts with exit 3 and the joined errors on stderr. | Reject bad config at enable-time, not at first-use. |
+| `octopus bridge disable <name>` MUST NOT delete `bridges/<name>.toml`. | Re-enable is one command; settings persist. |
+| Unknown adapter name (not in registry) → reject on enable; ignore on disable. | Disable is idempotent. |
+| `[providers.chips]` values: ASCII, ≤6 chars (also enforced by CRITICAL-DEPENDENCIES rule X5 from D48). | Column-budget for TUI rendering. |
+
+### Capability gating
+
+| Rule | Reason |
+|---|---|
+| `octopus bridge pull <name>` requires adapter to declare `Capability.PULL`; otherwise exit 1. | Capability declaration is the contract. |
+| `octopus bridge push <name>` requires `Capability.PUSH`; otherwise exit 1. (Not in v1 CLI surface; reserved for #14.) | Same. |
+| Flag-only capabilities (`NOTIFY`, `RECONCILE`) MUST NOT be gated on by any v1 verb. | Their methods don't exist yet (deferred to #12, #10). |
+
+### Flag matrix (peek / pull / search)
+
+| Rule | Reason |
+|---|---|
+| `--list` and `--capture-all` are mutually exclusive. Both passed → exit 1. | Ambiguous intent. |
+| `lists = []` AND no flag AND verb is `pull` or `search` → exit 3 with hint. | Refuses to materialize unbounded files / make ambiguous queries. |
+| `lists = []` AND no flag AND verb is `peek` → DISCOVERY mode (list available groups, no error). | Discovery is the explicit "I don't know what's there" affordance. |
+| `--list X` where `X` not in `adapter.list_groups()` → exit 3. | Typos shouldn't silently pull from nothing. |
+
+### Pull pipeline invariants
+
+| Rule | Reason |
+|---|---|
+| Every new task created by the pipeline MUST set: `actor=human`, `imported_from=<adapter_name>`, `import_date=<today>`, `external_refs.<adapter_name>=<external_id>`. | Provenance is non-negotiable for v1.5 reconciliation later. |
+| `bucket` defaults to `ExternalTask.suggested_bucket` if present, else `"backlog"`. | Adapters can hint; default preserves human review. |
+| Dedup check MUST query `task_external_refs (adapter, external_id)` before creation. | Re-pull must be idempotent. |
+| Skipped items (dedup hit) are recorded in pipeline output but NOT errored. | Re-pull is normal; not a failure mode. |
+| Target activity resolution: `default_activity` (bridge config) → cwd activity → exit 2. | Two unambiguous paths, hard error on neither. |
+| Partial-pull continues; v1 does NOT abort on first item error. | Aborting on row 5 of 20 is hostile UX. |
+| All-items-failed (zero successful materializations AND errors non-empty) → exit 4. | Honest signal that the pull achieved nothing. |
+
+### Dedup index (schema v2 → v3)
+
+| Rule | Reason |
+|---|---|
+| `upsert_task` MUST keep `task_external_refs` in sync with frontmatter's `external_refs`. | The index is read-mostly; staleness breaks dedup. |
+| On `upsert_task` UPDATE path, delete + re-insert all `task_external_refs` rows for that `task_id`. | Frontmatter `external_refs` may have changed (key added/removed/value updated). |
+| Migration from v2 → v3 MUST backfill `task_external_refs` from existing tasks' `external_refs`. | No silent data loss on upgrade. |
+| `task_external_refs.task_id` FK ON DELETE CASCADE. | Task deletion shouldn't orphan refs. |
+| `(adapter, external_id)` is the primary key. Inserting a duplicate is an integrity error (signals a logic bug). | One external item maps to at most one Octopus task. |
+
+### Sync journal
+
+| Rule | Reason |
+|---|---|
+| `~/.local/share/octopus/sync/<name>.json` is the canonical state file per adapter. | Single source of truth for last_pull / last_push / cursor / counts. |
+| `adapter.status()` reads the journal — never writes it. | The framework's pipeline writes after every pull/push. |
+| Cursor field is opaque to the framework — adapters set, framework persists. | Adapter-specific resume tokens. |
+| Missing journal file → return sane defaults (all timestamps null, counters zero). | First-run + post-uninstall are both valid states. |
+
+### Registry
+
+| Rule | Reason |
+|---|---|
+| Built-in adapter declarations in `REGISTRY` win over entry-point contributions with the same name. | Third parties cannot silently override core. |
+| Entry-point loader exception MUST log + skip the failing adapter, not abort the registry load. | One broken third-party adapter shouldn't kill the whole CLI. |
+| Stub adapters (Obsidian/Reminders/TODO.md in v1 #06) MUST return clear "not implemented — see request #NN" errors from every method. | Honest UX for the testable-end-to-end framework. |
+
 ---
 
 ## Reference

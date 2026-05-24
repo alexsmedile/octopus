@@ -88,12 +88,23 @@ CREATE INDEX idx_tasks_bucket           ON tasks(bucket);
 CREATE INDEX idx_tasks_pinned           ON tasks(pinned);
 CREATE INDEX idx_tasks_due              ON tasks(due);
 CREATE INDEX idx_tasks_activity         ON tasks(activity_id);
+CREATE INDEX idx_tasks_kind             ON tasks(kind);          -- D46
+CREATE INDEX idx_tasks_promoted_to      ON tasks(promoted_to);   -- D48
 CREATE INDEX idx_activities_status      ON activities(status);
 CREATE INDEX idx_sessions_activity      ON sessions(activity_id);
 CREATE INDEX idx_sessions_ended         ON sessions(ended);  -- NULL filter for open sessions
 
+-- External refs dedup index (schema v3, D63)
+CREATE TABLE task_external_refs (
+  task_id     TEXT     NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  adapter     TEXT     NOT NULL,
+  external_id TEXT     NOT NULL,
+  PRIMARY KEY (adapter, external_id)
+);
+CREATE INDEX idx_task_external_refs_task ON task_external_refs(task_id);
+
 -- Pragmas applied on every connection open
-PRAGMA user_version  = 1;
+PRAGMA user_version  = 3;     -- bumped by D46/D48 (v2) and D63 (v3)
 PRAGMA journal_mode  = WAL;
 PRAGMA foreign_keys  = ON;
 ```

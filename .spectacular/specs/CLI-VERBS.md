@@ -434,6 +434,114 @@ octopus config root remove <path>
 
 ---
 
+## Bridge verbs (v1) — adapter framework
+
+External integrations (Obsidian, Apple Reminders, TODO.md, future GitHub) are reached via **adapters**. The `octopus bridge` subcommand group operates them generically. See `SCHEMA-ADAPTER.md` for protocol, data types, and registry mechanism.
+
+```
+octopus bridge list [--verbose|-v]
+  intent : show all registered adapters with enabled status + health
+  output : table — name, enabled, capabilities, status
+           -v adds: config path, last pull, last push, error (if any)
+
+octopus bridge enable <name> [adapter-specific-flags]
+  intent : enable an adapter; write its config
+  delta  : main config [adapters.<name>] enabled = true
+           AND writes/updates ~/.config/octopus/bridges/<name>.toml
+  side   : adapter.validate_config() runs first; rejection aborts (exit 3)
+  notes  : per-adapter Typer sub-app; flags are adapter-specific
+           (e.g. --vault for obsidian, --capture-list for reminders)
+
+octopus bridge disable <name>
+  intent : disable an adapter; keep its config
+  delta  : main config [adapters.<name>] enabled = false
+  side   : bridges/<name>.toml is NOT deleted — re-enable is one command
+
+octopus bridge status [<name>] [--verbose|-v]
+  intent : health check
+  scope  : no name = table of all; name = full per-adapter block
+  output : healthy, last pull, last push, capabilities, error if unhealthy
+
+octopus bridge peek <name> [--list NAME[,NAME...]] [--capture-all]
+  intent : READ-ONLY display of what the adapter currently sees
+  side   : NO files created, NO dedup, NO index changes — pure read
+  flags  : --list takes one or more comma-separated group names
+           --capture-all uses every group adapter.list_groups() returns
+           --list + --capture-all together → exit 1
+  notes  : with no configured `lists` in bridge config AND neither flag,
+           peek goes into DISCOVERY mode: prints available groups
+           ("no default list configured. Available lists: …")
+
+octopus bridge pull <name> [--list NAME[,NAME...]] [--capture-all]
+  intent : import external items as Octopus tasks
+  delta  : new task files in target activity's tasks/<bucket>/
+           pipeline dedup via task_external_refs (no duplicates)
+  output : "pulled N new · M already-known · K errors" + per-task lines
+  side   : sync journal updated (last_pull, pull_count, cursor)
+  flags  : same as peek
+  notes  : with no configured `lists` AND neither flag → exit 3
+           (refuses to create unbounded files)
+
+octopus bridge search <name> <query> [--list NAME] [--capture-all]
+  intent : adapter-side search of the external system
+  side   : NO imports; same shape as peek
+  notes  : adapters with native search APIs use them
+           adapters without fall back to peek() + Python filter internally
+```
+
+### Flag matrix for peek / pull / search
+
+| Configured `lists` | `--list` flag | `--capture-all` | Behavior |
+|---|---|---|---|
+| `[]` | none | none | `peek` → discovery; `pull` → exit 3; `search` → exit 3 |
+| `["A"]` | none | none | use `["A"]` |
+| `["A","B"]` | none | none | use both |
+| any | `--list X` | none | use `["X"]` (override) |
+| any | `--list X,Y` | none | use `["X","Y"]` (override) |
+| any | none | `--capture-all` | use `adapter.list_groups()` |
+| any | `--list X` | `--capture-all` | exit 1 (mutually exclusive) |
+
+### Per-adapter flag naming
+
+The framework uses `--list` in this doc as the canonical example, but each adapter exposes the flag named after its native concept:
+
+| Adapter | Flag |
+|---|---|
+| Reminders | `--list <name>` |
+| GitHub (future) | `--repo <owner>/<name>` |
+| ICS (future) | `--calendar <name>` |
+| TODO.md | (none — single file, no concept of groups) |
+| Obsidian | (n/a — viewer, not a pull source) |
+
+Dispatched via per-adapter Typer sub-apps; `octopus bridge pull reminders --help` shows what flags Reminders accepts.
+
+### Exit codes
+
+| Scenario | Exit |
+|---|---|
+| Success (any items processed) | 0 |
+| Successful with skipped (dedup) | 0 |
+| Adapter not configured (`bridges/<name>.toml` missing) | 3 |
+| Adapter disabled in main config | 3 |
+| `--list X` value not found in `list_groups()` | 3 |
+| `lists = []` + no flag + `pull`/`search` | 3 |
+| Adapter doesn't declare required capability | 1 |
+| `--list X --capture-all` (mutually exclusive) | 1 |
+| Adapter `status()` unhealthy | 4 |
+| Adapter raises uncaught exception | 4 |
+| All items failed (no successful materialization) | 4 |
+| Target activity unresolvable (no `default_activity`, no cwd activity) | 2 |
+
+### Hidden alias
+
+`octopus adapter` resolves to `octopus bridge` (muscle memory either way works; not advertised in help).
+
+### `octopus link`
+
+NOT a bridge verb. Obsidian-specific top-level command; ships with #07.
+
+---
+
 ## Views (v1)
 
 Each view filters the index and groups results. **All views sort pinned tasks first** (regardless of bucket / priority / date).

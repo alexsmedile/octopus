@@ -87,16 +87,18 @@ stale_activity_days = 60         # status: active with no task touched
 unreviewed_activity_days = 90    # last_reviewed too long ago
 aging_handoff_days = 30          # handoff status: open
 
-# ── adapters (opt-in) ────────────────────────────────────────────────
+# ── adapters (opt-in) — D58 hybrid layout ────────────────────────────
+# Main config holds ONLY the enabled flag per adapter.
+# Adapter-specific content (vault, lists, default_activity, etc.) lives
+# in ~/.config/octopus/bridges/<name>.toml — see §3.
 [adapters.obsidian]
 enabled = false
-vault = ""                       # absolute path
-link_dir = "data/activities/_links"
 
 [adapters.reminders]
 enabled = false
-capture_list = "Octopus Capture"
-default_activity = ""            # if empty, CLI prompts per import
+
+[adapters.todo-md]
+enabled = false
 
 # ── promotion providers (D48) ────────────────────────────────────────
 # Controls where tasks can be promoted via `octopus promote --to ...`.
@@ -114,6 +116,43 @@ spectacular = "spec"
 [providers.spectacular]
 auto_number = true               # prepend next-available NN- to scaffolded slugs
 ```
+
+## 2b. Per-adapter config (`~/.config/octopus/bridges/<name>.toml`)
+
+Each enabled adapter has a TOML file with its connection + behavior settings. Created/updated by `octopus bridge enable <name>`. Kept by `octopus bridge disable <name>` for one-command re-enable.
+
+```toml
+# ~/.config/octopus/bridges/obsidian.toml
+vault = "/Users/alex/vault"
+link_dir = "data/activities/_links"
+```
+
+```toml
+# ~/.config/octopus/bridges/reminders.toml
+default_activity = ""            # if empty, falls back to cwd's activity
+lists = []                       # default groups; [] = no default
+                                 # ["Inbox"]            = single configured list
+                                 # ["Inbox", "Errands"] = multiple
+```
+
+```toml
+# ~/.config/octopus/bridges/todo-md.toml
+path = "TODO.md"                 # relative to activity root
+include_checked = false          # skip already-done items by default
+```
+
+### `lists` field (D59)
+
+Adapters supporting multiple groups (Reminders' lists, GitHub's repos, ICS's calendars) read default groups from a `lists` array. Empty default — user must pass `--list NAME` or `--capture-all` per invocation. See `CLI-VERBS.md §bridge peek/pull/search` for the full flag matrix.
+
+### Lifecycle
+
+- `octopus bridge enable obsidian --vault /path` writes BOTH the main-config `enabled = true` AND `bridges/obsidian.toml`. Adapter's `validate_config()` runs first; rejection aborts with exit 3.
+- `octopus bridge disable obsidian` flips `enabled = false`. `bridges/obsidian.toml` is **kept** untouched.
+- `bridges/<name>.toml` without a matching `[adapters.<name>]` section in main config is tolerated silently (parked settings).
+- `enabled = true` in main config without a matching `bridges/<name>.toml` → exit 3 with hint to run `octopus bridge enable <name>` with required flags.
+
+See `DECISIONS.md D58, D59` and `SCHEMA-ADAPTER.md §4`.
 
 ## 3. Per-activity config (`.octopus/config.toml`)
 
@@ -153,6 +192,8 @@ scheduled = "do_date"
 - `[providers] default` set to a value that is not a registered provider. v1 registry: `spectacular`.
 - `[providers.chips]` key that is not a registered provider.
 - `[providers.chips]` value that is non-ASCII or longer than 6 characters.
+- `[adapters.<name>] enabled = true` without a matching `bridges/<name>.toml`. (exit 3 with hint)
+- `bridges/<name>.toml` content that the adapter's `validate_config()` rejects (exit 3 with adapter's errors).
 
 ### MUST tolerate
 
