@@ -4,7 +4,7 @@
 
 # Octopus
 
-**A folder-first task system.**
+**A folder-first task system. CLI + skill.**
 
 *Tentacles fan out into every folder you care about. Each project gets its own task structure — captured, organized, alive — right where the work belongs.*
 
@@ -50,13 +50,13 @@ Open the same folder in Obsidian? Symlink it. Open it in the terminal? `octopus 
 
 <div align="center">
 
-<img src="docs/assets/mental-model.v3.svg" width="100%" alt="Mental model — octopus orchestrates activities; each activity holds tasks, sessions, memory, and handoffs."/>
+<img src="docs/assets/mental-model.v4.svg" width="100%" alt="Mental model — octopus orchestrates activities; each activity holds tasks, sessions, memory, and handoffs."/>
 
 </div>
 
 Three nouns, one orchestrator. Read it as **Octopus → activity → task**:
 
-- **Octopus** is the omnipresent CLI. Run it from anywhere; it finds the right activity by walking up from cwd, or by `--activity <id>` when you name one.
+- **Octopus** is the omnipresent brain. Two surfaces, one engine: the **CLI** (`octopus …`) for humans in a terminal, and the **Claude Code skill** for agents working in the same folders. Both read and write the same files — no API, no daemon.
 - An **activity** is a position — a folder containing `.octopus/activity.md`. Self-describing, portable, git-trackable.
 - **Tasks** are the items inside an activity. Plain markdown files under `.octopus/tasks/`.
 

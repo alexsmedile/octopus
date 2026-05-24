@@ -58,9 +58,9 @@
   <rect class="canvas-bg" x="0" y="0" width="760" height="380" rx="14"/>
 
   <!-- top: octopus (orchestrator) -->
-  <rect class="card-purple" x="290" y="20" width="180" height="56" rx="10" stroke-width="2"/>
+  <rect class="card-purple" x="270" y="20" width="220" height="56" rx="10" stroke-width="2"/>
   <text x="380" y="44" class="root" text-anchor="middle">🐙 octopus</text>
-  <text x="380" y="62" class="desc" text-anchor="middle">one CLI, everywhere</text>
+  <text x="380" y="62" class="desc" text-anchor="middle">CLI + skill — one brain, everywhere</text>
 
   <!-- connectors -->
   <line class="conn" x1="380" y1="76" x2="380" y2="100"/>
