@@ -881,3 +881,117 @@ Promote to subpackages only when an adapter grows multi-file (osascript helpers,
 Exit codes follow PRD §5: `0 success · 1 user error · 2 not in activity · 3 config error · 4 bridge error`. No new codes for #06 — "all-items-failed" folds into 4, "mutually exclusive flags" folds into 1.
 
 `octopus link` is **not** part of #06's CLI surface — Obsidian-specific, ships with #07.
+
+---
+
+## D67 — Reminders adapter uses `remindctl`, not osascript
+
+**Date:** 2026-05-24
+**Request:** #09
+
+### Locked
+
+The PRD §7.5 sketch named `osascript` / `shortcuts run`. Replaced with [`steipete/remindctl`](https://github.com/steipete/remindctl) (MIT, EventKit-based, JSON output, stable UUIDs).
+
+Reasons:
+- Stable EventKit UUIDs map directly to `external_refs.reminders` — no title-hashing.
+- `--json` output eliminates fragile string parsing.
+- Multi-list discovery built in (`remindctl list --json`).
+- Authorization check via `remindctl status`.
+
+Hard dependency. `status()` reports `healthy=False` with `brew install steipete/tap/remindctl` hint when missing.
+
+osascript fallback intentionally not vendored — doubles maintenance surface for marginal benefit; both paths are macOS-only.
+
+---
+
+## D68 — Reminders authorization cached in journal
+
+**Date:** 2026-05-24
+**Request:** #09
+
+### Locked
+
+`octopus bridge enable reminders` shells out to `remindctl status` once and writes the result to `~/.local/share/octopus/sync/reminders.json` under a new `auth_state` field:
+
+```json
+{
+  "adapter": "reminders",
+  "auth_state": "Full access",
+  "last_pull": null,
+  ...
+}
+```
+
+`adapter.status()` reads the journal — only re-shells `remindctl status` if cache says `"Not Determined"` (means OS hasn't prompted yet). Stable states (`"Full access"`, `"Denied"`) are cached indefinitely.
+
+If the user revokes access in System Settings, the cache becomes stale until the next failed pull surfaces a clear error — acceptable trade-off given how rare revocation is.
+
+---
+
+## D69 — Reminders `external_id` = bare EventKit UUID
+
+**Date:** 2026-05-24
+**Request:** #09
+
+### Locked
+
+Unlike TODO.md (which used slug-of-title because line numbers drift), Apple Reminders provides stable globally-unique UUIDs via EventKit. Use them bare:
+
+```yaml
+external_refs:
+  reminders: "DF95D91C-7F56-47E4-8AAD-07335A5DC086"
+```
+
+No path prefix, no encoding. Dedup via `task_external_refs (adapter="reminders", external_id=<uuid>)`.
+
+---
+
+## D70 — Reminders → Octopus field mapping
+
+**Date:** 2026-05-24
+**Request:** #09
+
+### Locked
+
+Per-field translation from `remindctl show all --list X --json` rows to Octopus task frontmatter:
+
+| Apple field | Octopus field | Rule |
+|---|---|---|
+| `id` (UUID) | `external_refs.reminders` | bare UUID |
+| `title` | `title` | verbatim |
+| `notes` | task body | multi-line preserved; URL-only verbatim; empty → no body |
+| `priority: "none"` | absent | default omission |
+| `priority: "low"` | `priority: low` | direct |
+| `priority: "medium"` | absent | Octopus has no medium (existing spec) |
+| `priority: "high"` | `priority: high` | direct |
+| `dueDate` (ISO 8601 UTC) | `due` (YYYY-MM-DD) | time portion dropped; UTC → date as-is |
+| `completionDate` | (skip-filter only) | if set → skip unless `include_completed = true` |
+| `isCompleted: true` | (skip-filter only) | same |
+| `listName` | `ExternalTask.source_group` | for the pipeline's display + materialized body annotation |
+| `listID` | unused | listName is human-readable; ID kept only in the source data |
+| `recurrenceRule` | unused | v2 |
+| `alarmDate` | unused | not surfaced |
+| `locationTrigger` | unused | not surfaced |
+| `url` | unused | not surfaced |
+
+Default `bucket: backlog` — Apple Reminders has no in-progress state. No auto-`now` mapping.
+
+---
+
+## D71 — Reminders sync journal cursor unused
+
+**Date:** 2026-05-24
+**Request:** #09
+
+### Locked
+
+`remindctl` has no resume token / since-cursor API. Each pull re-reads the full list per configured group.
+
+This is fine because:
+- `task_external_refs` makes dedup an O(N) indexed lookup, not O(file scan).
+- Apple Reminders lists are typically <1000 items; the JSON parse is sub-second.
+- v1 has no notion of incremental sync anyway (#10 sync-modes is deferred).
+
+The `cursor` field in the journal stays `None` for reminders. Forward-compat reserved.
+

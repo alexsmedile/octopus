@@ -56,8 +56,8 @@ def test_dataclass_defaults():
 def test_stub_adapters_satisfy_protocol():
     """All built-in adapters implement the Adapter Protocol surface.
 
-    Obsidian/Reminders remain stubs as of v0.4.0; TODO.md was promoted
-    to a real implementation in v0.4.1 (#21).
+    Obsidian remains a stub as of v0.4.2. TODO.md (v0.4.1) and Reminders
+    (v0.4.2) are real implementations.
     """
     from octopus.adapters.obsidian import ObsidianAdapter
     from octopus.adapters.reminders import RemindersAdapter
@@ -68,15 +68,20 @@ def test_stub_adapters_satisfy_protocol():
         assert isinstance(adapter, Adapter)
         assert Capability.PULL in adapter.capabilities
 
-    # Stubs report unhealthy + "not implemented"
-    for cls in (ObsidianAdapter, RemindersAdapter):
-        status = cls().status()
-        assert status.healthy is False
-        assert "not implemented" in status.error.lower()
+    # Only Obsidian is still a stub.
+    obs_status = ObsidianAdapter().status()
+    assert obs_status.healthy is False
+    assert "not implemented" in obs_status.error.lower()
 
-    # TodoMd is real now — reports healthy.
+    # TodoMd is real (file-based — always healthy).
     todo_status = TodoMdAdapter().status()
     assert todo_status.healthy is True
+
+    # Reminders is real but depends on remindctl + auth. On the dev box
+    # both are present so it'll typically be healthy; on CI it won't be.
+    # Either way the protocol shape is what we're checking here.
+    rem_status = RemindersAdapter().status()
+    assert isinstance(rem_status.healthy, bool)
 
 
 # ── adapters.registry ─────────────────────────────────────────────────

@@ -697,7 +697,9 @@ All mutations route through `octopus.actions` — the same write layer the CLI u
 
 ## Status & what's next
 
-**v0.4.1** released 2026-05-24 — **first real adapter ships**. `todo-md` (#21) replaces its stub with a working pull-only adapter that reads `- [ ] task` checkbox lines from a `TODO.md` file, maps `BUG:`/`HACK:` prefixes to `kind`, honors `[-]`/`[/]` in-progress markers, supports heading-slug section filtering, and stays idempotent via slug-based `external_id`s. **329 tests passing** (was 299). See [CHANGELOG.md](CHANGELOG.md).
+**v0.4.2** released 2026-05-24 — **Apple Reminders adapter ships** (#09). Pull-only via [`remindctl`](https://github.com/steipete/remindctl); stable EventKit UUIDs for dedup; multi-list aggregation; native priority + due-date + notes mapping into Octopus fields. **364 tests passing** (was 329). See [CHANGELOG.md](CHANGELOG.md).
+
+**v0.4.1** released 2026-05-24 — **first real adapter ships**. `todo-md` (#21) replaces its stub with a working pull-only adapter that reads `- [ ] task` checkbox lines from a `TODO.md` file, maps `BUG:`/`HACK:` prefixes to `kind`, honors `[-]`/`[/]` in-progress markers, supports heading-slug section filtering, and stays idempotent via slug-based `external_id`s.
 
 **v0.4.0** released 2026-05-24 — the **adapter framework**. New `octopus bridge` subcommand group with seven verbs (`list/enable/disable/status/peek/pull/search`), `Capability` enum + `Adapter` Protocol, hybrid config layout (`[adapters.<name>] enabled` in main config, content in `~/.config/octopus/bridges/<name>.toml`), per-adapter sync journal, dedup index via new `task_external_refs` join table. SQLite schema v2→v3 migrated in-place.
 

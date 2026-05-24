@@ -5,6 +5,55 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.2] — 2026-05-24
+
+**Apple Reminders adapter ships** (#09). Second real adapter, hard-requires the [`remindctl`](https://github.com/steipete/remindctl) CLI for EventKit access. Pull-only — Reminders → Octopus backlog. Stable EventKit UUIDs make dedup trivial; native priority/due/notes mapping into Octopus fields.
+
+### Added
+
+- **`reminders` adapter** replaces its stub. Pulls from one or more configured Apple Reminders lists via `remindctl show all --list <name> --json`.
+- **Multi-list aggregation:** `lists = ["Inbox", "Errands"]` in `bridges/reminders.toml` pulls from both into one PullResult.
+- **`ExternalTask.suggested_priority` and `suggested_due`** added to the framework — adapters can hint priority and due dates, the pipeline propagates them to task frontmatter.
+- **Field mapping** (D70):
+  - EventKit UUID → `external_refs.reminders` (bare; D69)
+  - `title` → task title (verbatim)
+  - `notes` → task body (multi-line preserved)
+  - `priority: high|low` → `priority` (Octopus); `none`/`medium` omitted
+  - `dueDate` (ISO 8601 UTC) → `due` (date only; time stripped)
+  - `listName` → `source_group` (surfaces in summary line)
+  - `isCompleted: true` → skipped unless `include_completed = true`
+- **Authorization probe** runs on `bridge enable reminders` via `remindctl status`. Denied access reported in `validate_config()`; user fix is one System Settings click.
+- **Healthy `status()` reporting** requires both `remindctl` on PATH AND `Full access`. Missing binary → "install via `brew install steipete/tap/remindctl`" hint.
+- **Wrapper isolation:** `adapters/_reminders_io.py` (private) contains every subprocess and JSON parse. The adapter module is declarative and trivially mockable. **35 new tests** in `tests/test_adapter_reminders.py` cover priority/due/notes mapping, validate_config rejection paths, multi-list aggregation, search filter, and graceful degradation when `remindctl` is missing.
+- **5 decisions locked** (D67–D71) in `.spectacular/DECISIONS.md`.
+- **Test suite total: 364 passing** (was 329).
+
+### Changed
+
+- **`ExternalTask`** gains two optional fields (`suggested_priority`, `suggested_due`). Backward-compatible with TODO.md adapter — both fields default to `None`.
+- **Pipeline (`adapters/pipeline.py`)** honors the new suggestion fields during materialization.
+- **Stub-protocol test** patched to acknowledge Reminders is now real (Obsidian alone remains a stub).
+
+### Manual smoke (macOS only)
+
+```bash
+brew install steipete/tap/remindctl       # one-time
+remindctl status                          # expect "Full access"
+
+# In an activity:
+octopus bridge enable reminders --set lists=Default,Inbox
+octopus bridge peek reminders             # JSON rows displayed, no files
+octopus bridge pull reminders             # materializes as backlog tasks
+octopus bridge pull reminders             # "N already-known" — dedup via UUID
+octopus task list                         # see imported items
+```
+
+### Migration
+
+- Existing v0.4.x databases: no schema change. `ExternalTask` field additions are runtime-only.
+
+---
+
 ## [0.4.1] — 2026-05-24
 
 **First real adapter ships.** TODO.md (#21) replaces its stub with a working

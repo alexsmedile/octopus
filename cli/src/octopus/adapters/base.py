@@ -11,7 +11,7 @@ v1 ships only `PULL` adapters (Obsidian/Reminders/TODO.md). `PUSH`,
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
@@ -41,9 +41,8 @@ class ExternalTask:
     """An item the adapter wants to surface (peek) or import (pull).
 
     The framework never mutates the external system in response to these
-    fields — adapters provide *suggestions* (suggested_bucket, suggested_kind)
-    and the pipeline materializes Octopus tasks using sensible defaults
-    (see SCHEMA-ADAPTER §7.3).
+    fields — adapters provide *suggestions* (suggested_*) and the pipeline
+    materializes Octopus tasks using sensible defaults (see SCHEMA-ADAPTER §7.3).
     """
 
     external_id: str                              # becomes external_refs.<adapter>
@@ -52,6 +51,8 @@ class ExternalTask:
     suggested_bucket: str | None = None
     suggested_kind: str | None = None
     suggested_tags: list[str] = field(default_factory=list)
+    suggested_priority: str | None = None         # low | high | urgent (Octopus enum)
+    suggested_due: date | None = None             # YYYY-MM-DD
     created_external: datetime | None = None
     source_group: str | None = None               # which list/repo this came from
 

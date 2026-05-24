@@ -152,6 +152,10 @@ def materialize_pull_result(
             task.external_refs[adapter_name] = et.external_id
             if et.suggested_kind:
                 task.kind = et.suggested_kind
+            if et.suggested_priority:
+                task.priority = et.suggested_priority
+            if et.suggested_due:
+                task.due = et.suggested_due
             if et.suggested_tags:
                 # Merge — don't overwrite anything the body template added.
                 existing_tags = set(task.tags)
