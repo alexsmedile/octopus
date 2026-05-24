@@ -33,7 +33,7 @@ octopus where
 ## Capture & pipeline
 
 ```
-octopus capture "<title>" [--next | --now] [--slug <override>]
+octopus capture "<title>" [--activity <id>] [--next | --now] [--slug <override>]
                           [--priority <urgent|high|low>] [--energy <low|mid|high>]
                           [--due <YYYY-MM-DD>] [--scheduled <YYYY-MM-DD>]
                           [--start-date <YYYY-MM-DD>] [--end-date <YYYY-MM-DD>]
@@ -42,13 +42,18 @@ octopus capture "<title>" [--next | --now] [--slug <override>]
   Capture a new task. Defaults to bucket: backlog. Empty body by default (D82).
   --next is shorthand for --bucket next; --now for --bucket now.
   --now does NOT auto-pin (D81). For pinned-and-now, run `pin` after.
+  --activity <id> (D86): redirect to a specific activity by id/prefix/path.
+                          Without it, cwd-walk-up.
 
-  D80: explicit-default values clear instead of rejecting.
-    --priority normal/none/""    → cleared
-    --actor human                → cleared (human is the default)
-    --energy normal/none/""      → cleared
-    etc.
+octopus add task "<title>" [--activity <id>] [...same flags as capture]
+  D85: the "from anywhere" sibling of capture. Identical semantics; the
+  difference is which verb is ergonomic in which context.
 
+octopus add activity "<name>" [--type --area --path <dir>]
+  D85: create a new activity. Sibling of `init`. Without --path: creates
+  <slug-of-name>/ under cwd. --priority rejected until #27.
+
+# All these accept --activity <id> (D86):
 octopus plan <slug>       # backlog → next
 octopus focus <slug>      # next → now
 octopus park <slug>       # now → next
@@ -60,6 +65,27 @@ octopus pin <slug>        # pinned: true
 octopus unpin <slug>      # pinned: false (omit field)
 octopus archive <slug>    # archived: true (hides from default lists)
 octopus restore <slug>    # archived: false (clears the flag)
+octopus block <slug> --reason "<text>"
+octopus wait <slug> --for "<text>"
+octopus unblock <slug>
+```
+
+### Cross-activity `--activity` flag (D86)
+
+Every task-mutation verb accepts `--activity <id>` to target a specific
+activity without `cd`. The token is resolved as: filesystem path if it starts
+with `/`, `~`, or contains `/`; otherwise as an activity id (exact or
+unambiguous prefix).
+
+```
+# Add a task to a project from anywhere
+octopus add task "review PR" --activity octopus
+
+# Finish a task in another activity
+octopus finish ship-it --activity ~/code/octopus
+
+# Pin by full path
+octopus pin focus-this --activity /Users/alex/projects/work
 ```
 
 ## Listing & viewing
@@ -100,11 +126,23 @@ octopus stale               # next-bucket tasks not touched in >14 days
 octopus context             # current activity + active session + memory summary
 ```
 
-## Set / rename / move (D76, D77, D78)
+## Set / rename / move (D76, D77, D78, D84)
 
 ```
-octopus set <slug> [--field <value> ...]
+# Three target shapes per D84:
+octopus set <slug> [--field <value> ...]             # this activity, one (cwd-resolved)
+octopus set --task t1 --task t2 [--field ...]        # this activity, many tasks
+octopus set --task t1,t2,t3 [--field ...]            # comma-form also accepted
+octopus set --activity a1 --activity b2 [--field ...] # anywhere, many activities
+
   Frontmatter-only escape hatch. Multi-field is atomic.
+  Target axes are mutually exclusive: mixing positional + --task, positional
+  + --activity, or --task + --activity is rejected.
+
+  set --activity allowed flags:
+    --title, --status, --type, --area, --last-reviewed, tag-flag-matrix
+    --priority (stub-rejected until #27 ships activity priority field)
+  Task-only flags on set --activity → rejected with offending flag named.
 
   Workflow:
     --bucket <name>          changes the FIELD only (D77); does NOT move the file.

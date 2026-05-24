@@ -5,6 +5,40 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.8.0] — 2026-05-24
+
+**Cross-activity write verbs** (#26 done). Every task-mutation verb now accepts `--activity <id>` to redirect the operation to a specific activity without `cd`. New `octopus add task` and `octopus add activity` verbs are the canonical "from anywhere" entry points. `octopus set` gets multi-target shapes — `--task t1 t2 ...` for in-cwd tasks and `--activity a1 a2 ...` for activity-level edits anywhere, with strict one-target-axis-per-invocation enforcement.
+
+This release closes the agent-friendliness gap: an agent (or a global terminal) can now add tasks, set priorities, finish work, or update activity metadata against any project on disk without changing directories.
+
+### Added
+
+- **`octopus add task "<title>" [--activity <id>] [...]`** (D85) — the "from anywhere" sibling of `capture`. Identical flag matrix; targets the named activity by id, unambiguous prefix, or filesystem path. Without `--activity`, behaves like `capture` (cwd-walk-up).
+- **`octopus add activity "<name>" [--type --area --path --id --storage]`** (D85) — sibling of `octopus init`. Without `--path`, creates `<slug-of-name>/` under cwd; with `--path`, initializes that directory. `--priority` rejected with "not implemented" until #27 ships the activity priority field.
+- **`octopus set --task t1 --task t2 ...`** (D84) — multi-target tasks within the current activity. Slugs resolve against the cwd activity only; cross-activity task mutation deliberately out of scope for v1.
+- **`octopus set --activity a1 --activity a2 ...`** (D84) — multi-target activities from anywhere. Operates on activity-level frontmatter (title, status, type, area, last-reviewed, tags). Task-only flags rejected with the offending flag named.
+- **Comma-shorthand** on `set --task` / `set --activity` — `--task t1,t2,t3` is equivalent to `--task t1 --task t2 --task t3`.
+- **`--activity <id>` flag on every task-mutation verb** (D86): `capture`, `pin`/`unpin`, `plan`/`focus`/`park`/`defer`, `start`/`finish`/`drop`/`end`, `archive`/`restore`, `mv`/`move`, `block`/`wait`/`unblock`, `promote`. Path-or-id resolution via the shared `core/identify.py` resolver.
+- 23 new tests in `test_cross_activity_writes.py` (531 total, was 508).
+
+### Changed
+
+- **`octopus set` positional signature**: was `set <slug>` (required, one), now `set [SLUGS]...` (variadic). Single-positional invocation behavior is unchanged. Multiple positional slugs now error with "use --task for multi-target" — keeping the foot-gun off.
+- **`_load_task()` and `_move_bucket()`** internals: now accept an optional `activity_token` parameter, threaded through every verb that uses them. cwd-walk-up remains the default.
+
+### Locked in DECISIONS.md
+
+- **D84** — One-target-axis-per-invocation rule for `set`. Mixing positional + `--task`, positional + `--activity`, or `--task` + `--activity` is rejected. Activity-level fields only allowed with `--activity`; task-only fields rejected.
+- **D85** — `add task` / `add activity` verb semantics. `capture` and `init` remain as aliases.
+- **D86** — `--activity <id>` flag on all write verbs. Single-target on tasks; multi-target only via `set` per D84.
+
+### Notes
+
+- `--priority` on `add activity` and `set --activity` is intentionally stub-rejected with a pointer to #27, which will add the activity priority field (low/high/urgent enum, empty=normal).
+- Cross-activity task mutation (e.g. "update task X in project A from inside project B") is **not v1 scope**. Activity-level edits go cross-activity; task-level edits stay within the cwd activity. This avoids the "wrong project's task" foot-gun.
+
+---
+
 ## [0.7.0] — 2026-05-24
 
 **Index hygiene** (#30 done). New `octopus forget activity` verb to remove an activity from the index without touching files (or with `--archive` to also move files to `_archive/`). Archived activities now hidden by default from `list --all`. One-time cleanup of accumulated test/smoke entries pruned 577 stale rows.

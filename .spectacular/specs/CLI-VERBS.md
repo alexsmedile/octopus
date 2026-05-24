@@ -15,12 +15,14 @@ Both `octopus` and `octo` are valid entry points (identical behavior).
 ## Capture verbs (v1)
 
 ```
-octopus capture "<title>"
+octopus capture "<title>" [--activity <id>]
   intent : drop something into the parking lot, no thinking required
   delta  : new file
            bucket: backlog
            created: today
   side   : --edit opens $EDITOR for body; default no.
+  scope  : D86 — without --activity, cwd-walk-up. With --activity, target
+           that activity (id/prefix/path), no cd required.
 
 octopus capture "<title>" --next
   shortcut: capture + immediately plan
@@ -29,13 +31,44 @@ octopus capture "<title>" --next
 octopus capture "<title>" --now
   shortcut: capture + immediately focus
   delta   : bucket: now
-            pinned: true
+            pinned: <unchanged — D81 dropped auto-pin>
+
+octopus add task "<title>" [--activity <id>] [...same flag matrix as capture]
+  intent : the "from anywhere" sibling of capture (D85)
+  delta  : identical to capture
+  scope  : without --activity behaves like capture (cwd-walk). With --activity
+           targets any activity by id/prefix/path.
+
+octopus add activity "<name>" [--type --area --path --id --storage]
+  intent : create a new activity (D85). Sibling of `octopus init`.
+  delta  : creates <slug-of-name>/.octopus/ or <path>/.octopus/.
+  notes  : `--priority` rejected with "not implemented — see #27" until the
+           activity priority field lands.
 ```
+
+## Cross-activity `--activity` flag (D86)
+
+Every task-mutation verb below accepts an optional `--activity <id>` flag that
+redirects the operation to a specific activity instead of cwd-walking.
+
+```
+octopus pin slug --activity octopus
+octopus finish slug --activity ~/code/octopus
+octopus mv slug now --activity 7f3a
+```
+
+When `--activity` is omitted: cwd-walk-up (current behavior). When specified,
+resolves via `core/identify.py` (path-or-id, same as `forget activity`).
+Single-target on tasks; multi-target only via `octopus set` per D84.
+
+Affected verbs: `capture`, `pin`/`unpin`, `plan`/`focus`/`park`/`defer`,
+`start`/`finish`/`drop`, `archive`/`restore`, `mv`/`move`,
+`block`/`wait`/`unblock`, `promote`.
 
 ## Pipeline verbs (v1)
 
 ```
-octopus plan <slug>
+octopus plan <slug> [--activity <id>]
   intent : promote → next (commit to do it)
   delta  : bucket: next
 
@@ -208,23 +241,54 @@ octopus storage convert --to folders | fields
 ## Property-direct verb (v1 escape hatch)
 
 ```
+# Single-target — positional slug, cwd-resolved (D84)
 octopus set <slug> --priority urgent
 octopus set <slug> --due 2026-06-01
-octopus set <slug> --scheduled 2026-05-25
-octopus set <slug> --energy low
-octopus set <slug> --stage editing
-octopus set <slug> --run-state running
 octopus set <slug> --tags work,client-acme
-octopus set <slug> --owner alex
-octopus set <slug> --actor ai
-octopus set <slug> --bucket now              # works; verb-overlap tip emitted
-octopus set <slug> --pinned                  # works; verb-overlap tip emitted
+
+# Multi-target tasks within the current activity (D84)
+octopus set --task t1 --task t2 --priority high
+octopus set --task t1,t2,t3 --priority high            # comma-separated also accepted
+
+# Multi-target activities (works from anywhere, D84)
+octopus set --activity a1 --activity b2 --status paused
+octopus set --activity octopus --title "New title"
 
   intent : edit any frontmatter field directly (hand-edit equivalent)
   delta  : the specified field(s)
   notes  : `set` accepts any frontmatter field. Validation is strict on types
            and cross-field rules; lenient on verb-overlap (tips, not errors).
 ```
+
+### `set` target axes (D84)
+
+| Form | Scope | Semantics |
+|---|---|---|
+| `set <slug> --flag X` | cwd activity, single target | "this activity, one" |
+| `set --task t1 t2 ... --flag X` | cwd activity, multi-target tasks | "this activity, multiple" |
+| `set --activity a1 a2 ... --flag X` | anywhere, multi-target activities | "anywhere, multiple" |
+
+**Mixing axes is rejected.** Specifically:
+
+- positional `<slug>` + `--task` → error: "mutually exclusive"
+- positional `<slug>` + `--activity` → error: "mutually exclusive"
+- `--task` + `--activity` → error: "mutually exclusive"
+- no target (e.g. `set --priority high` alone) → error: "no target specified"
+- multiple positional slugs (`set s1 s2 ...`) → error: "use --task for multi-target"
+- positional `<slug>` outside an activity → "not inside an activity"
+- `--task t1` outside an activity → "not inside an activity"
+
+### `set --activity` allowed flags
+
+Only activity-level frontmatter:
+- `--title`, `--status`, `--type`, `--area`, `--last-reviewed`
+- Tag flag matrix: `--tag`/`--tags`/`--add-tag`/`--remove-tag`/`--clear-tags`
+- `--priority` — stub-rejected until #27 ships the activity priority field
+
+Task-only flags (`--bucket`, `--stage`, `--run-state`, `--pinned`, `--issue`,
+`--blocked-by`, `--waiting-for`, `--archived`, `--due`, `--scheduled`,
+`--start-date`, `--end-date`, `--energy`, `--actor`, `--owner`, `--kind`,
+`--slug`) on `set --activity` → rejected with the offending flag named.
 
 ### `set` validation pipeline
 

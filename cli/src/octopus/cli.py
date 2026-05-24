@@ -312,15 +312,80 @@ def capture(
     remove_tag: list[str] | None = typer.Option(None, "--remove-tag", help="Remove from the tag list."),
     remove_tags: list[str] | None = typer.Option(None, "--remove-tags", help="Remove from the tag list."),
     clear_tags: bool = typer.Option(False, "--clear-tags", help="Empty the tag list."),
+    activity: str | None = typer.Option(
+        None, "--activity",
+        help="Activity id/prefix/path. Default: cwd-walk-up. (D86)",
+    ),
 ) -> None:
     """Create a new task. Default bucket: backlog. Empty body by default (D82)."""
+    _create_task_impl(
+        title=title, to_next=to_next, to_now=to_now,
+        priority=priority, slug=slug,
+        due=due, scheduled=scheduled, start_date=start_date, end_date=end_date,
+        actor=actor, energy=energy, owner=owner, stage=stage,
+        tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
+        remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
+        activity_token=activity,
+    )
+
+
+def _resolve_activity_root(activity_token: str | None) -> Path:
+    """Return an activity root either from cwd-walk or from --activity token.
+
+    D86: when activity_token is given, resolve via core/identify.py and return
+    that activity's path; otherwise walk up from cwd. Errors are printed and
+    raise typer.Exit on failure.
+    """
+    if activity_token is None:
+        return _require_activity()
+    from octopus.core.identify import (
+        ActivityAmbiguous,
+        ActivityNotFound,
+        resolve_activity,
+    )
+    try:
+        row = resolve_activity(activity_token)
+    except ActivityAmbiguous as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+    except ActivityNotFound as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+    return Path(row["path"])
+
+
+def _create_task_impl(
+    *,
+    title: str,
+    to_next: bool,
+    to_now: bool,
+    priority: str | None,
+    slug: str | None,
+    due: str | None,
+    scheduled: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    actor: str | None,
+    energy: str | None,
+    owner: str | None,
+    stage: str | None,
+    tag: list[str] | None,
+    tags: list[str] | None,
+    add_tag: list[str] | None,
+    add_tags: list[str] | None,
+    remove_tag: list[str] | None,
+    remove_tags: list[str] | None,
+    clear_tags: bool,
+    activity_token: str | None,
+) -> None:
+    """Shared implementation for `capture` and `add task` (D85)."""
     from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
 
     if to_next and to_now:
         err_console.print("[red]✗[/] --next and --now are mutually exclusive")
         raise typer.Exit(EXIT_USER_ERROR)
 
-    root = _require_activity()
+    root = _resolve_activity_root(activity_token)
     octopus_dir = root / ".octopus"
     cfg = load_config(octopus_dir)
     storage_mode = read_storage_mode(octopus_dir)
@@ -621,8 +686,12 @@ def _find_task_file(octopus_dir: Path, storage_mode: str, slug: str) -> Path | N
 # ── pipeline verbs ────────────────────────────────────────────────────
 
 
-def _move_bucket(slug: str, new_bucket: str, *, set_pinned: bool | None = None) -> None:
-    root = _require_activity()
+def _move_bucket(
+    slug: str, new_bucket: str, *,
+    set_pinned: bool | None = None,
+    activity_token: str | None = None,
+) -> None:
+    root = _resolve_activity_root(activity_token)
     octopus_dir = root / ".octopus"
     storage_mode = read_storage_mode(octopus_dir)
     task_path = _find_task_file(octopus_dir, storage_mode, slug)
@@ -693,35 +762,50 @@ def _save_task_in_place(
     return current_path
 
 
+_ACTIVITY_OPT_HELP = "Activity id/prefix/path. Default: cwd-walk-up. (D86)"
+
+
 @app.command()
-def plan(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def plan(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Promote → bucket: next."""
-    _move_bucket(slug, "next")
+    _move_bucket(slug, "next", activity_token=activity)
 
 
 @app.command()
-def focus(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def focus(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Promote → bucket: now, pin."""
-    _move_bucket(slug, "now", set_pinned=True)
+    _move_bucket(slug, "now", set_pinned=True, activity_token=activity)
 
 
 @app.command()
-def park(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def park(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Demote → bucket: backlog, unpin."""
-    _move_bucket(slug, "backlog", set_pinned=False)
+    _move_bucket(slug, "backlog", set_pinned=False, activity_token=activity)
 
 
 @app.command()
-def defer(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def defer(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Demote → bucket: next (keeps pinned)."""
-    _move_bucket(slug, "next")
+    _move_bucket(slug, "next", activity_token=activity)
 
 
 # ── lifecycle verbs ──────────────────────────────────────────────────
 
 
-def _load_task(slug: str) -> tuple[Path, Task, str, Path, str]:
-    root = _require_activity()
+def _load_task(slug: str, activity_token: str | None = None) -> tuple[Path, Task, str, Path, str]:
+    root = _resolve_activity_root(activity_token)
     octopus_dir = root / ".octopus"
     storage_mode = read_storage_mode(octopus_dir)
     task_path = _find_task_file(octopus_dir, storage_mode, slug)
@@ -733,9 +817,12 @@ def _load_task(slug: str) -> tuple[Path, Task, str, Path, str]:
 
 
 @app.command()
-def start(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def start(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Mark work as begun. Idempotent. On done/dropped, resumes (bucket → now)."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     today = date.today()
 
     if task.is_terminal():
@@ -763,9 +850,12 @@ def start(slug: str = typer.Argument(..., help="Task slug.")) -> None:
 
 
 @app.command()
-def finish(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def finish(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Mark complete: bucket: done, end_date, clear pinned/issue/run_state."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     today = date.today()
     if task.start_date is None:
         task.start_date = today  # one-shot capture-and-finish
@@ -788,15 +878,21 @@ def finish(slug: str = typer.Argument(..., help="Task slug.")) -> None:
 
 
 @app.command(name="end", hidden=True)
-def end(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def end(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Alias for `finish`."""
-    finish(slug)
+    finish(slug, activity)
 
 
 @app.command()
-def drop(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def drop(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Mark dropped: bucket: dropped, end_date, clear pinned/issue/run_state."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     today = date.today()
     if task.end_date is None:
         task.end_date = today
@@ -823,9 +919,10 @@ def drop(slug: str = typer.Argument(..., help="Task slug.")) -> None:
 def block(
     slug: str = typer.Argument(..., help="Task slug."),
     reason: str = typer.Option(..., "--reason", help="Why blocked?"),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
 ) -> None:
     """Flag an internal blocker."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     task.issue = "blocked"
     task.blocked_by = reason
     task.waiting_for = None
@@ -842,9 +939,10 @@ def block(
 def wait(
     slug: str = typer.Argument(..., help="Task slug."),
     for_: str = typer.Option(..., "--for", help="What are you waiting for?"),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
 ) -> None:
     """Flag an external dependency."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     task.issue = "waiting"
     task.waiting_for = for_
     task.blocked_by = None
@@ -858,9 +956,12 @@ def wait(
 
 
 @app.command()
-def unblock(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def unblock(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Clear any impediment."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     task.issue = None
     task.blocked_by = None
     task.waiting_for = None
@@ -872,9 +973,12 @@ def unblock(slug: str = typer.Argument(..., help="Task slug.")) -> None:
 
 
 @app.command()
-def pin(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def pin(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Mark for prominence (sorts to top of every list)."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     if task.is_terminal():
         err_console.print(f"[red]✗[/] cannot pin terminal task ({task.bucket})")
         raise typer.Exit(EXIT_USER_ERROR)
@@ -884,9 +988,12 @@ def pin(slug: str = typer.Argument(..., help="Task slug.")) -> None:
 
 
 @app.command()
-def unpin(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def unpin(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Clear the pinned flag."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     task.pinned = None
     _save_task(task, body, path, octopus_dir, storage_mode)
     console.print(f"[green]✓[/] {slug} unpinned")
@@ -896,18 +1003,24 @@ def unpin(slug: str = typer.Argument(..., help="Task slug.")) -> None:
 
 
 @app.command()
-def archive(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def archive(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Hide from default views."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     task.archived = True
     _save_task(task, body, path, octopus_dir, storage_mode)
     console.print(f"[green]✓[/] {slug} archived")
 
 
 @app.command()
-def restore(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def restore(
+    slug: str = typer.Argument(..., help="Task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
     """Bring back from archive."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
     task.archived = None
     _save_task(task, body, path, octopus_dir, storage_mode)
     console.print(f"[green]✓[/] {slug} restored")
@@ -916,7 +1029,7 @@ def restore(slug: str = typer.Argument(..., help="Task slug.")) -> None:
 # ── move / mv (D77) ───────────────────────────────────────────────────
 
 
-def _move_impl(slug: str, bucket: str) -> None:
+def _move_impl(slug: str, bucket: str, activity_token: str | None = None) -> None:
     """Shared body for `move` and `mv`. Pure file-move + frontmatter update.
 
     No date stamps, no lifecycle side effects (D77).
@@ -925,7 +1038,7 @@ def _move_impl(slug: str, bucket: str) -> None:
         err_console.print(f"[red]✗[/] invalid bucket {bucket!r}; valid: {sorted(TASK_BUCKETS)}")
         raise typer.Exit(EXIT_USER_ERROR)
 
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity_token)
     old_bucket = task.bucket
     task.bucket = bucket
 
@@ -957,22 +1070,151 @@ def _move_impl(slug: str, bucket: str) -> None:
 def move(
     slug: str = typer.Argument(..., help="Task slug."),
     bucket: str = typer.Argument(..., help=f"Target bucket: {sorted(TASK_BUCKETS)}"),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
 ) -> None:
     """Move a task to a different bucket: updates frontmatter AND moves the file (folder mode).
 
     No date stamps, no lifecycle side effects. Use `start`/`finish`/`drop` for those.
     For frontmatter-only edits without moving the file, use `octopus set --bucket`.
     """
-    _move_impl(slug, bucket)
+    _move_impl(slug, bucket, activity_token=activity)
 
 
 @app.command()
 def mv(
     slug: str = typer.Argument(..., help="Task slug."),
     bucket: str = typer.Argument(..., help=f"Target bucket: {sorted(TASK_BUCKETS)}"),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
 ) -> None:
     """Alias of `octopus move`."""
-    _move_impl(slug, bucket)
+    _move_impl(slug, bucket, activity_token=activity)
+
+
+# ── add task / add activity (D85) ────────────────────────────────────
+
+
+add_app = typer.Typer(help="Add tasks or activities from anywhere.", no_args_is_help=True)
+app.add_typer(add_app, name="add")
+
+
+@add_app.command("task")
+def add_task_cmd(
+    title: str = typer.Argument(..., help="Task title."),
+    to_next: bool = typer.Option(False, "--next", help="Create directly in `next`."),
+    to_now: bool = typer.Option(False, "--now", help="Create directly in `now` (does NOT auto-pin, per D81)."),
+    priority: str | None = typer.Option(
+        None, "--priority",
+        help=f"One of {sorted(TASK_PRIORITIES)} (or 'normal'/'none'/'' to clear)",
+    ),
+    slug: str | None = typer.Option(None, "--slug", help="Override the auto-slugified filename."),
+    due: str | None = typer.Option(None, "--due", help="ISO date YYYY-MM-DD."),
+    scheduled: str | None = typer.Option(None, "--scheduled", help="ISO date YYYY-MM-DD."),
+    start_date: str | None = typer.Option(None, "--start-date", help="ISO date YYYY-MM-DD."),
+    end_date: str | None = typer.Option(None, "--end-date", help="ISO date YYYY-MM-DD."),
+    actor: str | None = typer.Option(None, "--actor", help="human (default) | ai | automation"),
+    energy: str | None = typer.Option(None, "--energy", help="low | mid | high"),
+    owner: str | None = typer.Option(None, "--owner", help="Free-form name/username."),
+    stage: str | None = typer.Option(None, "--stage", help="Free-form per-activity workflow stage."),
+    tag: list[str] | None = typer.Option(None, "--tag", help="Replace the tag list (alias of --tags)."),
+    tags: list[str] | None = typer.Option(None, "--tags", help="Replace the tag list."),
+    add_tag: list[str] | None = typer.Option(None, "--add-tag", help="Append to the tag list."),
+    add_tags: list[str] | None = typer.Option(None, "--add-tags", help="Append to the tag list."),
+    remove_tag: list[str] | None = typer.Option(None, "--remove-tag", help="Remove from the tag list."),
+    remove_tags: list[str] | None = typer.Option(None, "--remove-tags", help="Remove from the tag list."),
+    clear_tags: bool = typer.Option(False, "--clear-tags", help="Empty the tag list."),
+    activity: str | None = typer.Option(
+        None, "--activity",
+        help="Activity id/prefix/path. Default: cwd-walk-up. (D85/D86)",
+    ),
+) -> None:
+    """Create a new task. The "from anywhere" sibling of `capture` (D85).
+
+    Identical behavior to `capture` when called from inside an activity with
+    no --activity flag. Pass --activity <id> to target a specific activity
+    by id, unambiguous prefix, or path — no `cd` required.
+    """
+    _create_task_impl(
+        title=title, to_next=to_next, to_now=to_now,
+        priority=priority, slug=slug,
+        due=due, scheduled=scheduled, start_date=start_date, end_date=end_date,
+        actor=actor, energy=energy, owner=owner, stage=stage,
+        tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
+        remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
+        activity_token=activity,
+    )
+
+
+@add_app.command("activity")
+def add_activity_cmd(
+    name: str = typer.Argument(..., help="Activity name (used as the folder name when --path omitted)."),
+    activity_type: str = typer.Option("other", "--type", help=f"One of {sorted(ACTIVITY_TYPES)}"),
+    status: str = typer.Option("active", "--status", help=f"One of {sorted(ACTIVITY_STATUSES)}"),
+    area: str | None = typer.Option(None, "--area", help="Free-form area tag."),
+    custom_id: str | None = typer.Option(None, "--id", help="Override the auto-derived activity id."),
+    storage_mode: str = typer.Option("folders", "--storage", help="Storage mode: folders | fields."),
+    path: str | None = typer.Option(
+        None, "--path",
+        help="Directory to initialize. Created if missing. Default: cwd/<slug-of-name>.",
+    ),
+    priority: str | None = typer.Option(
+        None, "--priority",
+        help="Activity priority. NOT IMPLEMENTED until #27 (D85).",
+    ),
+) -> None:
+    """Create a new activity. The "from anywhere" sibling of `init` (D85).
+
+    Without --path: creates a slug-of-<name> folder under cwd. With --path:
+    initializes that directory (creating it if missing).
+    """
+    if priority is not None:
+        err_console.print(
+            "[red]✗[/] activity priority not implemented yet — see #27"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    # Resolve the target directory.
+    if path is not None:
+        target = Path(path).expanduser().resolve()
+    else:
+        try:
+            folder_slug = slugify(name)
+        except ValueError as exc:
+            err_console.print(f"[red]✗[/] cannot slugify name {name!r}: {exc}")
+            raise typer.Exit(EXIT_USER_ERROR) from exc
+        target = (Path.cwd() / folder_slug).resolve()
+
+    # Guard against nested or duplicate activities.
+    existing = find_activity_root(target if target.exists() else target.parent)
+    if existing is not None and existing == target:
+        err_console.print(f"[red]✗[/] already an activity: {existing}")
+        raise typer.Exit(EXIT_USER_ERROR)
+    if existing is not None and existing != target:
+        err_console.print(
+            f"[red]✗[/] nested activities not allowed. Existing activity at: {existing}"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    target.mkdir(parents=True, exist_ok=True)
+
+    try:
+        activity = init_activity(
+            target, title=name, activity_type=activity_type, status=status,
+            area=area, custom_id=custom_id, storage_mode=storage_mode,
+        )
+    except (ActivityExistsError, ValueError) as e:
+        err_console.print(f"[red]✗[/] {e}")
+        raise typer.Exit(EXIT_USER_ERROR) from e
+
+    err = sync_activity_after_write(target)
+    if err:
+        err_console.print(f"[yellow]⚠[/] {err} (run `octopus reindex` to reconcile)")
+
+    short = short_form(activity.id)
+    console.print(f"[green]✓[/] Initialized activity [bold]{short}[/] at {target}")
+    if storage_mode == "folders":
+        console.print(f"  storage mode: folders ({', '.join(sorted(BUCKET_FOLDERS))})")
+    else:
+        console.print(f"  storage mode: {storage_mode}")
 
 
 # ── forget activity (D83) ────────────────────────────────────────────
@@ -1167,6 +1409,7 @@ def promote(
         False, "--revert",
         help="Soft-clear promoted_to + end_date. Body stays stub.",
     ),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
 ) -> None:
     """Promote one or more tasks to a Spectacular request (or other target).
 
@@ -1176,7 +1419,7 @@ def promote(
     """
     from octopus.actions import ActionError, promote_task
 
-    activity_root = _require_activity()
+    activity_root = _resolve_activity_root(activity)
     if revert and to:
         err_console.print("[red]✗[/] --revert cannot be combined with --to")
         raise typer.Exit(EXIT_USER_ERROR)
@@ -1800,81 +2043,92 @@ def _handle_slug_rename(
     console.print(f"[green]✓[/] {old_slug} → {new_slug} (cascade applied)")
 
 
-def set_(
-    slug: str = typer.Argument(..., help="Task slug."),
-    # Workflow
-    bucket: str | None = typer.Option(None, "--bucket"),
-    stage: str | None = typer.Option(None, "--stage"),
-    # Runtime
-    run_state: str | None = typer.Option(None, "--run-state"),
-    # Attention / impediment / visibility
-    pinned: bool | None = typer.Option(None, "--pinned/--no-pinned"),
-    issue: str | None = typer.Option(None, "--issue"),
-    blocked_by: str | None = typer.Option(None, "--blocked-by"),
-    waiting_for: str | None = typer.Option(None, "--waiting-for"),
-    archived: bool | None = typer.Option(None, "--archived/--no-archived"),
-    # Dates
-    due: str | None = typer.Option(None, "--due", help="ISO date YYYY-MM-DD."),
-    scheduled: str | None = typer.Option(None, "--scheduled"),
-    start_date: str | None = typer.Option(None, "--start-date"),
-    end_date: str | None = typer.Option(None, "--end-date"),
-    # Prioritization
-    priority: str | None = typer.Option(None, "--priority"),
-    energy: str | None = typer.Option(None, "--energy"),
-    # Actors
-    actor: str | None = typer.Option(None, "--actor"),
-    owner: str | None = typer.Option(None, "--owner"),
-    # Taxonomy
-    kind: str | None = typer.Option(
-        None, "--kind",
-        help="Work classification: feat | bug | spec | polish | test | chore. Use '' to clear.",
-    ),
-    title: str | None = typer.Option(None, "--title"),
-    # D78: slug rename
-    new_slug: str | None = typer.Option(
-        None, "--slug",
-        help="Rename the task slug (filename). Cascades to Octopus-managed refs.",
-    ),
-    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompts."),
-    # Tag flag matrix (D76)
-    tag: list[str] | None = typer.Option(None, "--tag", help="Replace the tag list (alias of --tags)."),
-    tags: list[str] | None = typer.Option(None, "--tags", help="Replace the tag list."),
-    add_tag: list[str] | None = typer.Option(None, "--add-tag", help="Append to the tag list."),
-    add_tags: list[str] | None = typer.Option(None, "--add-tags", help="Append to the tag list."),
-    remove_tag: list[str] | None = typer.Option(None, "--remove-tag", help="Remove from the tag list."),
-    remove_tags: list[str] | None = typer.Option(None, "--remove-tags", help="Remove from the tag list."),
-    clear_tags: bool = typer.Option(False, "--clear-tags", help="Empty the tag list."),
-) -> None:
-    """Set frontmatter fields directly. Strict types; warns on verb-overlap.
+def _set_task_one(
+    slug: str,
+    activity_root: Path,
+    *,
+    bucket: str | None,
+    stage: str | None,
+    run_state: str | None,
+    pinned: bool | None,
+    issue: str | None,
+    blocked_by: str | None,
+    waiting_for: str | None,
+    archived: bool | None,
+    due: str | None,
+    scheduled: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    priority: str | None,
+    energy: str | None,
+    actor: str | None,
+    owner: str | None,
+    kind: str | None,
+    title: str | None,
+    new_slug: str | None,
+    yes: bool,
+    tag: list[str] | None,
+    tags: list[str] | None,
+    add_tag: list[str] | None,
+    add_tags: list[str] | None,
+    remove_tag: list[str] | None,
+    remove_tags: list[str] | None,
+    clear_tags: bool,
+) -> bool:
+    """Apply a frontmatter-only edit to one task in one activity. Returns True on success.
 
-    D77: this is the frontmatter-only escape hatch. `--bucket` changes the
-    frontmatter field but does NOT move the file. Use `octopus mv` for that.
-    D78: --slug renames the task slug with full cascading auto-fix.
-    D80: explicit-default values (normal/none/human/idle/"") clear fields.
-    D76: tag flag matrix — see --tag/--tags/--add-tag/--remove-tag/--clear-tags.
+    Errors print to stderr and return False (caller decides whether to continue).
     """
     from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
 
-    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    octopus_dir = activity_root / ".octopus"
+    storage_mode = read_storage_mode(octopus_dir)
+    path = _find_task_file(octopus_dir, storage_mode, slug)
+    if path is None:
+        err_console.print(f"[red]✗[/] task not found: {slug}")
+        return False
+    task, body = read_task(path)
 
-    # D78: handle --slug rename BEFORE other edits — it's its own flow with
-    # cascading refs and a confirmation prompt. If --slug is the only flag,
-    # we exit after the rename. If --slug is combined with other flags, we
-    # apply the rename first, then continue editing the renamed task.
+    # D78: handle --slug rename BEFORE other edits.
     if new_slug is not None:
         _handle_slug_rename(
-            activity_root=octopus_dir.parent,
+            activity_root=activity_root,
             source_file=path,
             old_slug=slug,
             new_slug=new_slug,
             yes=yes,
         )
-        # Re-load using the new slug for any further edits.
         slug = new_slug
-        path, task, body, octopus_dir, storage_mode = _load_task(slug)
+        path = _find_task_file(octopus_dir, storage_mode, slug)
+        if path is None:
+            err_console.print(f"[red]✗[/] task not found after rename: {slug}")
+            return False
+        task, body = read_task(path)
 
     overlaps_used: list[str] = []
     bucket_changed_to: str | None = None
+    return _apply_set_task_fields(
+        task, body, path, activity_root, octopus_dir, storage_mode,
+        slug=slug,
+        bucket=bucket, stage=stage, run_state=run_state, pinned=pinned,
+        issue=issue, blocked_by=blocked_by, waiting_for=waiting_for, archived=archived,
+        due=due, scheduled=scheduled, start_date=start_date, end_date=end_date,
+        priority=priority, energy=energy, actor=actor, owner=owner, kind=kind,
+        title=title,
+        tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
+        remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
+        overlaps_used=overlaps_used, bucket_changed_to=bucket_changed_to,
+    )
+
+
+def _apply_set_task_fields(
+    task, body, path, activity_root, octopus_dir, storage_mode,
+    *, slug, bucket, stage, run_state, pinned, issue, blocked_by, waiting_for,
+    archived, due, scheduled, start_date, end_date, priority, energy, actor,
+    owner, kind, title, tag, tags, add_tag, add_tags, remove_tag, remove_tags,
+    clear_tags, overlaps_used, bucket_changed_to,
+) -> bool:
+    from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
 
     if title is not None:
         if not title.strip():
@@ -2002,6 +2256,338 @@ def set_(
             err_console.print(f"[dim]tip: dedicated verb available for --{field_name}: {tip}[/]")
 
     console.print(f"[green]✓[/] {slug} updated")
+    return True
+
+
+# ── activity-level set (D84) ─────────────────────────────────────────
+
+
+# Flags that are valid on `set --activity`. Anything else gets rejected.
+_ACTIVITY_SET_FLAGS = {
+    "title", "status", "type", "area", "tag", "tags",
+    "add_tag", "add_tags", "remove_tag", "remove_tags", "clear_tags",
+    "last_reviewed",
+}
+
+# Task-only flags rejected on `set --activity`, for clear error messaging.
+_TASK_ONLY_SET_FLAGS = {
+    "bucket": "--bucket",
+    "stage": "--stage",
+    "run_state": "--run-state",
+    "pinned": "--pinned",
+    "issue": "--issue",
+    "blocked_by": "--blocked-by",
+    "waiting_for": "--waiting-for",
+    "archived": "--archived",
+    "due": "--due",
+    "scheduled": "--scheduled",
+    "start_date": "--start-date",
+    "end_date": "--end-date",
+    "energy": "--energy",
+    "actor": "--actor",
+    "owner": "--owner",
+    "kind": "--kind",
+    "new_slug": "--slug",
+}
+
+
+def _set_activity_one(
+    activity_token: str,
+    *,
+    title: str | None,
+    status: str | None,
+    activity_type: str | None,
+    area: str | None,
+    priority: str | None,
+    last_reviewed: str | None,
+    tag: list[str] | None,
+    tags: list[str] | None,
+    add_tag: list[str] | None,
+    add_tags: list[str] | None,
+    remove_tag: list[str] | None,
+    remove_tags: list[str] | None,
+    clear_tags: bool,
+) -> bool:
+    """Apply a frontmatter-only edit to one activity. Returns True on success."""
+    from octopus.core.identify import (
+        ActivityAmbiguous,
+        ActivityNotFound,
+        resolve_activity,
+    )
+    from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
+    from octopus.fs.io import write_activity
+
+    try:
+        row = resolve_activity(activity_token)
+    except ActivityNotFound as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        return False
+    except ActivityAmbiguous as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        return False
+
+    root = Path(row["path"])
+    activity_md = root / ".octopus" / "activity.md"
+    if not activity_md.is_file():
+        err_console.print(f"[red]✗[/] {activity_md} not found")
+        return False
+    activity, body = read_activity(activity_md)
+
+    if priority is not None:
+        err_console.print(
+            "[red]✗[/] activity priority not implemented yet — see #27"
+        )
+        return False
+
+    if title is not None:
+        if not title.strip():
+            err_console.print("[red]✗[/] --title cannot be empty.")
+            return False
+        activity.title = title
+    if status is not None:
+        if status not in ACTIVITY_STATUSES:
+            err_console.print(
+                f"[red]✗[/] --status: {status!r} not in {sorted(ACTIVITY_STATUSES)}"
+            )
+            return False
+        activity.status = status
+    if activity_type is not None:
+        if activity_type not in ACTIVITY_TYPES:
+            err_console.print(
+                f"[red]✗[/] --type: {activity_type!r} not in {sorted(ACTIVITY_TYPES)}"
+            )
+            return False
+        activity.type = activity_type
+    if area is not None:
+        activity.area = None if area == "" else area
+    if last_reviewed is not None:
+        activity.last_reviewed = _parse_iso_date(last_reviewed, "last-reviewed")
+
+    tag_inputs = TagFlagInputs(
+        replace=(tag or []) + (tags or []) if (tag or tags) else None,
+        add=(add_tag or []) + (add_tags or []) if (add_tag or add_tags) else None,
+        remove=(remove_tag or []) + (remove_tags or []) if (remove_tag or remove_tags) else None,
+        clear=clear_tags,
+    )
+    if any([tag_inputs.replace, tag_inputs.add, tag_inputs.remove, tag_inputs.clear]):
+        try:
+            activity.tags = apply_tag_mutations(activity.tags, tag_inputs)
+        except TagFlagConflict as exc:
+            err_console.print(f"[red]✗[/] {exc}")
+            return False
+
+    errors = activity.validate()
+    if errors:
+        err_console.print("[red]✗[/] validation failed:")
+        for e in errors:
+            err_console.print(f"  - {e}")
+        return False
+
+    write_activity(activity_md, activity, body)
+    err = sync_activity_after_write(root)
+    if err:
+        err_console.print(f"[yellow]⚠[/] {err} (run `octopus reindex` to reconcile)")
+    console.print(f"[green]✓[/] {short_form(activity.id)} updated")
+    return True
+
+
+# ── set Typer entrypoint (D84) ───────────────────────────────────────
+
+
+def set_(
+    slugs: list[str] | None = typer.Argument(
+        None,
+        help="Task slug(s). Resolved against cwd activity. For multi-target, prefer --task.",
+    ),
+    # D84: target axes
+    task_targets: list[str] = typer.Option(
+        [], "--task",
+        help="Task slug(s) to mutate within the current activity (multi-target). (D84)",
+    ),
+    activity_targets: list[str] = typer.Option(
+        [], "--activity",
+        help="Activity id(s)/prefix(es)/path(s) to mutate (multi-target, anywhere). (D84)",
+    ),
+    # Workflow
+    bucket: str | None = typer.Option(None, "--bucket"),
+    stage: str | None = typer.Option(None, "--stage"),
+    # Runtime
+    run_state: str | None = typer.Option(None, "--run-state"),
+    # Attention / impediment / visibility
+    pinned: bool | None = typer.Option(None, "--pinned/--no-pinned"),
+    issue: str | None = typer.Option(None, "--issue"),
+    blocked_by: str | None = typer.Option(None, "--blocked-by"),
+    waiting_for: str | None = typer.Option(None, "--waiting-for"),
+    archived: bool | None = typer.Option(None, "--archived/--no-archived"),
+    # Dates
+    due: str | None = typer.Option(None, "--due", help="ISO date YYYY-MM-DD."),
+    scheduled: str | None = typer.Option(None, "--scheduled"),
+    start_date: str | None = typer.Option(None, "--start-date"),
+    end_date: str | None = typer.Option(None, "--end-date"),
+    # Prioritization
+    priority: str | None = typer.Option(None, "--priority"),
+    energy: str | None = typer.Option(None, "--energy"),
+    # Actors
+    actor: str | None = typer.Option(None, "--actor"),
+    owner: str | None = typer.Option(None, "--owner"),
+    # Taxonomy
+    kind: str | None = typer.Option(
+        None, "--kind",
+        help="Work classification: feat | bug | spec | polish | test | chore. Use '' to clear.",
+    ),
+    title: str | None = typer.Option(None, "--title"),
+    # Activity-only fields (D84)
+    status: str | None = typer.Option(
+        None, "--status",
+        help="Activity status (only valid with --activity).",
+    ),
+    activity_type: str | None = typer.Option(
+        None, "--type",
+        help="Activity type (only valid with --activity).",
+    ),
+    area: str | None = typer.Option(
+        None, "--area",
+        help="Activity area (only valid with --activity).",
+    ),
+    last_reviewed: str | None = typer.Option(
+        None, "--last-reviewed",
+        help="Activity last-reviewed date (only valid with --activity).",
+    ),
+    # D78: slug rename
+    new_slug: str | None = typer.Option(
+        None, "--slug",
+        help="Rename the task slug (filename). Cascades to Octopus-managed refs.",
+    ),
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompts."),
+    # Tag flag matrix (D76)
+    tag: list[str] | None = typer.Option(None, "--tag", help="Replace the tag list (alias of --tags)."),
+    tags: list[str] | None = typer.Option(None, "--tags", help="Replace the tag list."),
+    add_tag: list[str] | None = typer.Option(None, "--add-tag", help="Append to the tag list."),
+    add_tags: list[str] | None = typer.Option(None, "--add-tags", help="Append to the tag list."),
+    remove_tag: list[str] | None = typer.Option(None, "--remove-tag", help="Remove from the tag list."),
+    remove_tags: list[str] | None = typer.Option(None, "--remove-tags", help="Remove from the tag list."),
+    clear_tags: bool = typer.Option(False, "--clear-tags", help="Empty the tag list."),
+) -> None:
+    """Set frontmatter fields directly. Strict types; warns on verb-overlap.
+
+    D84: three target shapes — positional <slug> (cwd, one), --task t1 t2... (cwd,
+    multi), --activity a1 a2... (anywhere, multi). Mixing axes is rejected.
+    D77: this is the frontmatter-only escape hatch. `--bucket` changes the
+    frontmatter field but does NOT move the file. Use `octopus mv` for that.
+    D78: --slug renames the task slug with full cascading auto-fix.
+    D80: explicit-default values (normal/none/human/idle/"") clear fields.
+    D76: tag flag matrix — see --tag/--tags/--add-tag/--remove-tag/--clear-tags.
+    """
+    def _expand_csv(values: list[str] | None) -> list[str]:
+        """Allow `--task t1,t2` as a shorthand for `--task t1 --task t2`."""
+        out: list[str] = []
+        for v in (values or []):
+            for piece in v.split(","):
+                piece = piece.strip()
+                if piece:
+                    out.append(piece)
+        return out
+
+    slugs = slugs or []
+    task_targets = _expand_csv(task_targets)
+    activity_targets = _expand_csv(activity_targets)
+
+    # D84: target-axis mutex.
+    if slugs and task_targets:
+        err_console.print(
+            "[red]✗[/] positional slug and --task are mutually exclusive (D84)"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+    if slugs and activity_targets:
+        err_console.print(
+            "[red]✗[/] positional slug and --activity are mutually exclusive (D84)"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+    if task_targets and activity_targets:
+        err_console.print(
+            "[red]✗[/] --task and --activity are mutually exclusive (D84)"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+    if not slugs and not task_targets and not activity_targets:
+        err_console.print(
+            "[red]✗[/] no target specified. Pass a task slug, --task <slugs>, "
+            "or --activity <ids> (D84)"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+    if len(slugs) > 1 and not task_targets:
+        err_console.print(
+            "[red]✗[/] multiple positional slugs not allowed; use --task for "
+            "multi-target (D84)"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    # Activity-level fields are only valid with --activity.
+    activity_field_names = {
+        "--status": status, "--type": activity_type, "--area": area,
+        "--last-reviewed": last_reviewed,
+    }
+    activity_fields_used = [name for name, val in activity_field_names.items() if val is not None]
+
+    if activity_targets:
+        # D84: reject task-only flags on --activity.
+        task_only_used: list[str] = []
+        for field_name, flag_name in _TASK_ONLY_SET_FLAGS.items():
+            val = locals().get(field_name)
+            if val is not None and val is not False:
+                task_only_used.append(flag_name)
+        if task_only_used:
+            err_console.print(
+                f"[red]✗[/] task-only flag(s) {', '.join(task_only_used)} "
+                "not valid with --activity (D84)"
+            )
+            raise typer.Exit(EXIT_USER_ERROR)
+
+        failures = 0
+        for token in activity_targets:
+            ok = _set_activity_one(
+                token,
+                title=title, status=status, activity_type=activity_type,
+                area=area, priority=priority, last_reviewed=last_reviewed,
+                tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
+                remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
+            )
+            if not ok:
+                failures += 1
+        if failures:
+            raise typer.Exit(EXIT_USER_ERROR)
+        return
+
+    # Task-level (positional or --task). Both require cwd in an activity.
+    if activity_fields_used:
+        err_console.print(
+            f"[red]✗[/] activity-only flag(s) {', '.join(activity_fields_used)} "
+            "require --activity (D84)"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    root = _require_activity()
+    target_slugs = slugs if slugs else task_targets
+    failures = 0
+    for slug in target_slugs:
+        try:
+            ok = _set_task_one(
+                slug, root,
+                bucket=bucket, stage=stage, run_state=run_state, pinned=pinned,
+                issue=issue, blocked_by=blocked_by, waiting_for=waiting_for,
+                archived=archived, due=due, scheduled=scheduled,
+                start_date=start_date, end_date=end_date,
+                priority=priority, energy=energy, actor=actor, owner=owner,
+                kind=kind, title=title, new_slug=new_slug, yes=yes,
+                tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
+                remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
+            )
+            if not ok:
+                failures += 1
+        except typer.Exit:
+            # _apply_set_task_fields raises on validation/flag errors.
+            failures += 1
+    if failures:
+        raise typer.Exit(EXIT_USER_ERROR)
 
 
 app.command(name="set")(set_)

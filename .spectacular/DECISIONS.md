@@ -1372,3 +1372,146 @@ Override flag: `--include-archived`.
 
 The user can always look at a specific archived activity by name via
 `octopus status <id>` or `octopus list tasks <id>`.
+
+
+---
+
+## D84 — One-target-axis-per-invocation rule for `set`
+
+**Date:** 2026-05-24
+**Request:** #26
+
+### Locked
+
+`octopus set` accepts three target shapes. Mixing them is rejected with a clear
+error pointing at the offending combination.
+
+| Form | Scope | Semantics |
+|---|---|---|
+| `set <slug> --flag X` | cwd activity, single target | "this activity, one" |
+| `set --task t1 t2 ... --flag X` | cwd activity, multi-target tasks | "this activity, multiple" |
+| `set --activity a1 a2 ... --flag X` | anywhere, multi-target activities | "anywhere, multiple" |
+
+Rejection cases (all exit 1 with `--task and --activity are mutually exclusive`
+or the analogous message):
+
+- positional `<slug>` + `--task` → rejected
+- positional `<slug>` + `--activity` → rejected
+- `--task` + `--activity` → rejected
+- no target at all (`set --priority high` alone) → rejected
+- multiple positionals without `--task` (`set s1 s2 --flag X`) → rejected
+- `set <slug>` from outside an activity → rejected with "not inside an activity"
+- `set --task t1` from outside an activity → rejected with "not inside an activity"
+
+Resolution rules:
+
+- For `--task t1 t2 t3`: each slug is resolved against the **current** activity's
+  task list only. Ambiguous matches print candidates from this activity, exit 1.
+  Cross-activity task mutation is **not v1 scope**.
+- For `--activity a1 a2 a3`: each id matches by exact id or unambiguous prefix
+  against the index, using the same resolver as `forget activity` (`core/identify.py`).
+- Each target in a multi-target invocation is processed independently; one
+  invalid target does not abort the rest, but exits non-zero at the end.
+
+### Activity-level fields on `set --activity`
+
+`set --activity` only operates on activity-level frontmatter. Allowed flags:
+
+- `--title`
+- `--status <active|on_hold|done|cancelled|archived>`
+- `--type <enum>`
+- `--area <name>`
+- `--tags / --tag / --add-tag / --remove-tag / --clear-tags` (D76 matrix)
+- `--last-reviewed <date>`
+- `--priority <enum>` — **stub-rejected until #27 lands the activity priority field**
+
+Task-only flags (`--bucket`, `--stage`, `--run-state`, `--pinned`, `--issue`,
+`--blocked-by`, `--waiting-for`, `--archived`, `--due`, `--scheduled`,
+`--start-date`, `--end-date`, `--energy`, `--actor`, `--owner`, `--kind`,
+`--slug`) passed to `set --activity` are rejected with the offending flag named.
+
+---
+
+## D85 — `add task` / `add activity` verbs
+
+**Date:** 2026-05-24
+**Request:** #26
+
+### Locked
+
+New Typer sub-app `octopus add` with two verbs:
+
+```
+octopus add task "<title>" [--activity <id>] [...full task flag matrix from #24]
+octopus add activity "<name>" [--type <kind>] [--area <name>] [--path <dir>]
+```
+
+#### `add task`
+
+Behavior:
+- When `--activity` is **omitted**: cwd-walk-up. Same behavior as `capture`. If
+  cwd is outside an activity, errors with the standard "not inside an activity"
+  message — pointing at `--activity` as the way out.
+- When `--activity` is **specified**: resolves via `core/identify.py`
+  (`resolve_activity`). Errors on unknown / ambiguous match.
+- Flag matrix identical to `capture` (v0.6.0): `--next/--now`, `--priority`,
+  `--due/--scheduled/--start-date/--end-date`, `--actor/--energy/--owner/--stage`,
+  full D76 tag matrix, `--slug`.
+
+`capture` stays. `add task` is the "from anywhere" sibling; the two verbs share
+the same underlying creation path (extracted into an action) and differ only in
+which one feels ergonomic in which context. Behavior MUST be identical when
+`add task` is called from inside an activity with no `--activity` flag.
+
+#### `add activity`
+
+Behavior:
+- Creates a new activity. Equivalent to `octopus init` but in the `add` family
+  for discoverability and consistency with `add task`.
+- `--path <dir>` specifies where to init. Default: cwd. If `<dir>` doesn't exist,
+  it's created.
+- `--priority` is **deferred to #27** when the activity priority field lands.
+  Passing it in v0.8.0 (#26 ships) errors with
+  "activity priority not implemented yet — see #27".
+- `--id` override carried over from `init` for compatibility.
+
+`init` stays as an alias for backwards compatibility; the canonical form is
+`add activity`.
+
+---
+
+## D86 — `--activity` flag on all write verbs
+
+**Date:** 2026-05-24
+**Request:** #26
+
+### Locked
+
+Every task-mutation verb accepts an optional `--activity <id>` flag that
+redirects the operation to a specific activity instead of cwd-walking. Affected
+verbs:
+
+- `capture` (in addition to the new `add task`)
+- `pin / unpin`
+- `plan / focus / park / defer`
+- `start / finish / drop`
+- `archive / restore`
+- `mv / move`
+- `block / wait / unblock`
+- `promote`
+
+Behavior:
+- When `--activity` is **omitted**: cwd-walk-up (current behavior).
+- When `--activity` is **specified**: resolves via `core/identify.py`. The task
+  slug is then resolved within the named activity, not the cwd one. cwd is no
+  longer required.
+
+These verbs remain **single-target on tasks**. Only `set` gets multi-target
+shapes per D84. There is no `--task t1 t2` on `pin`/`finish`/etc — that would
+encourage cross-cutting batch mutations the user probably doesn't actually want.
+If real demand surfaces, add it then.
+
+The `--activity` flag is rejected with a clear error if combined with the
+existing positional in a way that contradicts cwd context (e.g.,
+`pin slug --activity X` from inside activity Y → operates on X, but warns that
+cwd is in Y).
