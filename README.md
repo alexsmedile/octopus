@@ -147,7 +147,7 @@ That's the whole pipeline. Eight verbs, five buckets.
 
 <div align="center">
 
-<img src="docs/assets/lifecycle.v3.svg" width="100%" alt="Task lifecycle — capture, focus, start, block, unblock, finish."/>
+<img src="docs/assets/lifecycle.v4.svg" width="100%" alt="Task lifecycle — capture, focus, start, block, unblock, finish."/>
 
 </div>
 
