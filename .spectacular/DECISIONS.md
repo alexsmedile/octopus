@@ -609,3 +609,275 @@ Request #19 (`task-naming-and-kinds`) is **superseded** by #20 (`task-promotion`
 
 - #19 moved to `.spectacular/requests/_archive/19-task-naming-and-kinds/` with `status: superseded`, `superseded_by: 20-task-promotion`.
 - #20 frontmatter records `supersedes: [19-task-naming-and-kinds]`.
+
+---
+
+## D56 — Capability enum: atomic verbs only
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+```python
+class Capability(Enum):
+    PULL = "pull"
+    PUSH = "push"
+    NOTIFY = "notify"
+    RECONCILE = "reconcile"
+```
+
+Four atomic verbs. No `TWO_WAY` meta-capability — "two-way" is a *configuration* (the user enables both PULL and PUSH and accepts the reconcile policy), not an adapter property. PRD §7.1's `{READ, WRITE, NOTIFY, TWO_WAY}` is superseded.
+
+v1 ships only `PULL` adapters. `PUSH`/`RECONCILE` are forward-stable. `NOTIFY` is a flag-only declaration in v1 — the listener machinery ships with #12 (watcher daemon).
+
+---
+
+## D57 — Adapter protocol shape
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+```python
+class Adapter(Protocol):
+    name: str
+    capabilities: set[Capability]
+    def status(self) -> AdapterStatus: ...
+    def validate_config(self, data: dict) -> list[str]: ...
+    def list_groups(self) -> list[str]: ...
+    def peek(self, groups: list[str] | None = None) -> PullResult: ...
+    def pull(self, groups: list[str] | None = None) -> PullResult: ...
+    def push(self, task) -> PushResult: ...
+    def search(self, query: str, groups: list[str] | None = None) -> PullResult: ...
+```
+
+Seven methods. PRD §7.1's `link()` is **removed** — it was pipeline glue, not adapter behavior. The pipeline writes `external_refs.<adapter> = <ref>` after a successful pull/push using the `ExternalRef` returned from those calls.
+
+`groups` is opaque to the framework; each adapter interprets it (Reminders = list names, GitHub = repos, ICS = calendars).
+
+---
+
+## D58 — Hybrid config layout
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+Enable/disable lives in main `config.toml`. Per-adapter content lives in `bridges/<name>.toml`.
+
+```
+~/.config/octopus/
+├── config.toml
+│   [adapters.obsidian]
+│   enabled = true
+│
+└── bridges/
+    ├── obsidian.toml          # vault, link_dir
+    ├── reminders.toml         # lists, default_activity
+    └── todo-md.toml           # path
+```
+
+- `octopus bridge enable <name>` flips `enabled = true` AND writes/updates `bridges/<name>.toml`.
+- `octopus bridge disable <name>` flips to `enabled = false`. `bridges/<name>.toml` is **kept** — re-enable is one command.
+- `bridges/<name>.toml` without matching main-config section is tolerated (parked settings).
+- Main-config `enabled = true` without matching `bridges/<name>.toml` → exit 3.
+
+Supersedes the all-in-`config.toml` `[adapters.*]` layout currently documented in `SCHEMA-CONFIG.md`. The schema doc will be split in Group 2.
+
+---
+
+## D59 — Multi-list config + flag matrix
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+Each adapter's per-adapter config supports a `lists` (or adapter-equivalent) field. Default: empty array.
+
+```toml
+# bridges/reminders.toml
+lists = []                       # default — no configured list
+# lists = ["Inbox"]              # single
+# lists = ["Inbox", "Work"]      # multiple
+```
+
+CLI flag matrix:
+
+| Config | Flag | Behavior |
+|---|---|---|
+| `lists = []` | none, peek | discovery — list available groups |
+| `lists = []` | none, pull | exit 3 — would create unbounded files |
+| `lists = ["A"]` | none | use configured |
+| `lists = ["A","B"]` | none | use both |
+| any | `--list X` | override (single) |
+| any | `--list X,Y` | override (multi) |
+| any | `--capture-all` | every group `list_groups()` returns |
+| any | `--list X --capture-all` | exit 1 — mutually exclusive |
+
+Per-adapter flag naming: `--list` (Reminders), `--repo` (GitHub), `--calendar` (ICS future). No generic `--group`. Dispatched via per-adapter Typer sub-apps.
+
+---
+
+## D60 — `peek` vs `pull`: two distinct verbs
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+The PRD-era "pull" lumped two semantics together. Splitting:
+
+- **`octopus bridge peek <name>`** — read-only display. No files created, no dedup, no index changes. Pure read.
+- **`octopus bridge pull <name>`** — imports as Octopus task files. Deduped via `task_external_refs`.
+
+`peek` is the safe exploration tool. `pull` is the commitment.
+
+`peek` with no group AND no default-config groups → **discovery mode**: prints available groups so the user can choose.
+`pull` in the same state → exit 3 (would create unbounded files).
+
+No "watch" mode in v1. A `peek --watch` could ship later as a thin polling loop; subscription/notify-driven watch ships with #12.
+
+---
+
+## D61 — `octopus bridge search` as a dedicated verb
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+```
+octopus bridge search <name> <query> [--list/--repo NAME] [--capture-all]
+```
+
+Adapter-side search. No imports, no side effects. Returns matching items as a `PullResult`.
+
+Adapters with native search APIs (GitHub) implement it natively. Adapters without (TODO.md, basic Reminders) implement it as `peek() + filter` internally — the framework doesn't care, just calls `adapter.search(query, groups)`.
+
+No new capability flag — `search` is a sub-operation of `PULL`. Adapters declare `PULL`; the framework offers `peek`/`pull`/`search` as the three read-side verbs that work against it.
+
+---
+
+## D62 — Stub adapters ship in #06
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+#06 ships three adapter stubs in addition to the framework:
+- `cli/src/octopus/adapters/obsidian.py` — capabilities = `{PULL}`; all methods return clear "not implemented — see #07" errors.
+- `cli/src/octopus/adapters/reminders.py` — same; points to #09.
+- `cli/src/octopus/adapters/todo_md.py` — same; points to #21.
+
+Each is registered in the built-in `REGISTRY` dict. `octopus bridge list` shows them as disabled-and-unhealthy. The framework is testable end-to-end on #06 ship; #07/#09/#21 each just replace the stub body.
+
+---
+
+## D63 — Pull pipeline + dedup index (schema v3)
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+New SQLite table:
+
+```sql
+CREATE TABLE task_external_refs (
+  task_id     TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  adapter     TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  PRIMARY KEY (adapter, external_id)
+);
+CREATE INDEX idx_task_external_refs_task ON task_external_refs(task_id);
+```
+
+`upsert_task` populates the table from `task.external_refs`. Schema v2 → v3 migration:
+- CREATE TABLE on existing v2 DBs.
+- Backfill: scan existing tasks' `external_refs` column, populate new table.
+
+Pipeline dedup: `SELECT task_id FROM task_external_refs WHERE adapter = ? AND external_id = ?` — fast indexed lookup.
+
+Pipeline materialization defaults (per PRD §7.5 + locked):
+- `actor: human`
+- `imported_from: <adapter_name>`
+- `import_date: <today>`
+- `bucket: <ExternalTask.suggested_bucket or "backlog">`
+- `external_refs.<adapter_name>: <external_id>`
+
+---
+
+## D64 — Adapter registry: hardcoded + entry-points
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+v1 ships with hardcoded `REGISTRY: dict[str, type[Adapter]]` containing the three built-in adapters. `load_registry()` also scans for `importlib.metadata.entry_points(group="octopus.adapters")` and merges them.
+
+Conflict resolution: **built-in wins**. Third-party adapter declaring an existing name is logged + skipped, never overrides core behavior.
+
+Entry-points are forward-stable for #15 (adapter SDK, v2). v1 finds none and the merge is a no-op.
+
+---
+
+## D65 — Sync journal v1 shape
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+One JSON file per adapter at `~/.local/share/octopus/sync/<name>.json`:
+
+```json
+{
+  "adapter": "reminders",
+  "last_pull": "2026-05-24T10:23:00",
+  "last_push": null,
+  "pull_count": 3,
+  "push_count": 0,
+  "cursor": null
+}
+```
+
+Fixed-size; no rotation needed. Auto-created on first write. `adapter.status()` reads it to populate `last_pull`/`last_push`.
+
+Cursor is opaque — the adapter writes it via `PullResult.cursor`; the framework persists; next `pull()` invocation has access. v1 adapters don't use cursors; field is forward-stable.
+
+`#10` (sync modes addendum) decides whether v2 grows this into a directory of per-event files.
+
+---
+
+## D66 — Repo layout + exit codes
+
+**Date:** 2026-05-24
+**Request:** #06
+
+### Locked
+
+Flat modules under `cli/src/octopus/adapters/`:
+
+```
+adapters/
+├── __init__.py    # exports
+├── base.py        # protocol + dataclasses
+├── registry.py    # hardcoded + entry-points
+├── journal.py     # sync journal r/w
+├── pipeline.py    # pull materialization + dedup
+├── obsidian.py    # stub
+├── reminders.py   # stub
+└── todo_md.py     # stub
+```
+
+Promote to subpackages only when an adapter grows multi-file (osascript helpers, parsers, schema migrations).
+
+Exit codes follow PRD §5: `0 success · 1 user error · 2 not in activity · 3 config error · 4 bridge error`. No new codes for #06 — "all-items-failed" folds into 4, "mutually exclusive flags" folds into 1.
+
+`octopus link` is **not** part of #06's CLI surface — Obsidian-specific, ships with #07.

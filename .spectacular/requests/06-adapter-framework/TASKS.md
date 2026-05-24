@@ -10,22 +10,20 @@ Top-to-bottom; commit per group (or small cluster) so the migration is reviewabl
 
 ---
 
-## Group 1 — Lock decisions in DECISIONS.md
+## Group 1 — Lock decisions in DECISIONS.md ✅
 
-- [ ] D-?? Capability enum: `{PULL, PUSH, NOTIFY, RECONCILE}` (atomic verbs only)
-- [ ] D-?? Adapter protocol shape: `status / validate_config / list_groups / peek / pull / push / search`
-- [ ] D-?? Hybrid config layout: `[adapters.<name>] enabled` in main config; `bridges/<name>.toml` for content
-- [ ] D-?? Multi-list config (`lists = []`) + `--list` flag + `--capture-all` override; per-adapter native flag names
-- [ ] D-?? `peek` vs `pull`: peek is read-only display, pull creates files; peek-with-no-group discovers
-- [ ] D-?? `octopus bridge search` is a dedicated verb; fallback peek+filter for adapters without native search
-- [ ] D-?? NOTIFY + RECONCILE: capability flags only in v1; methods deferred (#12, #10)
-- [ ] D-?? Stub adapters ship in #06; #07/#09/#21 replace stub bodies
-- [ ] D-?? Pull pipeline + dedup via `task_external_refs` join table; schema v3 migration
-- [ ] D-?? Adapter registry: hardcoded + entry-points overlay; built-in wins on conflict
-- [ ] D-?? Sync journal v1: minimal JSON per adapter (timestamps + counters + cursor)
-- [ ] D-?? Pulled tasks defaults: `actor=human`, `imported_from`, `import_date`, `bucket=backlog`, `external_refs`
-- [ ] D-?? Repo layout: flat modules under `cli/src/octopus/adapters/`
-- [ ] D-?? Exit codes: PRD §5 (0/1/2/3/4); no new codes
+- [x] D56 Capability enum: `{PULL, PUSH, NOTIFY, RECONCILE}` atomic verbs only
+- [x] D57 Adapter protocol: `status / validate_config / list_groups / peek / pull / push / search`; `link()` removed
+- [x] D58 Hybrid config layout: enable in main config, content in `bridges/<name>.toml`
+- [x] D59 Multi-list config + flag matrix (`lists=[]` + `--list` + `--capture-all`); per-adapter flag names
+- [x] D60 `peek` vs `pull`: peek is read-only display, pull creates files; peek-no-group → discovery
+- [x] D61 `octopus bridge search` dedicated verb; fallback peek+filter; no new capability flag
+- [x] D62 Stub adapters ship in #06; #07/#09/#21 replace stub bodies
+- [x] D63 Pipeline + dedup via `task_external_refs`; schema v2→v3 migration with backfill
+- [x] D64 Adapter registry: hardcoded + entry-points overlay; built-in wins on conflict
+- [x] D65 Sync journal v1: minimal JSON per adapter (`last_pull/last_push/counts/cursor`)
+- [x] D66 Repo layout (flat modules) + exit codes (PRD §5, no new codes); `octopus link` deferred to #07
+- Note: NOTIFY/RECONCILE flag-only status documented in D56; pipeline defaults in D63.
 
 ## Group 2 — Spec docs
 
