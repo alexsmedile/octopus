@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 480" width="100%" role="img" aria-label="The five axes of task state">
+  <style>
+    .axis-name  { font-family: -apple-system, system-ui, sans-serif; font-size: 14px; font-weight: 700; fill: #F5F5F7; }
+    .axis-q     { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; fill: #C4C7D2; font-style: italic; }
+    .axis-field { font-family: ui-monospace, monospace; font-size: 12px; fill: #CBA6F7; font-weight: 600; }
+    .axis-val   { font-family: ui-monospace, monospace; font-size: 11px; fill: #8A8D9A; }
+    .num        { font-family: -apple-system, system-ui, sans-serif; font-size: 20px; font-weight: 800; fill: #0F1014; }
+  </style>
+
+  <!-- Backdrop -->
+  <rect width="760" height="480" fill="#0F1014"/>
+
+  <!-- AXIS 1 — PIPELINE -->
+  <rect x="20" y="30" width="48" height="48" rx="10" fill="#7AB8FF"/>
+  <text x="44" y="62" class="num" text-anchor="middle">1</text>
+  <text x="80" y="48" class="axis-name">PIPELINE</text>
+  <text x="80" y="66" class="axis-q">Where in my workflow does this live?</text>
+  <text x="80" y="86" class="axis-field">bucket:</text>
+  <text x="140" y="86" class="axis-val">backlog · next · now · done · dropped</text>
+
+  <!-- AXIS 2 — DOMAIN WORKFLOW -->
+  <rect x="20" y="110" width="48" height="48" rx="10" fill="#5EEAD4"/>
+  <text x="44" y="142" class="num" text-anchor="middle">2</text>
+  <text x="80" y="128" class="axis-name">DOMAIN WORKFLOW</text>
+  <text x="80" y="146" class="axis-q">What sub-stage within this kind of work?</text>
+  <text x="80" y="166" class="axis-field">stage:</text>
+  <text x="140" y="166" class="axis-val">free-form (e.g. idea · draft · editing · published)</text>
+
+  <!-- AXIS 3 — RUNTIME -->
+  <rect x="20" y="190" width="48" height="48" rx="10" fill="#CBA6F7"/>
+  <text x="44" y="222" class="num" text-anchor="middle">3</text>
+  <text x="80" y="208" class="axis-name">RUNTIME</text>
+  <text x="80" y="226" class="axis-q">Is a machine actively executing this?</text>
+  <text x="80" y="246" class="axis-field">run_state:</text>
+  <text x="160" y="246" class="axis-val">queued · running · finished · failed   (absent = idle)</text>
+
+  <!-- AXIS 4 — ATTENTION -->
+  <rect x="20" y="270" width="48" height="48" rx="10" fill="#FACC15"/>
+  <text x="44" y="302" class="num" text-anchor="middle">4</text>
+  <text x="80" y="288" class="axis-name">ATTENTION</text>
+  <text x="80" y="306" class="axis-q">Should this jump to the top of every list?</text>
+  <text x="80" y="326" class="axis-field">pinned:</text>
+  <text x="140" y="326" class="axis-val">true   (absent = not pinned)</text>
+
+  <!-- AXIS 5 — IMPEDIMENT -->
+  <rect x="20" y="350" width="48" height="48" rx="10" fill="#F38BA8"/>
+  <text x="44" y="382" class="num" text-anchor="middle">5</text>
+  <text x="80" y="368" class="axis-name">IMPEDIMENT</text>
+  <text x="80" y="386" class="axis-q">Is anything stuck?</text>
+  <text x="80" y="406" class="axis-field">issue:</text>
+  <text x="125" y="406" class="axis-val">blocked · waiting</text>
+  <text x="80" y="426" class="axis-val">+ blocked_by / waiting_for (free text)</text>
+
+  <!-- right side: visibility flag -->
+  <rect x="540" y="30" width="200" height="120" rx="10" fill="#2A2520" stroke="#FACC15" stroke-dasharray="4,3"/>
+  <text x="640" y="60" class="axis-name" text-anchor="middle">+ VISIBILITY</text>
+  <text x="640" y="82" class="axis-q" text-anchor="middle">Should I see this at all?</text>
+  <text x="640" y="108" class="axis-field" text-anchor="middle">archived:</text>
+  <text x="640" y="128" class="axis-val" text-anchor="middle">true   (default: visible)</text>
+  <text x="640" y="145" class="axis-val" text-anchor="middle" fill="#6B6E7A">— not really an axis</text>
+
+  <!-- right side: derived -->
+  <rect x="540" y="170" width="200" height="180" rx="10" fill="#1F3530" stroke="#5EEAD4"/>
+  <text x="640" y="200" class="axis-name" text-anchor="middle">📐 derived, not stored</text>
+  <text x="555" y="230" class="axis-val">"started?"</text>
+  <text x="555" y="246" class="axis-val" fill="#C4C7D2">→ start_date present</text>
+  <text x="555" y="272" class="axis-val">"finished?"</text>
+  <text x="555" y="288" class="axis-val" fill="#C4C7D2">→ bucket: done</text>
+  <text x="555" y="314" class="axis-val">"open loop?"</text>
+  <text x="555" y="330" class="axis-val" fill="#C4C7D2">→ bucket NOT IN</text>
+  <text x="555" y="345" class="axis-val" fill="#C4C7D2">   (done, dropped)</text>
+</svg>

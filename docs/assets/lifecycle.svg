@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 510" width="100%" role="img" aria-label="A typical task lifecycle">
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8A8D9A"/>
+    </marker>
+  </defs>
+  <style>
+    .step-num { font-family: -apple-system, system-ui, sans-serif; font-size: 22px; font-weight: 800; fill: #0F1014; }
+    .step-cmd { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; fill: #F5F5F7; font-weight: 600; }
+    .step-meta { font-family: ui-monospace, monospace; font-size: 11px; fill: #8A8D9A; }
+    .step-desc { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; fill: #C4C7D2; }
+  </style>
+
+  <!-- Backdrop -->
+  <rect width="760" height="510" fill="#0F1014"/>
+
+  <!-- Step 1: capture -->
+  <circle cx="60" cy="60" r="22" fill="#7AB8FF"/>
+  <text x="60" y="68" class="step-num" text-anchor="middle">1</text>
+  <rect x="100" y="35" width="620" height="50" rx="8" fill="#1F2A3A" stroke="#7AB8FF"/>
+  <text x="115" y="55" class="step-cmd">$ octopus capture "fix the webhook auth bug"</text>
+  <text x="115" y="73" class="step-desc">📥 A file appears: .octopus/tasks/backlog/fix-webhook-auth-bug.md</text>
+
+  <!-- arrow -->
+  <line x1="60" y1="85" x2="60" y2="115" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+
+  <!-- Step 2: focus -->
+  <circle cx="60" cy="140" r="22" fill="#5EEAD4"/>
+  <text x="60" y="148" class="step-num" text-anchor="middle">2</text>
+  <rect x="100" y="115" width="620" height="50" rx="8" fill="#1F3530" stroke="#5EEAD4"/>
+  <text x="115" y="135" class="step-cmd">$ octopus focus fix-webhook-auth-bug</text>
+  <text x="115" y="153" class="step-desc">🎯 Moved to tasks/now/. Pinned: true. Sorts to top of every list.</text>
+
+  <line x1="60" y1="165" x2="60" y2="195" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+
+  <!-- Step 3: start -->
+  <circle cx="60" cy="220" r="22" fill="#FACC15"/>
+  <text x="60" y="228" class="step-num" text-anchor="middle">3</text>
+  <rect x="100" y="195" width="620" height="50" rx="8" fill="#3A2F1A" stroke="#FACC15"/>
+  <text x="115" y="215" class="step-cmd">$ octopus start fix-webhook-auth-bug</text>
+  <text x="115" y="233" class="step-desc">⏱️  start_date stamped (today). Idempotent — run it again, nothing changes.</text>
+
+  <line x1="60" y1="245" x2="60" y2="275" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+
+  <!-- Step 4: block -->
+  <circle cx="60" cy="300" r="22" fill="#F38BA8"/>
+  <text x="60" y="308" class="step-num" text-anchor="middle">4</text>
+  <rect x="100" y="275" width="620" height="50" rx="8" fill="#3A1F25" stroke="#F38BA8"/>
+  <text x="115" y="295" class="step-cmd">$ octopus block fix-webhook-auth-bug --reason "missing test creds"</text>
+  <text x="115" y="313" class="step-desc">🚧 issue: blocked. Also logged a dated entry into memory.md.</text>
+
+  <line x1="60" y1="325" x2="60" y2="355" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+
+  <!-- Step 5: unblock -->
+  <circle cx="60" cy="380" r="22" fill="#5EEAD4"/>
+  <text x="60" y="388" class="step-num" text-anchor="middle">5</text>
+  <rect x="100" y="355" width="620" height="50" rx="8" fill="#1F3530" stroke="#5EEAD4"/>
+  <text x="115" y="375" class="step-cmd">$ octopus unblock fix-webhook-auth-bug</text>
+  <text x="115" y="393" class="step-desc">✅ creds arrived. Cleared the impediment. Back at it.</text>
+
+  <line x1="60" y1="405" x2="60" y2="435" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+
+  <!-- Step 6: finish -->
+  <circle cx="60" cy="460" r="22" fill="#86EFAC"/>
+  <text x="60" y="468" class="step-num" text-anchor="middle">6</text>
+  <rect x="100" y="435" width="620" height="40" rx="8" fill="#1F2A1F" stroke="#86EFAC"/>
+  <text x="115" y="455" class="step-cmd">$ octopus finish fix-webhook-auth-bug</text>
+  <text x="115" y="470" class="step-desc">🎉 Moved to done/. end_date stamped. pinned cleared.</text>
+</svg>

@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" width="100%" role="img" aria-label="Octopus folder scaffold — tree view">
+  <style>
+    .mono   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; fill: #F5F5F7; }
+    .folder { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; fill: #CBA6F7; font-weight: 600; }
+    .file   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; fill: #F5F5F7; }
+    .opt    { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; fill: #8A8D9A; }
+    .tag    { font-family: -apple-system, system-ui, sans-serif; font-size: 11px; fill: #8A8D9A; }
+    .head   { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; font-weight: 600; fill: #F5F5F7; }
+    .note   { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; fill: #C4C7D2; }
+    .guide  { stroke: #3A3D48; stroke-width: 1; fill: none; }
+  </style>
+
+  <!-- Backdrop -->
+  <rect width="760" height="520" fill="#0F1014"/>
+
+  <!-- Left column: the tree -->
+  <rect x="20" y="20" width="450" height="480" rx="12" fill="#16171E" stroke="#3A3D48"/>
+
+  <!-- ROOT: project folder -->
+  <text x="40" y="56" class="folder">📁 ~/code/my-project/</text>
+  <text x="280" y="56" class="tag">— any folder on disk</text>
+
+  <!-- guide lines (tree branches) -->
+  <line x1="60" y1="66" x2="60" y2="460" class="guide"/>
+
+  <!-- child: .octopus/ -->
+  <line x1="60" y1="90" x2="78" y2="90" class="guide"/>
+  <text x="84" y="94" class="folder">📁 .octopus/</text>
+  <text x="220" y="94" class="tag">— the brain (hidden, self-contained)</text>
+
+  <!-- inner guide under .octopus/ -->
+  <line x1="100" y1="100" x2="100" y2="430" class="guide"/>
+
+  <!-- activity.md -->
+  <line x1="100" y1="124" x2="118" y2="124" class="guide"/>
+  <text x="124" y="128" class="file">📄 activity.md</text>
+  <text x="280" y="128" class="tag">required · identity card</text>
+
+  <!-- config.toml (optional) -->
+  <line x1="100" y1="152" x2="118" y2="152" class="guide"/>
+  <text x="124" y="156" class="opt">⚙️  config.toml</text>
+  <text x="280" y="156" class="tag">optional · per-activity overrides</text>
+
+  <!-- tasks/ -->
+  <line x1="100" y1="184" x2="118" y2="184" class="guide"/>
+  <text x="124" y="188" class="folder">📁 tasks/</text>
+  <text x="280" y="188" class="tag">one .md per task, sorted by bucket</text>
+
+  <!-- bucket children under tasks/ -->
+  <line x1="140" y1="194" x2="140" y2="332" class="guide"/>
+
+  <line x1="140" y1="212" x2="158" y2="212" class="guide"/>
+  <text x="164" y="216" class="file" fill="#A8C9FF">📂 backlog/</text>
+
+  <line x1="140" y1="236" x2="158" y2="236" class="guide"/>
+  <text x="164" y="240" class="file" fill="#A0E9DA">📂 next/</text>
+
+  <line x1="140" y1="260" x2="158" y2="260" class="guide"/>
+  <text x="164" y="264" class="file" fill="#F5D75F">📂 now/</text>
+
+  <line x1="140" y1="284" x2="158" y2="284" class="guide"/>
+  <text x="164" y="288" class="file" fill="#A8E5B0">📂 done/</text>
+
+  <line x1="140" y1="308" x2="158" y2="308" class="guide"/>
+  <text x="164" y="312" class="file" fill="#A0A3B0">📂 dropped/</text>
+
+  <!-- sessions/ -->
+  <line x1="100" y1="356" x2="118" y2="356" class="guide"/>
+  <text x="124" y="360" class="opt">📂 sessions/</text>
+  <text x="280" y="360" class="tag">optional · where work happened, dated</text>
+
+  <!-- handoffs/ -->
+  <line x1="100" y1="384" x2="118" y2="384" class="guide"/>
+  <text x="124" y="388" class="opt">📂 handoffs/</text>
+  <text x="280" y="388" class="tag">optional · notes for future-you / agents</text>
+
+  <!-- memory.md -->
+  <line x1="100" y1="412" x2="118" y2="412" class="guide"/>
+  <text x="124" y="416" class="opt">📄 memory.md</text>
+  <text x="280" y="416" class="tag">optional · accumulated context</text>
+
+  <!-- (rest of project — outside .octopus/) -->
+  <line x1="60" y1="450" x2="78" y2="450" class="guide"/>
+  <text x="84" y="454" class="opt">📁 …your code, your notes, anything else</text>
+  <text x="84" y="478" class="tag" fill="#6B6E7A">Octopus doesn't touch any of it.</text>
+
+  <!-- Right column: the radical bit -->
+  <rect x="490" y="20" width="250" height="480" rx="12" fill="#16171E" stroke="#3A3D48"/>
+  <text x="510" y="56" class="head">The radical bit</text>
+
+  <text x="510" y="88" class="note">No database file you</text>
+  <text x="510" y="106" class="note">can lose. Just folders</text>
+  <text x="510" y="124" class="note">and markdown.</text>
+
+  <text x="510" y="160" class="note">Move the folder?</text>
+  <text x="510" y="178" class="note" fill="#CBA6F7">→ the activity moves too.</text>
+
+  <text x="510" y="214" class="note">Open it in Obsidian?</text>
+  <text x="510" y="232" class="note" fill="#CBA6F7">→ symlink, no copy.</text>
+
+  <text x="510" y="268" class="note">Hand it to an AI agent?</text>
+  <text x="510" y="286" class="note" fill="#CBA6F7">→ it reads the same files.</text>
+
+  <text x="510" y="322" class="note">grep, find, git, diff —</text>
+  <text x="510" y="340" class="note" fill="#CBA6F7">→ all your tools just work.</text>
+</svg>

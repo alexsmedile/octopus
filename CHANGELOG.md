@@ -5,6 +5,49 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.3] — 2026-05-24
+
+**Docs split-out + README visual upgrade.** No CLI code changes — pure documentation pass that pulled three heavy sections out of the README into dedicated docs and replaced ASCII mockups with proper SVG assets (matching the lavender TUI palette).
+
+### Added
+
+- **`docs/REPO-LAYOUT.md`** — full repo tree + "where to look for what" table + conventions.
+- **`docs/TUI.md`** — full TUI keymap (movement / mutations / search), mode table, mascot behavior, scope rules, log path. The README now keeps only the mockup and a one-paragraph summary.
+- **`docs/ROADMAP.md`** — release history + phase table (with phases 30, 31 added) + per-version notes from v0.4.0 → v0.9.2.
+- **`docs/assets/`** — 7 SVG diagrams used across the README:
+  - `octopus-mascot.svg` — 16×14 pixel-art mascot generated from `BASE_REF` (transparent bg).
+  - `mental-model.svg` — hierarchical view of octopus → activity → tasks / sessions / memory / handoffs.
+  - `scaffold.svg` — `.octopus/` folder tree with bucket subfolders.
+  - `pipeline.svg` — five-bucket flow with `dropped/` as side exit.
+  - `lifecycle.svg` — six-step task lifecycle (capture → finish).
+  - `axes.svg` — five-axes 3+2 grid with custom icons (track-dots, branching, play, pin, padlock) and a bottom "derived, not stored" strip.
+  - `tui-hero.svg` — terminal mockup used as both repo hero and the TUI section preview.
+- **`docs/assets/_versions/`** — timestamped SVG snapshots so design history survives later edits.
+- **Request #33 — TUI visual redesign** (`.spectacular/requests/33-tui-visual-redesign/PLAN.md`). Opens the design-transfer work from `tui-hero.svg` into the live Textual UI. Status: open, awaiting Alessandro's triage of 28 candidate elements.
+
+### Changed
+
+- **README.md** slimmed **819 → 418 lines** (-49%). Same information density at the top; long reference content moved to `docs/`.
+  - Replaced 5 inline SVGs in the wrong coral/peach palette with `<img>` refs to the new lavender assets.
+  - Mental-model ASCII tree → `mental-model.svg`.
+  - Folder-scaffold inline SVG → `scaffold.svg` (now tree-shaped with proper guide lines).
+  - Pipeline / lifecycle / axes inline SVGs → matching files in `docs/assets/`.
+  - Tiny ASCII TUI mock in **Daily driver — the TUI** → full `tui-hero.svg` mockup (which now also doubles as the repo hero, placed above the pitch).
+  - **"Where things live in this repo"** — long 27-line tree + paragraph → one sentence + link to `docs/REPO-LAYOUT.md`.
+  - **"Daily driver — the TUI"** — kept the mockup + one-paragraph summary; full keymap moved to `docs/TUI.md`.
+  - **"Status & what's next"** — long release log + phase table → one paragraph (latest version + current phase + v1 gate) + link to `docs/ROADMAP.md`.
+  - **`~/code/shift`** placeholder replaced with **`~/code/my-project`** throughout (init output, `octopus where` example, prose).
+  - Removed the early `> [!NOTE]` "the protocol is the product" block from the top (too dev-heavy for the intro); re-added as "A note for the curious" at the bottom.
+- **Badge colors** updated to match the new palette (lavender / mint).
+- **`cli/pyproject.toml`** version `0.9.2 → 0.9.3` to keep CLI and docs releases aligned.
+
+### Fixed
+
+- `axes.svg` and `lifecycle.svg` had clipped bottom margins (last line cut off) — viewBox heights extended.
+- `octopus-mascot.svg` no longer paints a `#0F1014` background — transparent, lets the GitHub theme show through.
+
+---
+
 ## [0.9.2] — 2026-05-24
 
 **Animated TUI mascot** (#31 done). The static octo in the TUI header is now alive: a continuously-breathing idle state with decoupled blink channel, plus two event-triggered animations that play on top of user actions.
