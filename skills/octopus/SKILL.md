@@ -1,7 +1,7 @@
 ---
 name: octopus
 description: Use when capturing, planning, focusing, starting, finishing, dropping, blocking, or reviewing tasks; querying open loops, stuck items, or the current activity; managing the .octopus/ folder system on disk; recording sessions; writing memory or handoffs. Folder-native, CLI-driven (octopus / octo); prefer verbs over hand-editing.
-version: 0.3.0
+version: 0.4.0
 category: productivity
 status: active
 tags: [activities, tasks, sessions, memory, handoffs, local-first, agents, cli, folder-native]
@@ -73,6 +73,7 @@ This is a verb directory only. For flags, exit codes, and full examples, load `r
 | Attention & visibility | `pin`, `unpin`, `archive`, `restore` |
 | Editing | `set`, `rename`, `mv` |
 | Promotion | `promote` (Octopus → Spectacular and other targets) |
+| Bridges | `bridge list / enable / disable / status / peek / pull / search` |
 | Inspection | `show`, `task list`, `task show` |
 | Views | `loops`, `today`, `stuck`, `stale`, `context`, `list --kind/--promoted/--spec` |
 | Sessions | `session start`, `log`, `end`, `switch`, `list`, `show`, `prune` |
@@ -95,6 +96,7 @@ When the user's request crosses any threshold below, read the named reference **
 | Draft a handoff body or fill handoff frontmatter | `references/schemas/handoff.md` |
 | Choose a CLI verb or flag, or interpret an exit code | `references/cli-verbs.md` |
 | Debug a CLI validation error or check an invariant before writing | `references/critical-dependencies.md` |
+| Set up, peek into, pull from, or search a bridge/adapter | `references/adapter-framework.md` |
 
 Triggers:
 
@@ -330,8 +332,19 @@ promoted (2)
 
 ## Bridges (v1 scope)
 
-- **Obsidian**: `octopus link` symlinks `.octopus/` into a configured vault location. Read-only viewing layer.
-- **Apple Reminders**: pull-only import in v1. No two-way sync.
-- **Claude Code plugin**: this repo IS the plugin. Slash commands (`/octopus:start`, `/octopus:end`, `/octopus:handoff`, `/octopus:where`, `/octopus:memory`, `/octopus:log`) wrap the CLI.
+Adapters bridge Octopus to external systems. v1 ships pull-only. Operating via the `octopus bridge` verb group (`list / enable / disable / status / peek / pull / search`).
 
-Two-way external sync (Reminders, GitHub, ICS) is v2.
+Two distinct verbs for reading:
+- **`peek`** — read-only display, no files created. Safe exploration.
+- **`pull`** — imports as Octopus task files, deduped via `task_external_refs`.
+
+When the user wants to "see what's there" → `peek`. When they want to "bring it in" → `pull`. For full operational guidance, see `references/adapter-framework.md`.
+
+### Adapters shipping with v1
+
+- **Obsidian** (#07): viewer via symlinks. `octopus link` symlinks `.octopus/` into a configured vault location. Read-only.
+- **Apple Reminders** (#09): pull-only via `osascript`. Pulls from configured `lists`.
+- **TODO.md** (#21): pull-only. Reads `- [ ]` lines from `TODO.md` at activity root.
+- **Claude Code plugin**: NOT an adapter — it's a *client* of Octopus. Slash commands (`/octopus:start`, `/octopus:end`, `/octopus:handoff`, `/octopus:where`, `/octopus:memory`, `/octopus:log`) wrap the CLI.
+
+Two-way external sync (Reminders push, GitHub, ICS) is v2.

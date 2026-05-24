@@ -101,6 +101,67 @@ octopus mv <slug> <bucket>
   Move a task to a different bucket explicitly (bypasses pipeline verbs).
 ```
 
+## Bridges (adapters)
+
+```
+octopus bridge list [--verbose|-v]
+  Show all registered adapters with enabled status + health.
+
+octopus bridge enable <name> [adapter-flags]
+  Enable an adapter; write its config. Per-adapter flags
+  (--vault, --list, --repo, etc.) dispatched via sub-app.
+  validate_config() runs first; bad config → exit 3.
+
+octopus bridge disable <name>
+  Disable; keep settings. Re-enable is one command.
+
+octopus bridge status [<name>] [--verbose|-v]
+  Health check. No name = all bridges (table). With name = full block.
+
+octopus bridge peek <name> [--list NAME[,NAME...]] [--capture-all]
+  READ-ONLY display of what the adapter sees. No files created.
+  No default list AND no flag → discovery mode (lists available groups).
+
+octopus bridge pull <name> [--list NAME[,NAME...]] [--capture-all]
+  Import as Octopus tasks. Deduped via task_external_refs.
+  No default list AND no flag → exit 3 (would create unbounded files).
+
+octopus bridge search <name> <query> [--list NAME] [--capture-all]
+  Adapter-side search. No imports. Adapters with API use it;
+  others fall back to peek + filter.
+```
+
+### Group flag matrix (peek / pull / search)
+
+| Config `lists` | Flag | Result |
+|---|---|---|
+| `[]` | none | peek → discovery; pull/search → exit 3 |
+| `["A"]` | none | use `["A"]` |
+| `["A","B"]` | none | use both |
+| any | `--list X` | use `["X"]` (override) |
+| any | `--list X,Y` | use both |
+| any | `--capture-all` | use everything `list_groups()` returns |
+| any | `--list X --capture-all` | exit 1 (mutually exclusive) |
+
+### Per-adapter flag names
+
+`--list` for Reminders, `--repo` for GitHub, `--calendar` for ICS. TODO.md has no flag (single file). Each adapter's Typer sub-app advertises its flags via `octopus bridge pull <name> --help`.
+
+### Capability gating
+
+| Capability | Verb requires it |
+|---|---|
+| `PULL` | `peek`, `pull`, `search` |
+| `PUSH` | `push` (not in v1 CLI surface) |
+| `NOTIFY` | flag-only in v1 |
+| `RECONCILE` | flag-only in v1 |
+
+Missing capability → exit 1.
+
+### Hidden alias
+
+`octopus adapter ...` resolves to `octopus bridge ...`. Not advertised.
+
 ## Promotion
 
 ```

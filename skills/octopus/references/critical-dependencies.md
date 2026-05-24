@@ -183,6 +183,48 @@ Filenames are CLI-owned. Hand-renaming a file breaks the index and any cross-ref
 - On promote, body replaced entirely with the hard-coded 3-line stub. `bucket: done` set. File moved to `tasks/done/<slug>.md`. `end_date: <today>` set.
 - Scaffolds the request if absent. `promoted_from` records the first listed task. Not cleared on repoint.
 
+### Rule X7a — Adapter framework invariants (D56–D66)
+
+**Config / enable / disable:**
+- `[adapters.<name>] enabled = true` requires matching `bridges/<name>.toml` (exit 3 if missing).
+- `octopus bridge enable` runs `adapter.validate_config()` first; rejection aborts.
+- `octopus bridge disable` flips flag, keeps the bridge config file.
+- `bridges/<name>.toml` without main-config section is tolerated (parked settings).
+
+**Capability gating:**
+- `peek` / `pull` / `search` require `Capability.PULL` declared by the adapter (exit 1 otherwise).
+- `push` requires `Capability.PUSH` (not v1 surface).
+- `NOTIFY` / `RECONCILE` are flag-only in v1 — no gating.
+
+**Flag matrix (peek/pull/search):**
+- `--list` and `--capture-all` mutually exclusive (exit 1).
+- `lists = []` + no flag + `pull`/`search` → exit 3.
+- `lists = []` + no flag + `peek` → discovery (list available groups, no error).
+- `--list X` where X not in `list_groups()` → exit 3.
+
+**Pull pipeline:**
+- Every materialized task sets: `actor=human`, `imported_from=<adapter>`, `import_date=<today>`, `external_refs.<adapter>=<external_id>`.
+- `bucket` defaults to `ExternalTask.suggested_bucket` or `"backlog"`.
+- Dedup checks `task_external_refs (adapter, external_id)` before creation. Match → skip (not error).
+- Target activity: `default_activity` (bridge config) → cwd activity → exit 2.
+- Partial-pull continues; all-failed → exit 4.
+
+**Dedup index (schema v3):**
+- `upsert_task` keeps `task_external_refs` in sync with frontmatter's `external_refs`.
+- On UPDATE: delete + re-insert all refs for that `task_id`.
+- v2 → v3 migration backfills from existing tasks.
+- `(adapter, external_id)` PK — duplicate insert is integrity error.
+
+**Sync journal:**
+- `~/.local/share/octopus/sync/<name>.json` is canonical state per adapter.
+- `adapter.status()` reads; pipeline writes after pull/push.
+- Cursor is opaque to framework — adapter sets, framework persists.
+
+**Registry:**
+- Built-in REGISTRY wins over entry-point contributions with same name.
+- Entry-point load exception → log + skip; never aborts registry load.
+- Stub adapters (Obsidian/Reminders/TODO.md in #06) return clear "not implemented" errors from every method.
+
 ### Rule X7 — Reindex of `related_tasks` (D54)
 
 - `related_tasks:` on request PLAN.md is DERIVED, not authored. Hand-edits are overwritten on next reindex.

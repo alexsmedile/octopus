@@ -35,19 +35,22 @@ Top-to-bottom; commit per group (or small cluster) so the migration is reviewabl
 - [x] `SCHEMA-INDEX.md` — `task_external_refs` table + indexes for `kind` and `promoted_to` (carry-over from D46/D48); user_version = 3
 - [ ] `PRD.md` §7.1 sync — deferred to ship phase (Group 13)
 
-## Group 3 — Skill mirror
+## Group 3 — Skill mirror ✅
 
-- [ ] `skills/octopus/references/adapter-framework.md` — new file
-  - One-paragraph summary of what an adapter does
-  - The five-ish useful commands
-  - `peek` vs `pull` distinction
-  - Per-adapter flag naming convention
-- [ ] `skills/octopus/references/cli-verbs.md` — mirror `bridge` verbs
-- [ ] `skills/octopus/references/critical-dependencies.md` — mirror new rules (X8-Xn)
-- [ ] `skills/octopus/SKILL.md` — add "Bridges (adapters)" section explaining the seam
-  - Verb index update — add "Bridges" group
-  - When to use peek vs pull
-  - How adapter pull integrates with the existing capture/backlog flow
+- [x] `skills/octopus/references/adapter-framework.md` — new file (~180 lines)
+  - Plain-English explanation
+  - All seven commands with examples
+  - `peek` vs `pull` distinction (incl. peek-discovery mode)
+  - Group selection (config + flags), per-adapter flag naming
+  - Pull pipeline behavior (provenance + dedup)
+  - Exit codes, when-to-use heuristics, adapter status reference
+- [x] `skills/octopus/references/cli-verbs.md` — new "Bridges (adapters)" section: full command reference + flag matrix + capability gating + hidden alias
+- [x] `skills/octopus/references/critical-dependencies.md` — new rule X7a covering config, capability gating, flag matrix, pipeline, dedup, journal, registry
+- [x] `skills/octopus/SKILL.md`:
+  - Verb index — "Bridges" group added
+  - Load-on-demand row for `adapter-framework.md`
+  - "Bridges (v1 scope)" section rewritten — peek vs pull, three v1 adapters, Claude plugin as client not adapter
+  - Version bump 0.3.0 → 0.4.0
 
 ## Group 4 — Code: protocol + data types
 
