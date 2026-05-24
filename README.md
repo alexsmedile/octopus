@@ -42,7 +42,7 @@ octopus capture "fix the webhook auth bug" --now
 
 That's it. The folder is now a tracked **activity**. Tasks live inside it as plain markdown files. State travels with the folder. Move it, rename it, sync it through Dropbox — the activity moves too.
 
-Open the same folder in Obsidian? Symlink it. Open it in the terminal? `octopus where`. Hand it to Claude Code? The agent reads the same files. **Every viewer is just a lens on the same disk truth.**
+Open the same folder in Obsidian? Open it in the terminal? `octopus where`. Hand it to Claude Code? The agent reads the same files. **Every viewer is just a lens on the same disk truth.**
 
 ---
 
@@ -54,7 +54,8 @@ Open the same folder in Obsidian? Symlink it. Open it in the terminal? `octopus 
 
 </div>
 
-Three nouns, one orchestrator. Read it as **Octopus → activity → task**:
+**Octopus → activity → task.**
+That's the whole shape.
 
 - **Octopus** is the omnipresent entity. Invoke it from the terminal, or hand it to any agent.
 - An **activity** is a position — a folder containing `.octopus/activity.md`. Self-describing, portable, git-trackable.
@@ -80,7 +81,8 @@ How commands flow follows the hierarchy:
   octopus where              → "you are in <activity>"
 ```
 
-The split: **`list` is context-aware** (defaults to whichever level you're at). **`list tasks` and `list activities` are explicit overrides** when you want the other axis.
+> [!TIP]
+> **`list` is context-aware** (defaults to whichever level you're at). **`list tasks` and `list activities` are explicit overrides** when you want the other axis.
 
 If a folder you're in contains sub-folders with their own `.octopus/`, the inner ones are *visible to the index* but `list tasks` from the outer activity does not recurse into them — they're separate activities. You'd see them via `list activities`.
 
@@ -90,15 +92,15 @@ If a folder you're in contains sub-folders with their own `.octopus/`, the inner
 
 We tried the alternatives. Each one solved one slice and broke three others:
 
-| | Captures fast | Holds context | Lives with the work | Knows your AI sessions |
-|---|:-:|:-:|:-:|:-:|
-| Apple Reminders | ✅ | ❌ | ❌ | ❌ |
-| Obsidian | ⚠️ | ✅ | ⚠️ | ❌ |
-| Random `TODO.md` | ✅ | ⚠️ | ✅ | ❌ |
-| SaaS task apps | ✅ | ✅ | ❌ | ❌ |
-| **Octopus** | ✅ | ✅ | ✅ | ✅ |
+| | Captures fast | Holds context | Lives with the work | Lives in git | Hands off to agents |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Apple Reminders | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Obsidian | ⚠️ | ✅ | ⚠️ | ⚠️ | ⚠️ |
+| Random `TODO.md` | ✅ | ⚠️ | ✅ | ✅ | ⚠️ |
+| SaaS task apps | ✅ | ✅ | ❌ | ❌ | ⚠️ |
+| **Octopus** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-The fracture is the problem. Octopus is the seam.
+Octopus closes the gap between where work lives and where it's tracked.
 
 ---
 
