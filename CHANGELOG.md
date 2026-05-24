@@ -5,6 +5,52 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.7.0] — 2026-05-24
+
+**Index hygiene** (#30 done). New `octopus forget activity` verb to remove an activity from the index without touching files (or with `--archive` to also move files to `_archive/`). Archived activities now hidden by default from `list --all`. One-time cleanup of accumulated test/smoke entries pruned 577 stale rows.
+
+This release also introduces the **`forget` Typer sub-app** as the canonical home for index-removal verbs. Today: `forget activity`. Future-stable: `forget task` if real demand surfaces.
+
+### Added
+
+- **`octopus forget activity <path-or-id> [--archive] [-y]`** (D83) — remove an activity from the SQLite index.
+  - Files on disk are NOT touched by default.
+  - `--archive` (or `--also-archive`) moves the activity folder to `<parent>/_archive/<name>/`.
+  - `-y` skips the interactive prompt. **`-y` alone does NOT imply archive** — it's the "yes, just forget" affirmation. Combine with `--archive` to do both.
+  - Interactive prompt when neither flag is given; suggests both flag-form equivalents for next time.
+  - Path-or-id auto-detection: tokens starting with `/`, `~`, or containing `/` → resolved as filesystem path; otherwise → resolved as activity ID (exact match or unambiguous prefix).
+- **`octopus core.identify`** — shared path-or-id resolver. Will be reused by #26 (`add task --activity`) and #27 (`status / list tasks / get activity` with `<path-or-id>`).
+- **`--include-archived` flag on `octopus list`** — surface archived activities (hidden by default).
+- **19 new tests** in `tests/test_index_hygiene.py`. Total suite **508 passing** (was 489).
+
+### Changed
+
+- **Archived activities hidden by default** in `list_activities()` query (D83). The default cross-activity `list` and `list --all` now exclude any activity with `status: archived`. Use `--include-archived` to show them, or `--status archived` for archived-only.
+- **`SchemA_VERSION` unchanged** at 3 — no schema migration needed; the change is purely query-level.
+
+### Migration
+
+- Existing databases: no schema migration. Archived activities (if any) silently disappear from default `list --all` output on first use of 0.7.0. To check what got hidden: `octopus list --all --include-archived`.
+
+### Smoke / one-time cleanup
+
+If your global index accumulated test/smoke noise:
+
+```bash
+# Remove any stale roots
+octopus config root remove /tmp/some-stale-root
+
+# Drop rows whose source files are gone
+octopus reindex --prune
+
+# Forget specific activities you no longer want indexed
+octopus forget activity <id-or-path> [-y] [--archive]
+```
+
+This release was tested by cleaning 577 stale rows from the dev box's index in one pass.
+
+---
+
 ## [0.6.1] — 2026-05-24
 
 **Skill documentation patch.** Brings `skills/octopus/SKILL.md` and its references up to date with the v0.3.0 → v0.6.0 surface (kind enum, task promotion, adapter framework, three adapters, capture/edit polish). No code changes; agents using this skill now see the full v0.6.0 verb set, the tag flag matrix, the slug-rename cascade, the `set` vs `mv` boundary, and the corrected legacy-field rules.

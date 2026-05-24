@@ -1321,3 +1321,54 @@ This restores the orthogonality the AXIS-MODEL is supposed to enforce. Behavior 
 `## References` reappears as a section when the user wants it — manually or via a future `--body` flag (deferred to #26).
 
 Rationale: defaulting to a hardcoded section adds noise to every task. Empty is the honest default.
+
+---
+
+## D83 — `forget activity` verb + archived-by-default in list views
+
+**Date:** 2026-05-24
+**Request:** #30
+
+### Locked
+
+New verb `octopus forget activity <path-or-id>` removes an activity from the
+SQLite index. Files on disk are NOT touched by default. Optional `--archive`
+flag moves files to `<activity-parent>/_archive/<name>/`.
+
+Resolution: path-or-id auto-detect. If the token starts with `/`, `~`, or
+contains `/`, treat as a filesystem path; otherwise treat as activity ID
+(or unambiguous prefix).
+
+Flags:
+- `--archive` / `--also-archive` — move files to `_archive/` as well as forgetting.
+- `-y` — skip the interactive prompt. **Does NOT imply archive.** Bare `-y`
+  forgets without archiving; combine with `--archive` to archive too.
+
+Flag matrix:
+- `--archive` + `-y` → forget + archive, no prompt
+- `--archive` alone → forget + archive (no prompt needed; intent is explicit)
+- `-y` alone → forget, do NOT archive, no prompt
+- neither flag → interactive prompt "Also archive files to _archive/? [y/N]";
+  suggests both flag-form equivalents for next time
+
+Behavior:
+- Always: delete the row from `activities` table. SQLite CASCADE drops
+  related `tasks` and `task_external_refs` rows.
+- With `--archive`: also move the activity folder to `<parent>/_archive/<name>/`.
+- Re-running on an already-forgotten activity errors with "activity not in index".
+
+**Activities only.** Tasks have their own lifecycle (`archive`/`drop`/`done`).
+The verb noun is explicit (`forget activity`, not `forget`) — future-stable
+for `forget task <slug>` if real demand ever surfaces.
+
+### Archived-by-default in list views
+
+Activities with `status: archived` are hidden by default in:
+- `octopus list` / `octopus list activities` / `octopus list --all`
+- `octopus dashboard` (when #27 ships)
+- `octopus next` / `octopus impact` (when #27 ships)
+
+Override flag: `--include-archived`.
+
+The user can always look at a specific archived activity by name via
+`octopus status <id>` or `octopus list tasks <id>`.

@@ -12,13 +12,22 @@ def list_activities(
     status: str | None = None,
     type_: str | None = None,
     area: str | None = None,
+    include_archived: bool = False,
 ) -> list[sqlite3.Row]:
-    """Backing query for `octopus list` (cross-activity mode)."""
+    """Backing query for `octopus list` (cross-activity mode).
+
+    D83: archived activities are hidden by default. Pass include_archived=True
+    to surface them. An explicit `status='archived'` filter wins over the
+    default-hide (lets the user list archived ones explicitly).
+    """
     sql = "SELECT * FROM activities WHERE 1=1"
     args: list[Any] = []
     if status:
         sql += " AND status = ?"
         args.append(status)
+    elif not include_archived:
+        # D83: hide archived by default when no explicit status filter
+        sql += " AND (status IS NULL OR status != 'archived')"
     if type_:
         sql += " AND type = ?"
         args.append(type_)

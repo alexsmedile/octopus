@@ -975,6 +975,100 @@ def mv(
     _move_impl(slug, bucket)
 
 
+# ── forget activity (D83) ────────────────────────────────────────────
+
+
+forget_app = typer.Typer(help="Forget (untrack) an activity from the index.")
+app.add_typer(forget_app, name="forget")
+
+
+@forget_app.command("activity")
+def forget_activity_cmd(
+    target: str = typer.Argument(..., help="Activity path, ID, or unambiguous ID prefix."),
+    archive: bool = typer.Option(
+        False, "--archive", "--also-archive",
+        help="Also move the activity folder to <parent>/_archive/<name>/.",
+    ),
+    yes: bool = typer.Option(False, "-y", help="Skip the interactive prompt."),
+) -> None:
+    """Remove an activity from the SQLite index.
+
+    Files on disk are NOT touched by default. Pass --archive to also move
+    the folder to <parent>/_archive/<name>/.
+
+    Resolution (D83):
+      - Token starting with `/`, `~`, or containing `/` → filesystem path.
+      - Otherwise → activity ID (exact match or unambiguous prefix).
+    """
+    from octopus.actions import ActionError, forget_activity
+    from octopus.core.identify import (
+        ActivityAmbiguous,
+        ActivityNotFound,
+        resolve_activity,
+    )
+
+    try:
+        activity = resolve_activity(target)
+    except ActivityNotFound as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+    except ActivityAmbiguous as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        err_console.print("    Pass a more specific prefix or the full id.")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+
+    activity_path = Path(activity["path"])
+
+    # Decide archive intent.
+    # - --archive (with or without -y) → archive
+    # - -y alone → skip prompt, do NOT archive (the conservative default)
+    # - neither flag → prompt interactively
+    will_archive: bool
+    if archive:
+        will_archive = True
+    elif yes:
+        # `-y` skips the prompt; the prompt's default was "no archive"
+        # so `-y` alone also means "no archive". For explicit archive,
+        # combine: `--archive -y`.
+        will_archive = False
+    else:
+        console.print(
+            f"\nForget activity [bold cyan]{activity['id']}[/]?"
+            f"\n  Path:  {activity_path}"
+            f"\n  Files on disk will not be touched."
+        )
+        console.print(
+            "\n  [dim]To skip this prompt next time:"
+            f"\n    octopus forget activity {target} -y           # forget without archiving"
+            f"\n    octopus forget activity {target} --archive -y # also archive[/]"
+        )
+        if typer.confirm("\nAlso archive files to _archive/?", default=False):
+            will_archive = True
+        else:
+            will_archive = False
+
+    try:
+        result = forget_activity(activity, archive_files=will_archive)
+    except ActionError as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+
+    console.print(
+        f"[green]✓[/] forgot activity [bold]{result.activity_id}[/]"
+    )
+    counts = result.rows_removed
+    console.print(
+        f"  removed {counts['activities']} activity row · "
+        f"{counts['tasks']} tasks · "
+        f"{counts['sessions']} sessions · "
+        f"{counts['task_external_refs']} external refs"
+    )
+    if result.archived and result.archive_destination is not None:
+        console.print(f"  files archived → [dim]{result.archive_destination}[/]")
+    else:
+        console.print(f"  files left at [dim]{activity_path}[/] (untouched)")
+
+
 # ── refs find (D79) ───────────────────────────────────────────────────
 
 
@@ -1951,9 +2045,18 @@ def list_cmd(
         None, "--spec",
         help="Scope override: only tasks promoted to spectacular:<slug>.",
     ),
+    include_archived: bool = typer.Option(
+        False, "--include-archived",
+        help="Include activities with status: archived (hidden by default — D83).",
+    ),
     show_ids: bool = typer.Option(False, "--show-ids", "-i", help="Reveal full activity IDs."),
 ) -> None:
-    """List activities or tasks. Context-aware (use --all to force cross-activity)."""
+    """List activities or tasks. Context-aware (use --all to force cross-activity).
+
+    D83: Activities with `status: archived` are hidden by default;
+    pass `--include-archived` to show them, or `--status archived` for
+    archived-only.
+    """
     cwd_activity = None if all_ else find_activity_root(Path.cwd())
     kinds = [k.strip() for k in kind.split(",")] if kind else None
     # --promoted / --spec force a task listing even at cross-activity scope
@@ -1987,7 +2090,10 @@ def list_cmd(
                 )
                 _print_task_rows(rows, show_ids=show_ids, show_activity=True)
             else:
-                rows = db_list_activities(conn, status=status, type_=type_, area=area)
+                rows = db_list_activities(
+                    conn, status=status, type_=type_, area=area,
+                    include_archived=include_archived,
+                )
                 _print_activity_rows(conn, rows, show_ids=show_ids)
     finally:
         conn.close()

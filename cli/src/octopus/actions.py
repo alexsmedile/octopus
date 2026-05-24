@@ -526,3 +526,84 @@ def promote_task(
         scaffolded=scaffolded,
         request_path=request_plan_path,
     )
+
+
+# ── forget activity (D83) ──────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ForgetResult:
+    activity_id: str
+    activity_path: Path
+    archived: bool
+    archive_destination: Path | None
+    rows_removed: dict[str, int]   # {table: count} for activities/tasks/sessions/refs
+
+
+def forget_activity(
+    activity: dict,
+    *,
+    archive_files: bool,
+) -> ForgetResult:
+    """Remove an activity from the index. Optionally archive its files.
+
+    `activity` is the row dict returned by `resolve_activity`. Caller is
+    responsible for resolving the token (path-or-id) before calling.
+
+    Behavior:
+    - Always: delete the row from `activities`. SQLite CASCADE clears
+      related rows in `tasks`, `task_external_refs`, and `sessions`.
+    - If `archive_files=True`: move the activity folder to
+      `<parent>/_archive/<name>/`.
+    """
+    import shutil
+
+    from octopus.db.connection import get_db
+
+    activity_id = activity["id"]
+    activity_path = Path(activity["path"])
+
+    # Count what we'll remove (for reporting), then delete.
+    conn = get_db()
+    try:
+        task_count = conn.execute(
+            "SELECT COUNT(*) FROM tasks WHERE activity_id = ?", (activity_id,)
+        ).fetchone()[0]
+        session_count = conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE activity_id = ?", (activity_id,)
+        ).fetchone()[0]
+        # task_external_refs counts: refs whose task belongs to this activity.
+        ref_count = conn.execute(
+            "SELECT COUNT(*) FROM task_external_refs r "
+            "JOIN tasks t ON t.id = r.task_id WHERE t.activity_id = ?",
+            (activity_id,),
+        ).fetchone()[0]
+
+        conn.execute("DELETE FROM activities WHERE id = ?", (activity_id,))
+    finally:
+        conn.close()
+
+    archive_destination: Path | None = None
+    if archive_files and activity_path.is_dir():
+        parent_archive = activity_path.parent / "_archive"
+        parent_archive.mkdir(parents=True, exist_ok=True)
+        archive_destination = parent_archive / activity_path.name
+        if archive_destination.exists():
+            raise ActionError(
+                f"archive destination already exists: {archive_destination}; "
+                "rename or remove it first"
+            )
+        shutil.move(str(activity_path), str(archive_destination))
+
+    return ForgetResult(
+        activity_id=activity_id,
+        activity_path=activity_path,
+        archived=archive_files,
+        archive_destination=archive_destination,
+        rows_removed={
+            "activities": 1,
+            "tasks": task_count,
+            "sessions": session_count,
+            "task_external_refs": ref_count,
+        },
+    )
