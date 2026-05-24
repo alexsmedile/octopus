@@ -175,7 +175,7 @@ Tasks have several independent ways of being "in motion." Each one answers a dif
 
 <div align="center">
 
-<img src="docs/assets/axes.v6.svg" width="100%" alt="Task axes — pipeline, domain workflow, runtime, attention, impediment, visibility."/>
+<img src="docs/assets/axes.v7.svg" width="100%" alt="Task axes — pipeline, domain workflow, runtime, attention, impediment, visibility."/>
 
 </div>
 

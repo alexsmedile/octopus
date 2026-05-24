@@ -26,8 +26,8 @@
         --chip-fg: #FFFFFF;
         --vis-bg: rgba(255, 246, 214, 0.45);
         --vis-stroke: #B58A0F;
-        --derived-bg: #DCFAF3;
-        --derived-stroke: #1FA587;
+        --derived-bg: rgba(140, 144, 158, 0.10);
+        --derived-stroke: #C4C7D2;
       }
       @media (prefers-color-scheme: dark) {
         svg {
@@ -55,8 +55,8 @@
           --chip-fg: #0F1014;
           --vis-bg: rgba(58, 47, 26, 0.35);
           --vis-stroke: #FACC15;
-          --derived-bg: #1F5546;
-          --derived-stroke: #5EEAD4;
+          --derived-bg: rgba(140, 144, 158, 0.08);
+          --derived-stroke: #4A4D58;
         }
       }
       .canvas-bg { fill: var(--panel-bg); }
