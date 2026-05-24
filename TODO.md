@@ -1,10 +1,21 @@
 ---
-updated: 2026-05-23
+updated: 2026-05-24
 ---
 
-# TODO — deferred items
+# TODO
 
-Ideas surfaced during design but explicitly **not in v1**. Captured here so they're not lost. Each item names what would re-open the question.
+Two zones in this file:
+
+1. **`## Friction`** — the live capture surface. Items here are pulled by `octopus bridge pull todo-md` (configured with `section_filter = ["friction"]`). Add anything that bugs you, misses, or feels wrong while using the system. Drop the rest of this section's surface to triage them.
+2. **Everything below** — deferred design ideas surfaced during v1 work. **Not** pulled into the backlog. Re-open notes per item.
+
+---
+
+## Friction
+
+<!-- Add `- [ ]` items here. They get pulled into the backlog on `octopus bridge pull todo-md`. -->
+
+
 
 ---
 
