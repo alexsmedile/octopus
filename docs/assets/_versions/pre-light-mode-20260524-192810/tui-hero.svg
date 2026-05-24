@@ -27,6 +27,9 @@
     .tag    { font-size: 10px; font-weight: 600; }
   </style>
 
+  <!-- backdrop -->
+  <rect width="980" height="560" fill="#06070A"/>
+
   <!-- terminal window -->
   <g filter="url(#winShadow)">
     <rect x="20" y="20" width="940" height="520" rx="14" fill="url(#winBg)" stroke="#2A2D38" stroke-width="1"/>

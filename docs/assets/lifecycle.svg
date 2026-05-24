@@ -1,69 +1,110 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 510" width="100%" role="img" aria-label="A typical task lifecycle">
   <defs>
     <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#8A8D9A"/>
+      <path d="M0,0 L10,5 L0,10 z" class="arr-fill"/>
     </marker>
+    <style>
+      :root {
+        --fg: #1A1B22;
+        --muted: #3A3D48;
+        --dim: #6B6E7A;
+        --line: #9CA0AE;
+        --fill-blue:   #E8F0FB;
+        --fill-teal:   #DCFAF3;
+        --fill-yellow: #FBF2D4;
+        --fill-pink:   #FCE4EB;
+        --fill-green:  #DEF5E2;
+        --dot-blue:   #3D7CC4;
+        --dot-teal:   #1FA587;
+        --dot-yellow: #B58A0F;
+        --dot-pink:   #C9466B;
+        --dot-green:  #2A8A3F;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #F5F5F7;
+          --muted: #C4C7D2;
+          --dim: #8A8D9A;
+          --line: #5A5D6A;
+          --fill-blue:   #1F2A3A;
+          --fill-teal:   #1F3530;
+          --fill-yellow: #3A2F1A;
+          --fill-pink:   #3A1F25;
+          --fill-green:  #1F2A1F;
+          --dot-blue:   #7AB8FF;
+          --dot-teal:   #5EEAD4;
+          --dot-yellow: #FACC15;
+          --dot-pink:   #F38BA8;
+          --dot-green:  #86EFAC;
+        }
+      }
+      .step-num  { font-family: -apple-system, system-ui, sans-serif; font-size: 22px; font-weight: 800; fill: #FFFFFF; }
+      .step-cmd  { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; fill: var(--fg); font-weight: 600; }
+      .step-desc { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; fill: var(--muted); }
+      .ln { stroke: var(--line); stroke-width: 2; fill: none; }
+      .arr-fill { fill: var(--line); }
+      .row-blue   { fill: var(--fill-blue);   stroke: var(--dot-blue); }
+      .row-teal   { fill: var(--fill-teal);   stroke: var(--dot-teal); }
+      .row-yellow { fill: var(--fill-yellow); stroke: var(--dot-yellow); }
+      .row-pink   { fill: var(--fill-pink);   stroke: var(--dot-pink); }
+      .row-green  { fill: var(--fill-green);  stroke: var(--dot-green); }
+      .c-blue   { fill: var(--dot-blue); }
+      .c-teal   { fill: var(--dot-teal); }
+      .c-yellow { fill: var(--dot-yellow); }
+      .c-pink   { fill: var(--dot-pink); }
+      .c-green  { fill: var(--dot-green); }
+    </style>
   </defs>
-  <style>
-    .step-num { font-family: -apple-system, system-ui, sans-serif; font-size: 22px; font-weight: 800; fill: #0F1014; }
-    .step-cmd { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; fill: #F5F5F7; font-weight: 600; }
-    .step-meta { font-family: ui-monospace, monospace; font-size: 11px; fill: #8A8D9A; }
-    .step-desc { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; fill: #C4C7D2; }
-  </style>
-
-  <!-- Backdrop -->
-  <rect width="760" height="510" fill="#0F1014"/>
 
   <!-- Step 1: capture -->
-  <circle cx="60" cy="60" r="22" fill="#7AB8FF"/>
+  <circle class="c-blue" cx="60" cy="60" r="22"/>
   <text x="60" y="68" class="step-num" text-anchor="middle">1</text>
-  <rect x="100" y="35" width="620" height="50" rx="8" fill="#1F2A3A" stroke="#7AB8FF"/>
+  <rect class="row-blue" x="100" y="35" width="620" height="50" rx="8"/>
   <text x="115" y="55" class="step-cmd">$ octopus capture "fix the webhook auth bug"</text>
   <text x="115" y="73" class="step-desc">📥 A file appears: .octopus/tasks/backlog/fix-webhook-auth-bug.md</text>
 
-  <!-- arrow -->
-  <line x1="60" y1="85" x2="60" y2="115" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+  <line class="ln" x1="60" y1="85" x2="60" y2="115" marker-end="url(#arr2)"/>
 
   <!-- Step 2: focus -->
-  <circle cx="60" cy="140" r="22" fill="#5EEAD4"/>
+  <circle class="c-teal" cx="60" cy="140" r="22"/>
   <text x="60" y="148" class="step-num" text-anchor="middle">2</text>
-  <rect x="100" y="115" width="620" height="50" rx="8" fill="#1F3530" stroke="#5EEAD4"/>
+  <rect class="row-teal" x="100" y="115" width="620" height="50" rx="8"/>
   <text x="115" y="135" class="step-cmd">$ octopus focus fix-webhook-auth-bug</text>
   <text x="115" y="153" class="step-desc">🎯 Moved to tasks/now/. Pinned: true. Sorts to top of every list.</text>
 
-  <line x1="60" y1="165" x2="60" y2="195" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+  <line class="ln" x1="60" y1="165" x2="60" y2="195" marker-end="url(#arr2)"/>
 
   <!-- Step 3: start -->
-  <circle cx="60" cy="220" r="22" fill="#FACC15"/>
+  <circle class="c-yellow" cx="60" cy="220" r="22"/>
   <text x="60" y="228" class="step-num" text-anchor="middle">3</text>
-  <rect x="100" y="195" width="620" height="50" rx="8" fill="#3A2F1A" stroke="#FACC15"/>
+  <rect class="row-yellow" x="100" y="195" width="620" height="50" rx="8"/>
   <text x="115" y="215" class="step-cmd">$ octopus start fix-webhook-auth-bug</text>
   <text x="115" y="233" class="step-desc">⏱️  start_date stamped (today). Idempotent — run it again, nothing changes.</text>
 
-  <line x1="60" y1="245" x2="60" y2="275" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+  <line class="ln" x1="60" y1="245" x2="60" y2="275" marker-end="url(#arr2)"/>
 
   <!-- Step 4: block -->
-  <circle cx="60" cy="300" r="22" fill="#F38BA8"/>
+  <circle class="c-pink" cx="60" cy="300" r="22"/>
   <text x="60" y="308" class="step-num" text-anchor="middle">4</text>
-  <rect x="100" y="275" width="620" height="50" rx="8" fill="#3A1F25" stroke="#F38BA8"/>
+  <rect class="row-pink" x="100" y="275" width="620" height="50" rx="8"/>
   <text x="115" y="295" class="step-cmd">$ octopus block fix-webhook-auth-bug --reason "missing test creds"</text>
   <text x="115" y="313" class="step-desc">🚧 issue: blocked. Also logged a dated entry into memory.md.</text>
 
-  <line x1="60" y1="325" x2="60" y2="355" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+  <line class="ln" x1="60" y1="325" x2="60" y2="355" marker-end="url(#arr2)"/>
 
   <!-- Step 5: unblock -->
-  <circle cx="60" cy="380" r="22" fill="#5EEAD4"/>
+  <circle class="c-teal" cx="60" cy="380" r="22"/>
   <text x="60" y="388" class="step-num" text-anchor="middle">5</text>
-  <rect x="100" y="355" width="620" height="50" rx="8" fill="#1F3530" stroke="#5EEAD4"/>
+  <rect class="row-teal" x="100" y="355" width="620" height="50" rx="8"/>
   <text x="115" y="375" class="step-cmd">$ octopus unblock fix-webhook-auth-bug</text>
   <text x="115" y="393" class="step-desc">✅ creds arrived. Cleared the impediment. Back at it.</text>
 
-  <line x1="60" y1="405" x2="60" y2="435" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arr2)"/>
+  <line class="ln" x1="60" y1="405" x2="60" y2="435" marker-end="url(#arr2)"/>
 
   <!-- Step 6: finish -->
-  <circle cx="60" cy="460" r="22" fill="#86EFAC"/>
+  <circle class="c-green" cx="60" cy="460" r="22"/>
   <text x="60" y="468" class="step-num" text-anchor="middle">6</text>
-  <rect x="100" y="435" width="620" height="40" rx="8" fill="#1F2A1F" stroke="#86EFAC"/>
+  <rect class="row-green" x="100" y="435" width="620" height="40" rx="8"/>
   <text x="115" y="455" class="step-cmd">$ octopus finish fix-webhook-auth-bug</text>
   <text x="115" y="470" class="step-desc">🎉 Moved to done/. end_date stamped. pinned cleared.</text>
 </svg>

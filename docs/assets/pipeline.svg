@@ -1,71 +1,104 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="100%" role="img" aria-label="The five-bucket pipeline">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#8A8D9A"/>
+      <path d="M0,0 L10,5 L0,10 z" class="arr-fill"/>
     </marker>
+    <style>
+      :root {
+        --fg: #1A1B22;
+        --muted: #3A3D48;
+        --dim: #6B6E7A;
+        --line: #9CA0AE;
+        --line-faint: #C4C7D2;
+        --fill-blue:   #E8F0FB;
+        --fill-teal:   #DCFAF3;
+        --fill-yellow: #FBF2D4;
+        --fill-green:  #DEF5E2;
+        --fill-grey:   #ECEDF1;
+        --stroke-blue:   #3D7CC4;
+        --stroke-teal:   #1FA587;
+        --stroke-yellow: #B58A0F;
+        --stroke-green:  #2A8A3F;
+        --stroke-grey:   #9CA0AE;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #F5F5F7;
+          --muted: #C4C7D2;
+          --dim: #8A8D9A;
+          --line: #5A5D6A;
+          --line-faint: #4A4D58;
+          --fill-blue:   #1F2A3A;
+          --fill-teal:   #1F3530;
+          --fill-yellow: #3A2F1A;
+          --fill-green:  #1F2A1F;
+          --fill-grey:   #2A2A2E;
+          --stroke-blue:   #7AB8FF;
+          --stroke-teal:   #5EEAD4;
+          --stroke-yellow: #FACC15;
+          --stroke-green:  #86EFAC;
+          --stroke-grey:   #8A8D9A;
+        }
+      }
+      .b-title { font-family: -apple-system, system-ui, sans-serif; font-size: 16px; font-weight: 700; fill: var(--fg); }
+      .b-desc  { font-family: -apple-system, system-ui, sans-serif; font-size: 11px; fill: var(--muted); }
+      .arrow-l { font-family: ui-monospace, monospace; font-size: 10px; fill: var(--dim); }
+      .head    { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; fill: var(--dim); font-style: italic; }
+      .ln      { stroke: var(--line); stroke-width: 2; fill: none; }
+      .ln-faint{ stroke: var(--line-faint); stroke-width: 1.5; fill: none; stroke-dasharray: 4,3; }
+      .arr-fill { fill: var(--line); }
+      .b-blue   { fill: var(--fill-blue);   stroke: var(--stroke-blue); }
+      .b-teal   { fill: var(--fill-teal);   stroke: var(--stroke-teal); }
+      .b-yellow { fill: var(--fill-yellow); stroke: var(--stroke-yellow); }
+      .b-green  { fill: var(--fill-green);  stroke: var(--stroke-green); }
+      .b-grey   { fill: var(--fill-grey);   stroke: var(--stroke-grey); }
+    </style>
   </defs>
-  <style>
-    .b-title { font-family: -apple-system, system-ui, sans-serif; font-size: 16px; font-weight: 700; fill: #F5F5F7; }
-    .b-desc  { font-family: -apple-system, system-ui, sans-serif; font-size: 11px; fill: #C4C7D2; }
-    .arrow-l { font-family: ui-monospace, monospace; font-size: 10px; fill: #8A8D9A; }
-    .head    { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; fill: #8A8D9A; font-style: italic; }
-  </style>
-
-  <!-- Backdrop -->
-  <rect width="760" height="280" fill="#0F1014"/>
 
   <text x="380" y="30" class="head" text-anchor="middle">a task flows left → right, with one side exit</text>
 
-  <!-- BACKLOG -->
-  <rect x="20" y="60" width="125" height="110" rx="12" fill="#1F2A3A" stroke="#7AB8FF" stroke-width="2"/>
+  <rect class="b-blue" x="20" y="60" width="125" height="110" rx="12" stroke-width="2"/>
   <text x="82.5" y="100" class="b-title" text-anchor="middle">backlog</text>
   <text x="82.5" y="125" class="b-desc" text-anchor="middle">ideas, intents,</text>
   <text x="82.5" y="140" class="b-desc" text-anchor="middle">stuff you'd</text>
   <text x="82.5" y="155" class="b-desc" text-anchor="middle">maybe do</text>
 
-  <!-- arrow -->
-  <line x1="148" y1="115" x2="180" y2="115" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arrow)"/>
+  <line class="ln" x1="148" y1="115" x2="180" y2="115" marker-end="url(#arrow)"/>
   <text x="164" y="105" class="arrow-l" text-anchor="middle">plan</text>
 
-  <!-- NEXT -->
-  <rect x="185" y="60" width="125" height="110" rx="12" fill="#1F3530" stroke="#5EEAD4" stroke-width="2"/>
+  <rect class="b-teal" x="185" y="60" width="125" height="110" rx="12" stroke-width="2"/>
   <text x="247.5" y="100" class="b-title" text-anchor="middle">next</text>
   <text x="247.5" y="125" class="b-desc" text-anchor="middle">decided, ready,</text>
   <text x="247.5" y="140" class="b-desc" text-anchor="middle">queued up,</text>
   <text x="247.5" y="155" class="b-desc" text-anchor="middle">not started yet</text>
 
-  <line x1="313" y1="115" x2="345" y2="115" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arrow)"/>
+  <line class="ln" x1="313" y1="115" x2="345" y2="115" marker-end="url(#arrow)"/>
   <text x="329" y="105" class="arrow-l" text-anchor="middle">focus</text>
 
-  <!-- NOW -->
-  <rect x="350" y="60" width="125" height="110" rx="12" fill="#3A2F1A" stroke="#FACC15" stroke-width="2.5"/>
+  <rect class="b-yellow" x="350" y="60" width="125" height="110" rx="12" stroke-width="2.5"/>
   <text x="412.5" y="100" class="b-title" text-anchor="middle">now</text>
   <text x="412.5" y="125" class="b-desc" text-anchor="middle">today's pile,</text>
   <text x="412.5" y="140" class="b-desc" text-anchor="middle">small, focused,</text>
   <text x="412.5" y="155" class="b-desc" text-anchor="middle">clearing soon</text>
 
-  <line x1="478" y1="115" x2="510" y2="115" stroke="#8A8D9A" stroke-width="2" marker-end="url(#arrow)"/>
+  <line class="ln" x1="478" y1="115" x2="510" y2="115" marker-end="url(#arrow)"/>
   <text x="494" y="105" class="arrow-l" text-anchor="middle">finish</text>
 
-  <!-- DONE -->
-  <rect x="515" y="60" width="125" height="110" rx="12" fill="#1F2A1F" stroke="#86EFAC" stroke-width="2"/>
+  <rect class="b-green" x="515" y="60" width="125" height="110" rx="12" stroke-width="2"/>
   <text x="577.5" y="100" class="b-title" text-anchor="middle">done</text>
   <text x="577.5" y="125" class="b-desc" text-anchor="middle">finished work,</text>
   <text x="577.5" y="140" class="b-desc" text-anchor="middle">end_date</text>
   <text x="577.5" y="155" class="b-desc" text-anchor="middle">stamped</text>
 
-  <!-- DROPPED (side exit) -->
-  <rect x="515" y="200" width="125" height="60" rx="12" fill="#2A2A2E" stroke="#8A8D9A" stroke-width="2"/>
+  <rect class="b-grey" x="515" y="200" width="125" height="60" rx="12" stroke-width="2"/>
   <text x="577.5" y="225" class="b-title" text-anchor="middle">dropped</text>
   <text x="577.5" y="245" class="b-desc" text-anchor="middle">intentionally abandoned</text>
 
-  <!-- side exit arrows from now and next -->
-  <path d="M 412 170 Q 412 230 515 230" stroke="#8A8D9A" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path class="ln" d="M 412 170 Q 412 230 515 230" marker-end="url(#arrow)"/>
   <text x="455" y="220" class="arrow-l" text-anchor="middle">drop</text>
 
-  <!-- backward arrow: park (now/next -> backlog) -->
-  <path d="M 350 170 Q 250 220 145 175" stroke="#4A4D58" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
-  <text x="248" y="215" class="arrow-l" text-anchor="middle" fill="#8A8D9A">park (any → backlog)</text>
+  <path class="ln-faint" d="M 350 170 Q 250 220 145 175" marker-end="url(#arrow)"/>
+  <text x="248" y="215" class="arrow-l" text-anchor="middle">park (any → backlog)</text>
 
-  <text x="380" y="275" class="head" text-anchor="middle" fill="#8A8D9A">resume? `octopus start` on done/dropped → back to now</text>
+  <text x="380" y="275" class="head" text-anchor="middle">resume? `octopus start` on done/dropped → back to now</text>
 </svg>

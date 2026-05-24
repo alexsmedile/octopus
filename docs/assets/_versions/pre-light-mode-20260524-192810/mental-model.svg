@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 380" width="100%" role="img" aria-label="The mental model — octopus, activities, tasks, sessions, memory, handoffs">
+  <defs>
+    <marker id="mm-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5A5D6A"/>
+    </marker>
+  </defs>
+  <style>
+    .root  { font-family: -apple-system, system-ui, sans-serif; font-size: 16px; font-weight: 800; fill: #F5F5F7; }
+    .lvl1  { font-family: -apple-system, system-ui, sans-serif; font-size: 14px; font-weight: 700; fill: #F5F5F7; }
+    .lvl2  { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; font-weight: 600; fill: #F5F5F7; }
+    .desc  { font-family: -apple-system, system-ui, sans-serif; font-size: 11px; fill: #C4C7D2; }
+    .muted { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; fill: #6B6E7A; }
+  </style>
+
+  <!-- top: octopus (orchestrator) -->
+  <rect x="290" y="20" width="180" height="56" rx="10" fill="#2A2540" stroke="#CBA6F7" stroke-width="2"/>
+  <text x="380" y="44" class="root" text-anchor="middle">🐙 octopus</text>
+  <text x="380" y="62" class="desc" text-anchor="middle">one CLI, everywhere</text>
+
+  <!-- connectors down to 3 activities -->
+  <line x1="380" y1="76" x2="380" y2="100" stroke="#5A5D6A" stroke-width="1.5"/>
+  <line x1="130" y1="100" x2="630" y2="100" stroke="#5A5D6A" stroke-width="1.5"/>
+  <line x1="130" y1="100" x2="130" y2="120" stroke="#5A5D6A" stroke-width="1.5" marker-end="url(#mm-arr)"/>
+  <line x1="380" y1="100" x2="380" y2="120" stroke="#5A5D6A" stroke-width="1.5" marker-end="url(#mm-arr)"/>
+  <line x1="630" y1="100" x2="630" y2="120" stroke="#5A5D6A" stroke-width="1.5" marker-end="url(#mm-arr)"/>
+
+  <!-- 3 activities -->
+  <g>
+    <rect x="60" y="125" width="140" height="44" rx="8" fill="#1F2A3A" stroke="#7AB8FF" stroke-width="1.5"/>
+    <text x="130" y="146" class="lvl1" text-anchor="middle">activity</text>
+    <text x="130" y="162" class="desc" text-anchor="middle">a project folder</text>
+  </g>
+  <g>
+    <rect x="310" y="125" width="140" height="44" rx="8" fill="#1F2A3A" stroke="#7AB8FF" stroke-width="2.5"/>
+    <text x="380" y="146" class="lvl1" text-anchor="middle">activity</text>
+    <text x="380" y="162" class="desc" text-anchor="middle">a project folder</text>
+  </g>
+  <g>
+    <rect x="560" y="125" width="140" height="44" rx="8" fill="#1F2A3A" stroke="#7AB8FF" stroke-width="1.5"/>
+    <text x="630" y="146" class="lvl1" text-anchor="middle">activity</text>
+    <text x="630" y="162" class="desc" text-anchor="middle">a project folder</text>
+  </g>
+
+  <!-- focus arrow on middle activity -->
+  <line x1="380" y1="169" x2="380" y2="195" stroke="#5A5D6A" stroke-width="1.5"/>
+
+  <!-- splay into 4 children: tasks, sessions, memory, handoffs -->
+  <line x1="130" y1="195" x2="630" y2="195" stroke="#5A5D6A" stroke-width="1.5"/>
+  <line x1="130" y1="195" x2="130" y2="215" stroke="#5A5D6A" stroke-width="1.5" marker-end="url(#mm-arr)"/>
+  <line x1="295" y1="195" x2="295" y2="215" stroke="#5A5D6A" stroke-width="1.5" marker-end="url(#mm-arr)"/>
+  <line x1="460" y1="195" x2="460" y2="215" stroke="#5A5D6A" stroke-width="1.5" marker-end="url(#mm-arr)"/>
+  <line x1="630" y1="195" x2="630" y2="215" stroke="#5A5D6A" stroke-width="1.5" marker-end="url(#mm-arr)"/>
+
+  <!-- tasks -->
+  <g>
+    <rect x="65" y="220" width="130" height="62" rx="8" fill="#3A2F1A" stroke="#FACC15" stroke-width="1.5"/>
+    <text x="130" y="242" class="lvl2" text-anchor="middle">tasks</text>
+    <text x="130" y="260" class="desc" text-anchor="middle">the items</text>
+    <text x="130" y="274" class="desc" text-anchor="middle">to do</text>
+  </g>
+
+  <!-- sessions -->
+  <g>
+    <rect x="230" y="220" width="130" height="62" rx="8" fill="#1F3530" stroke="#5EEAD4" stroke-width="1.5"/>
+    <text x="295" y="242" class="lvl2" text-anchor="middle">sessions</text>
+    <text x="295" y="260" class="desc" text-anchor="middle">work blocks,</text>
+    <text x="295" y="274" class="desc" text-anchor="middle">dated</text>
+  </g>
+
+  <!-- memory -->
+  <g>
+    <rect x="395" y="220" width="130" height="62" rx="8" fill="#2A2540" stroke="#CBA6F7" stroke-width="1.5"/>
+    <text x="460" y="242" class="lvl2" text-anchor="middle">memory</text>
+    <text x="460" y="260" class="desc" text-anchor="middle">append-only</text>
+    <text x="460" y="274" class="desc" text-anchor="middle">journal</text>
+  </g>
+
+  <!-- handoffs -->
+  <g>
+    <rect x="565" y="220" width="130" height="62" rx="8" fill="#3A1F25" stroke="#F38BA8" stroke-width="1.5"/>
+    <text x="630" y="242" class="lvl2" text-anchor="middle">handoffs</text>
+    <text x="630" y="260" class="desc" text-anchor="middle">notes for</text>
+    <text x="630" y="274" class="desc" text-anchor="middle">future you</text>
+  </g>
+
+  <!-- muted file-name hints below each child -->
+  <text x="130" y="306" class="muted" text-anchor="middle">.octopus/tasks/</text>
+  <text x="295" y="306" class="muted" text-anchor="middle">.octopus/sessions/</text>
+  <text x="460" y="306" class="muted" text-anchor="middle">.octopus/memory.md</text>
+  <text x="630" y="306" class="muted" text-anchor="middle">.octopus/handoffs/</text>
+
+  <!-- caption -->
+  <text x="380" y="350" class="desc" text-anchor="middle" fill="#8A8D9A">three nouns, one orchestrator — read it as octopus → activity → task</text>
+</svg>

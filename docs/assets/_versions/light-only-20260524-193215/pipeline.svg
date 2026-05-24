@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="100%" role="img" aria-label="The five-bucket pipeline">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9CA0AE"/>
+    </marker>
+  </defs>
+  <style>
+    .b-title { font-family: -apple-system, system-ui, sans-serif; font-size: 16px; font-weight: 700; fill: #1A1B22; }
+    .b-desc  { font-family: -apple-system, system-ui, sans-serif; font-size: 11px; fill: #3A3D48; }
+    .arrow-l { font-family: ui-monospace, monospace; font-size: 10px; fill: #6B6E7A; }
+    .head    { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; fill: #6B6E7A; font-style: italic; }
+  </style>
+
+  <text x="380" y="30" class="head" text-anchor="middle">a task flows left → right, with one side exit</text>
+
+  <!-- BACKLOG -->
+  <rect x="20" y="60" width="125" height="110" rx="12" fill="#E8F0FB" stroke="#3D7CC4" stroke-width="2"/>
+  <text x="82.5" y="100" class="b-title" text-anchor="middle">backlog</text>
+  <text x="82.5" y="125" class="b-desc" text-anchor="middle">ideas, intents,</text>
+  <text x="82.5" y="140" class="b-desc" text-anchor="middle">stuff you'd</text>
+  <text x="82.5" y="155" class="b-desc" text-anchor="middle">maybe do</text>
+
+  <!-- arrow -->
+  <line x1="148" y1="115" x2="180" y2="115" stroke="#9CA0AE" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="164" y="105" class="arrow-l" text-anchor="middle">plan</text>
+
+  <!-- NEXT -->
+  <rect x="185" y="60" width="125" height="110" rx="12" fill="#DCFAF3" stroke="#1FA587" stroke-width="2"/>
+  <text x="247.5" y="100" class="b-title" text-anchor="middle">next</text>
+  <text x="247.5" y="125" class="b-desc" text-anchor="middle">decided, ready,</text>
+  <text x="247.5" y="140" class="b-desc" text-anchor="middle">queued up,</text>
+  <text x="247.5" y="155" class="b-desc" text-anchor="middle">not started yet</text>
+
+  <line x1="313" y1="115" x2="345" y2="115" stroke="#9CA0AE" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="329" y="105" class="arrow-l" text-anchor="middle">focus</text>
+
+  <!-- NOW -->
+  <rect x="350" y="60" width="125" height="110" rx="12" fill="#FBF2D4" stroke="#B58A0F" stroke-width="2.5"/>
+  <text x="412.5" y="100" class="b-title" text-anchor="middle">now</text>
+  <text x="412.5" y="125" class="b-desc" text-anchor="middle">today's pile,</text>
+  <text x="412.5" y="140" class="b-desc" text-anchor="middle">small, focused,</text>
+  <text x="412.5" y="155" class="b-desc" text-anchor="middle">clearing soon</text>
+
+  <line x1="478" y1="115" x2="510" y2="115" stroke="#9CA0AE" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="494" y="105" class="arrow-l" text-anchor="middle">finish</text>
+
+  <!-- DONE -->
+  <rect x="515" y="60" width="125" height="110" rx="12" fill="#DEF5E2" stroke="#2A8A3F" stroke-width="2"/>
+  <text x="577.5" y="100" class="b-title" text-anchor="middle">done</text>
+  <text x="577.5" y="125" class="b-desc" text-anchor="middle">finished work,</text>
+  <text x="577.5" y="140" class="b-desc" text-anchor="middle">end_date</text>
+  <text x="577.5" y="155" class="b-desc" text-anchor="middle">stamped</text>
+
+  <!-- DROPPED (side exit) -->
+  <rect x="515" y="200" width="125" height="60" rx="12" fill="#ECEDF1" stroke="#9CA0AE" stroke-width="2"/>
+  <text x="577.5" y="225" class="b-title" text-anchor="middle">dropped</text>
+  <text x="577.5" y="245" class="b-desc" text-anchor="middle">intentionally abandoned</text>
+
+  <!-- side exit arrows from now and next -->
+  <path d="M 412 170 Q 412 230 515 230" stroke="#9CA0AE" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="455" y="220" class="arrow-l" text-anchor="middle">drop</text>
+
+  <!-- backward arrow: park (now/next -> backlog) -->
+  <path d="M 350 170 Q 250 220 145 175" stroke="#C4C7D2" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <text x="248" y="215" class="arrow-l" text-anchor="middle" fill="#8A8D9A">park (any → backlog)</text>
+
+  <text x="380" y="275" class="head" text-anchor="middle" fill="#8A8D9A">resume? `octopus start` on done/dropped → back to now</text>
+</svg>
