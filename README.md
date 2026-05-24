@@ -100,7 +100,7 @@ We tried the alternatives. Each one solved one slice and broke three others:
 | SaaS task apps | ✅ | ✅ | ❌ | ❌ | ⚠️ |
 | **Octopus** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-Octopus closes the gap between where work lives and where it's tracked.
+One source of truth: the folder you're already in.
 
 ---
 
@@ -403,18 +403,18 @@ Built by Alessandro Smedile, 2026.
 
 License: MIT. See [LICENSE](LICENSE) when v1 ships.
 
-The mascot is a friendly orange octopus 🐙 because tasks have eight little arms reaching into every folder, and someone has to keep them straight.
+The mascot is a friendly lavender octopus 🐙 because tasks have eight little arms reaching into every folder, and someone has to keep them straight.
 
 ---
 
 ## A note for the curious
 
-The folder *is* the activity. The protocol — not the implementation — is the product. The CLI is Python today; nothing stops a Go or Rust rewrite tomorrow. As long as the `.octopus/` contract holds, every tool that speaks it is "Octopus".
+Implementations come and go. The folder primitive stays. For Octopus, every folder is a potential activity — and that idea is the product. If it speaks `.octopus/`, it's Octopus.
 
 ---
 
 <div align="center">
 
-*The folder is the activity. The protocol is the product.*
+*No app to open. No app to forget.*
 
 </div>

@@ -5,6 +5,60 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.4] — 2026-05-25
+
+**Visual + copy polish pass.** No CLI code changes — refinement of the README hero, diagrams, and positioning copy. Animated mascot, terminal-style lifecycle, vertical axes infographic, and a tighter pitch throughout.
+
+### Added
+
+- **Animated mascot SVG** — `docs/assets/octopus-mascot.svg` is now an animated SMIL loop (~4.5s) mirroring the TUI's idle Calm-A: body bob + blink + leg-wiggle wave. Generator at `assets/mascot/build_animated_svg.py` (re-run any time `cli/src/octopus/tui/mascot_frames.py` changes).
+- **`assets/` folder** — internal working files separated from public-facing media:
+  - `assets/mascot/octo-v2-lavender.svg` (canonical source)
+  - `assets/mascot/octo-v2-lavender-animated.svg` (animated variant)
+  - `assets/mascot/build_animated_svg.py` (generator script)
+  - `assets/palette.md` — canonical color tokens + copy-paste boilerplate + mobile-renderer limitations.
+- **`docs/assets/_versions/`** — pre-edit snapshots from every visual revision in this release (mental-model, scaffold, pipeline, lifecycle, axes, pre-svg-selector batch).
+
+### Changed
+
+- **Lifecycle diagram** redesigned as a single dark terminal window with six numbered command blocks (`# 1. capture an idea` / `$ octopus capture …` / `→ output`). Matches `tui-hero.svg` aesthetic. Dark-only by design. Now `lifecycle.v4.svg`.
+- **Axes diagram** rebuilt as a vertical 2-column infographic with larger text (titles 13→18px, values 10.5→13px). Layout: Pipeline | Domain · Attention | Runtime · Impediment | Visibility · Derived (full width). Now `axes.v7.svg`.
+- **All theme-adaptive SVGs** (mental-model, scaffold, pipeline, lifecycle, axes) now:
+  - Use `svg { ... }` as the CSS selector (replacing `:root`, which doesn't bind reliably in mobile WebKit when SVGs are loaded via `<img>`).
+  - Carry a `canvas-bg` rect so light/dark flips are visually unambiguous.
+  - Use the canonical palette from `assets/palette.md`.
+- **Mascot in tui-hero** rebuilt from the canonical `BASE_REF` grid (was hand-traced and visually off — head started at the wrong row, eye band wrong height, leg pattern compressed).
+- **Pipeline diagram** centered horizontally (was left-biased: content x=20→640 inside a 760-wide viewBox).
+- **Axes grid gaps** equalized — 20px between cards in all directions (was 10px horizontal / 20px vertical).
+- **Animated mascot rendering**:
+  - `calcMode="discrete"` on every `<animate>` so pixel cells snap between frames instead of cross-fading (was producing a blurred / smudged look).
+  - Tightened loop from 10.76s → 4.48s.
+  - Dropped explicit `width`/`height` from the SVG root so the README `<img width="160">` sizes cleanly; added `shape-rendering="crispEdges"` and `image-rendering: pixelated`.
+- **Mascot color** locked to lavender `#CBA6F7` in both light and dark modes (no `prefers-color-scheme` switch — matches the TUI's canonical mascot).
+- **Derived-row visual weight** in axes muted to a neutral grey wash so it reads as a system note, not another axis card.
+- **README copy** tightened in several places:
+  - Hero tagline: `A folder-first task system.` → `A folder-first task system. CLI + skill.`
+  - Mental-model bullet 1: now leads with "Octopus is the omnipresent entity. Invoke it from the terminal, or hand it to any agent."
+  - Mental-model intro: replaced the three-noun framing with `**Octopus → activity → task.** That's the whole shape.`
+  - "Why this exists" comparison table: added fifth column **Lives in git**, reordered so **Hands off to agents** lands last (the dramatic differentiator). Honest pass on every cell — competitors with markdown/API access downgraded from ❌ to ⚠️ on the agent column.
+  - "Why this exists" closer: `The fracture is the problem. Octopus is the seam.` → `One source of truth: the folder you're already in.`
+  - "List is context-aware" sentence moved into a `[!TIP]` callout.
+  - Footer note ("A note for the curious") rewritten: `Implementations come and go. The folder primitive stays. For Octopus, every folder is a potential activity — and that idea is the product. If it speaks `.octopus/`, it's Octopus.`
+  - Final tagline: `*No app to open. No app to forget.*`
+- **Scaffold tag column** moved left and font shrunk (11px → 10px) so long descriptions stop overflowing the left panel.
+- **Mental-model "octopus" card** widened (180→220px) and subtitle updated to `CLI + skill — one brain, everywhere`.
+- **Octopus-mascot v1** archived to `_archive/mascot/octo-v1-classic.svg`.
+
+### Fixed
+
+- **Mobile WebKit theme-flip inconsistencies** mitigated via the `svg { ... }` selector + explicit canvas-bg rects. (The underlying `prefers-color-scheme` evaluation is still renderer-dependent on mobile; documented as a known limitation in `assets/palette.md`.)
+- **Animated mascot blur** — see `calcMode="discrete"` above.
+- **Pipeline left-bias** — content shifted right 50px to balance 70/70 margins.
+- **Derived row overflow** in axes — `→ bucket NOT IN (done, dropped)` (33px past the panel edge) replaced with `→ bucket ∉ done, dropped`.
+- **Scaffold tag overflow** — tags moved from x=280 to x=250 and font-size dropped to 10px so the longest description (`optional · notes for future-you / agents`) fits inside the left panel.
+
+---
+
 ## [0.9.3] — 2026-05-24
 
 **Docs split-out + README visual upgrade.** No CLI code changes — pure documentation pass that pulled three heavy sections out of the README into dedicated docs and replaced ASCII mockups with proper SVG assets (matching the lavender TUI palette).
