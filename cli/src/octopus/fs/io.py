@@ -39,7 +39,7 @@ def _coerce_date(value: Any) -> date | None:
 
 ACTIVITY_FIELDS = {
     "id", "title", "created", "kind", "spec_version",
-    "type", "status", "area", "last_reviewed",
+    "type", "status", "area", "priority", "last_reviewed",
     "last_known_path", "source_of_truth", "locations",
     "linked_activities", "tags",
 }
@@ -60,6 +60,7 @@ def read_activity(path: Path) -> tuple[Activity, str]:
         type=str(data.get("type", "other")),
         status=str(data.get("status", "active")),
         area=data.get("area"),
+        priority=data.get("priority"),
         last_reviewed=_coerce_date(data.get("last_reviewed")),
         last_known_path=str(data.get("last_known_path", "")),
         source_of_truth=str(data.get("source_of_truth", ".")),
@@ -85,6 +86,8 @@ def write_activity(path: Path, activity: Activity, body: str) -> None:
     }
     if activity.area is not None:
         data["area"] = activity.area
+    if activity.priority is not None:
+        data["priority"] = activity.priority
     if activity.last_reviewed is not None:
         data["last_reviewed"] = activity.last_reviewed.isoformat()
     data["last_known_path"] = activity.last_known_path

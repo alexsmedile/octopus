@@ -280,11 +280,11 @@ def test_adapter_config_write_handles_all_types(isolated_config):
 # ── db: schema v3 + task_external_refs ────────────────────────────────
 
 
-def test_schema_version_is_three(temp_db):
+def test_schema_version_is_current(temp_db):
     from octopus.db.connection import SCHEMA_VERSION
 
     v = temp_db.execute("PRAGMA user_version").fetchone()[0]
-    assert v == SCHEMA_VERSION == 3
+    assert v == SCHEMA_VERSION == 4
 
 
 def test_task_external_refs_table_exists(temp_db):

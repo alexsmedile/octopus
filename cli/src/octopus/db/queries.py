@@ -9,32 +9,100 @@ from typing import Any
 def list_activities(
     conn: sqlite3.Connection,
     *,
+    statuses: list[str] | None = None,
+    priorities: list[str] | None = None,
+    types: list[str] | None = None,
+    areas: list[str] | None = None,
+    has_pinned: bool = False,
+    has_overdue: bool = False,
+    has_now: bool = False,
+    touched_within_days: int | None = None,
+    include_archived: bool = False,
+    # legacy single-value params (kept for back-compat with #30 callers)
     status: str | None = None,
     type_: str | None = None,
     area: str | None = None,
-    include_archived: bool = False,
 ) -> list[sqlite3.Row]:
     """Backing query for `octopus list` (cross-activity mode).
 
-    D83: archived activities are hidden by default. Pass include_archived=True
-    to surface them. An explicit `status='archived'` filter wins over the
-    default-hide (lets the user list archived ones explicitly).
+    D83: archived hidden by default. D27: rich filter flags.
+    Multi-value filters (statuses/priorities/types/areas) accept lists;
+    legacy singular params still work for older callers (#30 forget tests).
     """
-    sql = "SELECT * FROM activities WHERE 1=1"
+    # Coerce singular legacy params into list form.
+    if status and not statuses:
+        statuses = [status]
+    if type_ and not types:
+        types = [type_]
+    if area and not areas:
+        areas = [area]
+
+    sql = "SELECT a.* FROM activities a WHERE 1=1"
     args: list[Any] = []
-    if status:
-        sql += " AND status = ?"
-        args.append(status)
+
+    if statuses:
+        placeholders = ",".join("?" * len(statuses))
+        sql += f" AND a.status IN ({placeholders})"
+        args.extend(statuses)
     elif not include_archived:
-        # D83: hide archived by default when no explicit status filter
-        sql += " AND (status IS NULL OR status != 'archived')"
-    if type_:
-        sql += " AND type = ?"
-        args.append(type_)
-    if area:
-        sql += " AND area = ?"
-        args.append(area)
-    sql += " ORDER BY status, title"
+        # D83 — hide archived by default unless an explicit status filter overrides
+        sql += " AND (a.status IS NULL OR a.status != 'archived')"
+
+    if priorities:
+        placeholders = ",".join("?" * len(priorities))
+        sql += f" AND a.priority IN ({placeholders})"
+        args.extend(priorities)
+
+    if types:
+        placeholders = ",".join("?" * len(types))
+        sql += f" AND a.type IN ({placeholders})"
+        args.extend(types)
+
+    if areas:
+        placeholders = ",".join("?" * len(areas))
+        sql += f" AND a.area IN ({placeholders})"
+        args.extend(areas)
+
+    if has_pinned:
+        sql += (
+            " AND EXISTS (SELECT 1 FROM tasks t WHERE t.activity_id = a.id "
+            "AND t.pinned = 1 AND (t.archived IS NULL OR t.archived = 0) "
+            "AND t.bucket NOT IN ('done', 'dropped'))"
+        )
+
+    if has_overdue:
+        sql += (
+            " AND EXISTS (SELECT 1 FROM tasks t WHERE t.activity_id = a.id "
+            "AND t.due IS NOT NULL AND t.due < date('now') "
+            "AND (t.archived IS NULL OR t.archived = 0) "
+            "AND t.bucket NOT IN ('done', 'dropped'))"
+        )
+
+    if has_now:
+        sql += (
+            " AND EXISTS (SELECT 1 FROM tasks t WHERE t.activity_id = a.id "
+            "AND t.bucket = 'now' AND (t.archived IS NULL OR t.archived = 0))"
+        )
+
+    if touched_within_days is not None:
+        sql += (
+            " AND a.last_touched_at IS NOT NULL "
+            "AND a.last_touched_at >= datetime('now', ?)"
+        )
+        args.append(f"-{int(touched_within_days)} days")
+
+    sql += """
+        ORDER BY
+          CASE a.priority
+            WHEN 'urgent' THEN 0
+            WHEN 'high'   THEN 1
+            WHEN 'low'    THEN 3
+            ELSE 2
+          END,
+          a.last_touched_at IS NULL,
+          a.last_touched_at DESC,
+          a.title
+    """
     return conn.execute(sql, args).fetchall()
 
 

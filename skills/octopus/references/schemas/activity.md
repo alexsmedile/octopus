@@ -16,6 +16,7 @@ kind: activity            # required, literal "activity" in v1
 type: other               # required, enum (see below). Default "other".
 status: active            # required, enum. Default "active".
 area:                     # optional, free-form (e.g. "work", "personal")
+priority:                 # optional enum (D87): low | high | urgent. Omit = normal.
 spec_version: 1           # required, integer. v1 = 1.
 
 # discovery / linking
@@ -39,6 +40,7 @@ tags: []                  # optional
 | `type` | `code`, `business`, `content`, `skill`, `automation`, `research`, `personal`, `other` |
 | `status` | `active`, `next`, `paused`, `planning`, `maintenance`, `reference`, `archive`, `unknown` |
 | `kind` | `activity` (literal — no other value is valid in v1) |
+| `priority` | `low`, `high`, `urgent` (omit for normal — D87) |
 
 ## Identity rules
 

@@ -137,11 +137,11 @@ def test_delete_task_by_activity_and_slug(temp_db, tmp_path):
 
 
 def test_user_version_set_to_supported(temp_db):
-    """Schema v3 via D63 (task_external_refs); v2 was kind + promoted_to."""
+    """Schema v4 via D88 (activity priority + last_touched_at)."""
     from octopus.db.connection import SCHEMA_VERSION
 
     v = temp_db.execute("PRAGMA user_version").fetchone()[0]
-    assert v == SCHEMA_VERSION == 3
+    assert v == SCHEMA_VERSION == 4
 
 
 def test_foreign_keys_enforced(temp_db, tmp_path):

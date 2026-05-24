@@ -10,8 +10,10 @@ CREATE TABLE IF NOT EXISTS activities (
   type            TEXT,
   status          TEXT,
   area            TEXT,
+  priority        TEXT,                -- D87 (low|high|urgent; NULL = normal)
   created         DATE,
   last_reviewed   DATE,
+  last_touched_at DATETIME,            -- D88 most-recent write within activity
   raw_frontmatter TEXT,
   indexed_at      DATETIME NOT NULL
 );
@@ -69,6 +71,8 @@ CREATE TABLE IF NOT EXISTS task_external_refs (
   PRIMARY KEY (adapter, external_id)
 );
 CREATE INDEX IF NOT EXISTS idx_task_external_refs_task ON task_external_refs(task_id);
-CREATE INDEX IF NOT EXISTS idx_activities_status  ON activities(status);
-CREATE INDEX IF NOT EXISTS idx_sessions_activity  ON sessions(activity_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_ended     ON sessions(ended);
+CREATE INDEX IF NOT EXISTS idx_activities_status     ON activities(status);
+CREATE INDEX IF NOT EXISTS idx_activities_priority   ON activities(priority);
+CREATE INDEX IF NOT EXISTS idx_activities_last_touch ON activities(last_touched_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_activity     ON sessions(activity_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_ended        ON sessions(ended);

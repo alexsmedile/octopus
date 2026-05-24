@@ -5,6 +5,50 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.0] — 2026-05-24
+
+**Cross-activity reads + dashboards** (#27 done). Octopus now answers "what's going on across all my projects" without `cd` — and ranks tasks by impact so agents can pick the right next thing automatically. New verbs: `dashboard`, `next`, `impact`, `get activity`, plus noun-explicit `list tasks/activities` with rich filter flags. The activity-level `priority` field that #26 stubbed out is now live.
+
+This is the read-half of the cross-activity story. Combined with #26 (write verbs), an agent in a global terminal can now ask "what should I work on?", get a ranked answer, write to any project, and never need to `cd`.
+
+### Added
+
+- **`octopus dashboard`** (D90) — composite cross-activity view: pinned tasks, overdue tasks, in-progress (`now`) tasks, blocked items, and activity priority breakdown. Rich text by default; `--json` writes JSON to stdout; `--json-out <path>` writes JSON to file.
+- **`octopus next [--limit N]`** (D90) — top N tasks ranked by impact (R1 heuristic). Default N=3.
+- **`octopus impact [--limit N] [--show-score]`** (D90) — full ranked task list. Default top 20; `--limit 0` = unlimited; `--show-score` reveals the numeric score per row.
+- **`octopus get activity <path-or-id>`** (D90) — JSON dump of activity metadata + bucket counts + now/pinned/overdue task previews. Noun-explicit (future-stable for `get task <slug>`). TTY → pretty JSON; pipe → compact; `--format pretty|compact` override.
+- **`octopus list tasks <path-or-id>`** and **`octopus list activities`** (D90) — noun-explicit subcommands of `list`. Bare `octopus list` stays context-aware (tasks inside an activity, activities outside).
+- **Activity-level filter flags on `list`**:
+  - `--priority low|high|urgent` (uses D87 field)
+  - `--type` / `--area` (multi-value via comma)
+  - `--has-pinned` / `--has-overdue` / `--has-now`
+  - `--touched-within <N>` (last N days)
+- **`octopus status <path-or-id>`** now extended (D90) — accepts a path or id, shows priority chip, last-reviewed/last-touched dates, and first N now/pinned/overdue task titles. `--limit N` controls how many.
+- **Activity `priority` field** (D87) — optional enum (`low|high|urgent`) on `activity.md`. Set via `octopus set --activity <id> --priority X` or `octopus add activity --priority X` (the #26 stub-reject is gone).
+- **`core/ranking.py`** — R1 heuristic implementation with 21 unit tests covering every weight contribution and exclusion case.
+- **23 new integration tests** in `test_cross_activity_reads.py` covering list filters, status rich view, get JSON, dashboard, next, impact, and ranking order.
+
+### Changed
+
+- **`octopus list` signature**: now accepts an optional noun (`tasks` or `activities`) and an optional path-or-id target. Single-positional invocation behaves as before; the new shapes are additive.
+- **Activity table sort order**: priority desc (urgent → high → normal → low), then `last_touched_at` desc, then title. The dashboard list reflects this naturally.
+- **`upsert_activity`** gained a `touch=True` keyword (D88) that bumps `last_touched_at` to now. Called from `sync_*_after_write` paths so every write refreshes the activity's heat signature.
+
+### Locked in DECISIONS.md
+
+- **D87** — Activity `priority` field; strict enum; same convention as task priority.
+- **D88** — Schema v3 → v4 migration: `activities.priority` + `activities.last_touched_at` columns + supporting indexes. Idempotent.
+- **D89** — R1 ranking heuristic; algorithm fixed for v1, configurable weights deferred. Algorithm goes in `core/ranking.py` so call sites stay stable when weights become tunable.
+- **D90** — Dashboard / read-verb output conventions: rich text default, `--json` flag for stdout, `--json-out <path>` for file. Noun-explicit forms for `list` and `get`.
+
+### Notes
+
+- The `--json` + `--json-out` split (rather than a single `--json [path]`) is a deliberate compromise: Typer's optional-value flags don't compose cleanly with the rest of our flag matrix. Two flags, one mental model: `--json` means stdout, `--json-out` means file.
+- Schema migration v3 → v4 is idempotent. Existing databases auto-migrate on next `get_db()`; existing rows get `priority = NULL` and `last_touched_at = NULL` until next write.
+- `last_touched_at` is currently bumped on task writes only. Session/memory write touches are deferred — add later if dashboards need finer signal.
+
+---
+
 ## [0.8.0] — 2026-05-24
 
 **Cross-activity write verbs** (#26 done). Every task-mutation verb now accepts `--activity <id>` to redirect the operation to a specific activity without `cd`. New `octopus add task` and `octopus add activity` verbs are the canonical "from anywhere" entry points. `octopus set` gets multi-target shapes — `--task t1 t2 ...` for in-cwd tasks and `--activity a1 a2 ...` for activity-level edits anywhere, with strict one-target-axis-per-invocation enforcement.

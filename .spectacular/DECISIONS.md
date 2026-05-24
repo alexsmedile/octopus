@@ -1515,3 +1515,144 @@ The `--activity` flag is rejected with a clear error if combined with the
 existing positional in a way that contradicts cwd context (e.g.,
 `pin slug --activity X` from inside activity Y → operates on X, but warns that
 cwd is in Y).
+
+
+---
+
+## D87 — Activity `priority` field
+
+**Date:** 2026-05-24
+**Request:** #27
+
+### Locked
+
+`activity.md` frontmatter gains an optional `priority` field:
+
+```yaml
+priority: low | high | urgent       # optional; absent = normal
+```
+
+**Strict enum** (the empty/absent state IS "normal"; there is no `priority: normal`
+in YAML — the field is omitted). Same convention as task priority (D80).
+Invalid values rejected; explicit-defaults (`normal`/`none`/`""`) clear the
+field via `set --activity --priority normal`.
+
+Used by:
+- `octopus set --activity <id> --priority X` (unblocks the D85 stub-reject)
+- `octopus add activity --priority X` (unblocks the D85 stub-reject)
+- `octopus list --all --priority urgent` (filter)
+- `dashboard` / `next` / `impact` ranking inputs (D89)
+
+Storage:
+- `Activity` dataclass adds `priority: str | None = None`
+- SQLite `activities` table adds a nullable `priority TEXT` column
+- Schema migration v3 → v4 in `db/connection.py`
+
+---
+
+## D88 — Schema v3 → v4: priority + last_touched_at
+
+**Date:** 2026-05-24
+**Request:** #27
+
+### Locked
+
+Single migration bumping the index from v3 to v4. Two new columns on
+`activities`:
+
+```sql
+ALTER TABLE activities ADD COLUMN priority TEXT;          -- D87
+ALTER TABLE activities ADD COLUMN last_touched_at TEXT;   -- ISO 8601 datetime
+```
+
+`last_touched_at` is the most-recent of: any task write, any session write,
+any memory write within the activity. Updated on every `sync_*_after_write`
+call. Used by the ranking heuristic (R1) for tiebreaks and by the dashboard
+"touched within" filter.
+
+Migration is idempotent (`ALTER TABLE … ADD COLUMN` followed by an
+existence check). Both columns default NULL — existing rows are
+backfilled on next `reindex` (or stay NULL until next write).
+
+---
+
+## D89 — Ranking heuristic R1
+
+**Date:** 2026-05-24
+**Request:** #27
+
+### Locked
+
+Single-pass numeric score per task. Higher = more impact. Weights:
+
+| Signal | Weight | Notes |
+|---|---|---|
+| `pinned: true` | +100 | D43 — pinned always near top |
+| Overdue | +80 + days_overdue, cap +30 | Total cap = +110 |
+| `bucket: now` | +40 | User already committed |
+| Due soon (≤7 days) | +30 − days_until_due | 0 if not due-soon |
+| `priority: urgent` | +50 | Task-level |
+| `priority: high` | +25 | Task-level |
+| Activity `priority: urgent` | +20 | Activity halo |
+| Activity `priority: high` | +10 | Activity halo |
+| `issue: blocked` or `waiting` | −30 | Can't act |
+| Archived / done / dropped | excluded | Never appear in ranked views |
+
+Ties broken by `last_touched_at` ascending (stale bubbles up).
+
+Weights are **fixed for v1**. Configurable weights deferred to a future
+request — the algorithm goes in `core/ranking.py` so the call sites stay
+stable when weights become tunable.
+
+---
+
+## D90 — Dashboard / read-verb output conventions
+
+**Date:** 2026-05-24
+**Request:** #27
+
+### Locked
+
+#### `octopus dashboard`
+
+Rich text by default. JSON via `--json` flag with two forms:
+
+```
+octopus dashboard               # rich text to stdout
+octopus dashboard --json        # JSON to stdout (one-line, agent-friendly)
+octopus dashboard --json <path> # JSON written to <path>; stdout silent on success
+```
+
+`--json` is a flag-with-optional-value: bare `--json` means stdout; with
+a path argument it writes to that file. Typer convention: `--json` is
+`bool | str` resolved by post-parse logic (peek argv).
+
+#### `octopus next`
+
+Top **3** tasks across all activities by default. `--limit N` to change.
+Same ranking as `impact`. Rich text output; `--json` follows the same
+flag convention as `dashboard`.
+
+#### `octopus impact`
+
+Full ranked list, default **top 20**. `--limit N` to change (use `--limit 0`
+for unlimited). `--show-score` reveals the numeric score per row.
+
+#### `octopus list activities` and `octopus list tasks`
+
+Noun-explicit subcommands of `list`. Default scope is context-aware:
+inside an activity, bare `octopus list` defaults to tasks; outside, to
+activities. The noun-explicit forms always work regardless of cwd.
+
+#### `octopus status <path-or-id>`
+
+Extended rich text view: activity metadata + bucket counts + first N
+titles for now/pinned/overdue + active session + last_touched + adapter
+status. No format flag in v1 — `octopus get activity <path-or-id>` is
+the JSON-shaped equivalent.
+
+#### `octopus get activity <path-or-id>`
+
+JSON output. TTY → pretty-printed (2-space indent). Pipe → compact
+single-line. `--format pretty|compact` to override. Noun-explicit form
+(`get activity`, not `get`) — future-stable for `get task <slug>`.

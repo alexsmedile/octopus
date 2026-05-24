@@ -137,6 +137,22 @@ tags: []                      # optional, list of strings
 - Discovery system warns on near-duplicates (Levenshtein ≤ 2) at reindex.
 - Optional strict mode (`[areas] strict = true`) errors on unknown values.
 
+#### `priority` — optional (D87)
+
+- Type: enum
+- Range: `low` | `high` | `urgent`
+- Default: omitted (treated as "normal"; there is no explicit `priority: normal`)
+- Strict enum — unknown values rejected at read time.
+- Set via `octopus set --activity <id> --priority X` or
+  `octopus add activity --priority X`. Clear via the explicit-default
+  values `normal` / `none` / `""` (D80 convention).
+- Used by:
+  - `octopus list activities --priority X` filter
+  - `octopus dashboard` (priority callout section)
+  - `octopus next` / `octopus impact` ranking inputs (R1, D89):
+    activity priority contributes +20 (urgent) or +10 (high) to every
+    task in that activity.
+
 ### Lifecycle
 
 #### `last_reviewed` — optional

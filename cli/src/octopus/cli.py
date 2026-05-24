@@ -1158,7 +1158,7 @@ def add_activity_cmd(
     ),
     priority: str | None = typer.Option(
         None, "--priority",
-        help="Activity priority. NOT IMPLEMENTED until #27 (D85).",
+        help="Activity priority: low|high|urgent (D87). Omit for normal.",
     ),
 ) -> None:
     """Create a new activity. The "from anywhere" sibling of `init` (D85).
@@ -1167,10 +1167,14 @@ def add_activity_cmd(
     initializes that directory (creating it if missing).
     """
     if priority is not None:
-        err_console.print(
-            "[red]✗[/] activity priority not implemented yet — see #27"
-        )
-        raise typer.Exit(EXIT_USER_ERROR)
+        if _is_explicit_default("priority", priority):
+            priority = None
+        elif priority not in {"low", "high", "urgent"}:
+            err_console.print(
+                f"[red]✗[/] --priority: {priority!r} not in low|high|urgent "
+                "(D87; omit or pass 'normal' for the default)"
+            )
+            raise typer.Exit(EXIT_USER_ERROR)
 
     # Resolve the target directory.
     if path is not None:
@@ -1199,7 +1203,7 @@ def add_activity_cmd(
     try:
         activity = init_activity(
             target, title=name, activity_type=activity_type, status=status,
-            area=area, custom_id=custom_id, storage_mode=storage_mode,
+            area=area, priority=priority, custom_id=custom_id, storage_mode=storage_mode,
         )
     except (ActivityExistsError, ValueError) as e:
         err_console.print(f"[red]✗[/] {e}")
@@ -2334,10 +2338,16 @@ def _set_activity_one(
     activity, body = read_activity(activity_md)
 
     if priority is not None:
-        err_console.print(
-            "[red]✗[/] activity priority not implemented yet — see #27"
-        )
-        return False
+        if _is_explicit_default("priority", priority):
+            activity.priority = None
+        elif priority not in {"low", "high", "urgent"}:
+            err_console.print(
+                f"[red]✗[/] --priority: {priority!r} not in low|high|urgent "
+                "(or 'normal'/'none'/'' to clear)"
+            )
+            return False
+        else:
+            activity.priority = priority
 
     if title is not None:
         if not title.strip():
@@ -2612,12 +2622,51 @@ def _is_empty_index() -> bool:
     return counts["activities"] == 0
 
 
+def _csv_list(values: list[str] | None) -> list[str] | None:
+    """Comma-shorthand for filter flags (e.g. --status active,on_hold)."""
+    if not values:
+        return None
+    out: list[str] = []
+    for v in values:
+        for piece in v.split(","):
+            piece = piece.strip()
+            if piece:
+                out.append(piece)
+    return out or None
+
+
 @app.command("list")
 def list_cmd(
+    noun: str | None = typer.Argument(
+        None, help="Optional 'tasks' or 'activities' explicit form (D90).",
+    ),
+    target: str | None = typer.Argument(
+        None, help="When noun=tasks, optional <path-or-id> for cross-activity targeting.",
+    ),
     all_: bool = typer.Option(False, "--all", help="Force cross-activity listing regardless of cwd."),
-    status: str | None = typer.Option(None, "--status", help="Filter activities by status."),
-    type_: str | None = typer.Option(None, "--type", help="Filter activities by type."),
-    area: str | None = typer.Option(None, "--area", help="Filter activities by area."),
+    statuses: list[str] | None = typer.Option(
+        None, "--status",
+        help="Filter by activity status (multi: --status a,b or repeat).",
+    ),
+    priorities: list[str] | None = typer.Option(
+        None, "--priority",
+        help="Filter by activity priority (D87): low|high|urgent.",
+    ),
+    types: list[str] | None = typer.Option(
+        None, "--type",
+        help="Filter by activity type.",
+    ),
+    areas: list[str] | None = typer.Option(
+        None, "--area",
+        help="Filter by activity area.",
+    ),
+    has_pinned: bool = typer.Option(False, "--has-pinned", help="Only activities with ≥1 pinned task."),
+    has_overdue: bool = typer.Option(False, "--has-overdue", help="Only activities with overdue tasks."),
+    has_now: bool = typer.Option(False, "--has-now", help="Only activities with ≥1 task in `now`."),
+    touched_within: int | None = typer.Option(
+        None, "--touched-within",
+        help="Only activities touched in the last N days.",
+    ),
     bucket: str | None = typer.Option(None, "--bucket", help="Filter tasks by bucket."),
     kind: str | None = typer.Option(
         None, "--kind",
@@ -2639,50 +2688,157 @@ def list_cmd(
 ) -> None:
     """List activities or tasks. Context-aware (use --all to force cross-activity).
 
-    D83: Activities with `status: archived` are hidden by default;
-    pass `--include-archived` to show them, or `--status archived` for
-    archived-only.
+    Noun-explicit forms (D90):
+      octopus list tasks [<path-or-id>]    — list tasks (optionally in a named activity)
+      octopus list activities              — list activities with filters
+
+    Bare `octopus list` is context-aware:
+      cwd inside .octopus/  → list tasks in current activity
+      cwd outside           → list activities
+
+    D83: Activities with `status: archived` are hidden by default.
+    D87: --priority is the activity priority filter (low|high|urgent).
     """
+    # D90 — noun-explicit forms
+    if noun == "tasks":
+        _list_tasks(
+            target=target, all_=all_, bucket=bucket, kind=kind,
+            promoted=promoted, spec=spec, include_archived=include_archived,
+            show_ids=show_ids,
+        )
+        return
+    if noun == "activities":
+        _list_activities_view(
+            statuses=_csv_list(statuses), priorities=_csv_list(priorities),
+            types=_csv_list(types), areas=_csv_list(areas),
+            has_pinned=has_pinned, has_overdue=has_overdue, has_now=has_now,
+            touched_within=touched_within, include_archived=include_archived,
+            show_ids=show_ids,
+        )
+        return
+    if noun is not None:
+        # Looks like a slug? assume the user meant `list <slug>` (legacy positional)
+        err_console.print(
+            f"[red]✗[/] unknown noun {noun!r}. Use 'tasks' or 'activities', or omit."
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    # Bare `list` — context-aware default (D90)
     cwd_activity = None if all_ else find_activity_root(Path.cwd())
     kinds = [k.strip() for k in kind.split(",")] if kind else None
-    # --promoted / --spec force a task listing even at cross-activity scope
-    # (otherwise the activity-summary branch would render and ignore the filter).
     task_view = bool(bucket or kinds or promoted or spec)
+    if cwd_activity is not None and not task_view:
+        # In-activity → default to tasks
+        _list_tasks(
+            target=None, all_=False, bucket=bucket, kind=kind,
+            promoted=promoted, spec=spec, include_archived=include_archived,
+            show_ids=show_ids,
+        )
+        return
+    if task_view:
+        # Filters force a task view, even cross-activity
+        conn = get_db()
+        try:
+            if _is_empty_index():
+                console.print(EMPTY_INDEX_HINT)
+                return
+            rows = tasks_all(
+                conn, bucket=bucket,
+                kinds=kinds, promoted=promoted, spec=spec,
+            )
+            _print_task_rows(rows, show_ids=show_ids, show_activity=True)
+        finally:
+            conn.close()
+        return
+    # Cross-activity default → activities
+    _list_activities_view(
+        statuses=_csv_list(statuses), priorities=_csv_list(priorities),
+        types=_csv_list(types), areas=_csv_list(areas),
+        has_pinned=has_pinned, has_overdue=has_overdue, has_now=has_now,
+        touched_within=touched_within, include_archived=include_archived,
+        show_ids=show_ids,
+    )
+
+
+def _list_tasks(
+    *, target: str | None, all_: bool, bucket: str | None, kind: str | None,
+    promoted: bool, spec: str | None, include_archived: bool, show_ids: bool,
+) -> None:
+    """Implementation for `octopus list tasks [<path-or-id>]`."""
+    kinds = [k.strip() for k in kind.split(",")] if kind else None
     conn = get_db()
     try:
-        if cwd_activity is not None:
-            # In-activity scope: list this activity's tasks
-            activity_md = cwd_activity / ".octopus" / "activity.md"
+        if target is not None:
+            # Resolve the activity by path-or-id, then list its tasks
+            root = _resolve_activity_root(target)
+            activity_md = root / ".octopus" / "activity.md"
             try:
                 activity, _ = read_activity(activity_md)
             except Exception as e:
                 err_console.print(f"[red]✗[/] cannot read activity: {e}")
                 raise typer.Exit(EXIT_USER_ERROR) from e
             rows = tasks_for_activity(
-                conn, activity.id,
-                bucket=bucket,
+                conn, activity.id, bucket=bucket,
                 kinds=kinds, promoted=promoted, spec=spec,
+                include_archived=include_archived,
+            )
+            _print_task_rows(rows, show_ids=show_ids)
+            return
+        # No target: cwd-walk-up if available, else cross-activity
+        cwd_activity = None if all_ else find_activity_root(Path.cwd())
+        if cwd_activity is not None:
+            activity, _ = read_activity(cwd_activity / ".octopus" / "activity.md")
+            rows = tasks_for_activity(
+                conn, activity.id, bucket=bucket,
+                kinds=kinds, promoted=promoted, spec=spec,
+                include_archived=include_archived,
             )
             _print_task_rows(rows, show_ids=show_ids)
         else:
-            # Cross-activity scope
             if _is_empty_index():
                 console.print(EMPTY_INDEX_HINT)
                 return
-            if task_view:
-                rows = tasks_all(
-                    conn, bucket=bucket,
-                    kinds=kinds, promoted=promoted, spec=spec,
-                )
-                _print_task_rows(rows, show_ids=show_ids, show_activity=True)
-            else:
-                rows = db_list_activities(
-                    conn, status=status, type_=type_, area=area,
-                    include_archived=include_archived,
-                )
-                _print_activity_rows(conn, rows, show_ids=show_ids)
+            rows = tasks_all(
+                conn, bucket=bucket,
+                kinds=kinds, promoted=promoted, spec=spec,
+                include_archived=include_archived,
+            )
+            _print_task_rows(rows, show_ids=show_ids, show_activity=True)
     finally:
         conn.close()
+
+
+def _list_activities_view(
+    *, statuses, priorities, types, areas, has_pinned, has_overdue, has_now,
+    touched_within, include_archived, show_ids,
+) -> None:
+    """Implementation for `octopus list activities` with all filter flags."""
+    conn = get_db()
+    try:
+        if _is_empty_index():
+            console.print(EMPTY_INDEX_HINT)
+            return
+        rows = db_list_activities(
+            conn,
+            statuses=statuses, priorities=priorities, types=types, areas=areas,
+            has_pinned=has_pinned, has_overdue=has_overdue, has_now=has_now,
+            touched_within_days=touched_within,
+            include_archived=include_archived,
+        )
+        _print_activity_rows(conn, rows, show_ids=show_ids)
+    finally:
+        conn.close()
+
+
+def _priority_chip(priority: str | None) -> str:
+    """Render an activity priority as a colored chip. Empty for normal."""
+    if priority == "urgent":
+        return "[red]urgent[/]"
+    if priority == "high":
+        return "[yellow]high[/]"
+    if priority == "low":
+        return "[dim]low[/]"
+    return ""
 
 
 def _print_activity_rows(
@@ -2694,6 +2850,7 @@ def _print_activity_rows(
     table = Table(show_edge=False)
     table.add_column("Activity", style="cyan")
     table.add_column("Title")
+    table.add_column("Pri", style="dim")
     table.add_column("Type", style="dim")
     table.add_column("Status", style="dim")
     table.add_column("Now", justify="right")
@@ -2702,8 +2859,15 @@ def _print_activity_rows(
     for row in rows:
         display_id = row["id"] if show_ids else short_form(row["id"])
         counts = count_by_bucket(conn, row["id"])
+        # Tolerate older schema (priority column added in v4)
+        try:
+            priority = row["priority"]
+        except (KeyError, IndexError):
+            priority = None
         table.add_row(
-            display_id, row["title"] or "", row["type"] or "", row["status"] or "",
+            display_id, row["title"] or "",
+            _priority_chip(priority),
+            row["type"] or "", row["status"] or "",
             str(counts.get("now", 0)),
             str(counts.get("next", 0)),
             str(counts.get("backlog", 0)),
@@ -2744,23 +2908,35 @@ def _print_task_rows(rows: list, *, show_ids: bool = False, show_activity: bool 
 
 @app.command()
 def status(
-    activity_query: str | None = typer.Argument(None, help="Activity prefix or full id. Defaults to cwd's activity."),
+    target: str | None = typer.Argument(
+        None,
+        help="Activity path, id, or unambiguous prefix. Defaults to cwd's activity.",
+    ),
     show_ids: bool = typer.Option(False, "--show-ids", "-i"),
+    limit: int = typer.Option(5, "--limit", help="Max tasks per section (now/pinned/overdue)."),
 ) -> None:
-    """Detailed activity view, index-backed."""
+    """Rich activity view (D90): metadata + bucket counts + now/pinned/overdue.
+
+    Path-or-id resolution (D83): token starts with `/`, `~`, or contains `/`
+    → filesystem path; otherwise activity id (exact or unambiguous prefix).
+    """
+    from octopus.core.identify import (
+        ActivityAmbiguous,
+        ActivityNotFound,
+        resolve_activity,
+    )
+
     conn = get_db()
     try:
-        if activity_query:
-            matches = get_activity_by_id_or_prefix(conn, activity_query)
-            if not matches:
-                err_console.print(f"[red]✗[/] no activity matches {activity_query!r}")
-                raise typer.Exit(EXIT_USER_ERROR)
-            if len(matches) > 1:
-                err_console.print(f"[red]✗[/] ambiguous {activity_query!r}; candidates:")
-                for m in matches:
-                    err_console.print(f"  {m['id']}  {m['path']}")
-                raise typer.Exit(EXIT_USER_ERROR)
-            activity = matches[0]
+        if target:
+            try:
+                activity = resolve_activity(target)
+            except ActivityNotFound as exc:
+                err_console.print(f"[red]✗[/] {exc}")
+                raise typer.Exit(EXIT_USER_ERROR) from exc
+            except ActivityAmbiguous as exc:
+                err_console.print(f"[red]✗[/] {exc}")
+                raise typer.Exit(EXIT_USER_ERROR) from exc
         else:
             root = find_activity_root(Path.cwd())
             if root is None:
@@ -2768,19 +2944,19 @@ def status(
                     console.print(EMPTY_INDEX_HINT)
                     return
                 err_console.print(
-                    "[red]✗[/] not in an activity; pass an activity slug, "
+                    "[red]✗[/] not in an activity; pass an activity path/id "
                     "or run from inside an activity folder."
                 )
                 raise typer.Exit(EXIT_NOT_IN_ACTIVITY)
-            activity_md = root / ".octopus" / "activity.md"
-            act_obj, _ = read_activity(activity_md)
-            matches = get_activity_by_id_or_prefix(conn, act_obj.id)
-            if not matches:
+            try:
+                activity = resolve_activity(str(root))
+            except ActivityNotFound:
                 console.print(EMPTY_INDEX_HINT)
                 return
-            activity = matches[0]
 
         display_id = activity["id"] if show_ids else short_form(activity["id"])
+
+        # Metadata table
         tbl = Table(show_header=False, show_edge=False, padding=(0, 2))
         tbl.add_column(style="dim")
         tbl.add_column()
@@ -2789,10 +2965,25 @@ def status(
         tbl.add_row("Path", activity["path"])
         tbl.add_row("Type", activity["type"] or "")
         tbl.add_row("Status", activity["status"] or "")
+        try:
+            pri = activity["priority"]
+        except (KeyError, IndexError):
+            pri = None
+        if pri:
+            tbl.add_row("Priority", _priority_chip(pri))
         if activity["area"]:
             tbl.add_row("Area", activity["area"])
+        if activity["last_reviewed"]:
+            tbl.add_row("Last reviewed", str(activity["last_reviewed"]))
+        try:
+            lt = activity["last_touched_at"]
+        except (KeyError, IndexError):
+            lt = None
+        if lt:
+            tbl.add_row("Last touched", str(lt))
         console.print(tbl)
 
+        # Bucket counts
         counts = count_by_bucket(conn, activity["id"])
         if counts:
             console.print()
@@ -2805,8 +2996,443 @@ def status(
                     ctab.add_row(b, str(n))
             if ctab.row_count:
                 console.print(ctab)
+
+        # Now / pinned / overdue task previews
+        rows = tasks_for_activity(conn, activity["id"])
+        now_rows = [r for r in rows if r["bucket"] == "now"]
+        pinned_rows = [r for r in rows if r["pinned"]]
+        overdue_rows = [
+            r for r in rows
+            if r["due"] is not None
+            and str(r["due"]) < date.today().isoformat()
+            and r["bucket"] not in {"done", "dropped"}
+        ]
+        for label, items in (
+            ("Now", now_rows),
+            ("Pinned", pinned_rows),
+            ("Overdue", overdue_rows),
+        ):
+            if not items:
+                continue
+            console.print(f"\n[bold]{label}[/] ({len(items)})")
+            for r in items[:limit]:
+                marker = ""
+                if r["priority"] == "urgent":
+                    marker = "🔥 "
+                elif r["priority"] == "high":
+                    marker = "! "
+                console.print(f"  {marker}[cyan]{r['slug']}[/]  {r['title']}")
+            if len(items) > limit:
+                console.print(f"  [dim]…and {len(items) - limit} more[/]")
     finally:
         conn.close()
+
+
+# ── get / dashboard / next / impact (D90) ─────────────────────────────
+
+
+get_app = typer.Typer(help="JSON-shaped programmatic reads.", no_args_is_help=True)
+app.add_typer(get_app, name="get")
+
+
+@get_app.command("activity")
+def get_activity_cmd(
+    target: str = typer.Argument(..., help="Activity path, id, or unambiguous prefix."),
+    format_: str | None = typer.Option(
+        None, "--format",
+        help="Output format: pretty | compact. Default: pretty on TTY, compact in pipes.",
+    ),
+) -> None:
+    """JSON dump of activity metadata + bucket counts + now/pinned/overdue (D90)."""
+    import json
+    import sys
+
+    from octopus.core.identify import (
+        ActivityAmbiguous,
+        ActivityNotFound,
+        resolve_activity,
+    )
+
+    try:
+        activity = resolve_activity(target)
+    except (ActivityNotFound, ActivityAmbiguous) as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+
+    conn = get_db()
+    try:
+        counts = count_by_bucket(conn, activity["id"])
+        rows = tasks_for_activity(conn, activity["id"])
+        today_str = date.today().isoformat()
+        now_tasks = [
+            {"slug": r["slug"], "title": r["title"], "priority": r["priority"]}
+            for r in rows if r["bucket"] == "now"
+        ]
+        pinned_tasks = [
+            {"slug": r["slug"], "title": r["title"], "bucket": r["bucket"]}
+            for r in rows if r["pinned"]
+        ]
+        overdue_tasks = [
+            {"slug": r["slug"], "title": r["title"], "due": str(r["due"])}
+            for r in rows
+            if r["due"] is not None and str(r["due"]) < today_str
+            and r["bucket"] not in {"done", "dropped"}
+        ]
+    finally:
+        conn.close()
+
+    def _safe(row, key):
+        try:
+            return row[key]
+        except (KeyError, IndexError):
+            return None
+
+    doc = {
+        "activity": {
+            "id": activity["id"],
+            "title": activity["title"],
+            "path": activity["path"],
+            "type": activity["type"],
+            "status": activity["status"],
+            "area": activity["area"],
+            "priority": _safe(activity, "priority"),
+            "created": str(activity["created"]) if activity["created"] else None,
+            "last_reviewed": (
+                str(activity["last_reviewed"]) if activity["last_reviewed"] else None
+            ),
+            "last_touched_at": (
+                str(_safe(activity, "last_touched_at")) if _safe(activity, "last_touched_at") else None
+            ),
+        },
+        "buckets": {b: counts.get(b, 0) for b in ("backlog", "next", "now", "done", "dropped")},
+        "now_tasks": now_tasks,
+        "pinned_tasks": pinned_tasks,
+        "overdue_tasks": overdue_tasks,
+    }
+
+    if format_ is None:
+        format_ = "pretty" if sys.stdout.isatty() else "compact"
+    if format_ == "compact":
+        out = json.dumps(doc, ensure_ascii=False, default=str)
+    else:
+        out = json.dumps(doc, ensure_ascii=False, default=str, indent=2)
+    # Use plain print to avoid Rich markup interpretation of JSON
+    print(out)
+
+
+def _gather_ranked_tasks(conn) -> list[dict]:
+    """Compute the R1 score for every active task across the index.
+
+    Returns a list of dicts with task fields + activity context + score
+    breakdown, sorted by score descending (with tiebreak on last_touched_at).
+    """
+    from octopus.core.ranking import score_task
+
+    # Pull all activities (incl. priority + last_touched_at)
+    act_rows = conn.execute(
+        "SELECT id, title, priority, last_touched_at FROM activities"
+    ).fetchall()
+    by_id = {r["id"]: r for r in act_rows}
+
+    # All tasks that aren't archived/done/dropped — let the ranker do the rest
+    rows = tasks_all(conn)
+    ranked: list[dict] = []
+    for r in rows:
+        act = by_id.get(r["activity_id"])
+        act_priority = None if act is None else act["priority"]
+        # Build a lightweight object that score_task can read attrs from
+        task_obj = type("T", (), {
+            "archived": r["archived"],
+            "bucket": r["bucket"],
+            "pinned": r["pinned"],
+            "due": r["due"] if isinstance(r["due"], date) else (
+                date.fromisoformat(r["due"]) if r["due"] else None
+            ),
+            "priority": r["priority"],
+            "issue": r["issue"],
+        })()
+        score = score_task(task_obj, activity_priority=act_priority)
+        if score is None:
+            continue
+        ranked.append({
+            "activity_id": r["activity_id"],
+            "activity_title": act["title"] if act else "",
+            "activity_priority": act_priority,
+            "slug": r["slug"],
+            "title": r["title"],
+            "bucket": r["bucket"],
+            "pinned": r["pinned"],
+            "due": r["due"],
+            "priority": r["priority"],
+            "issue": r["issue"],
+            "last_touched_at": act["last_touched_at"] if act else None,
+            "score": score.total,
+            "score_breakdown": score,
+        })
+    # Sort: score desc, then activity last_touched asc (older = stale = up)
+    ranked.sort(key=lambda x: (
+        -x["score"],
+        x["last_touched_at"] or "9999",
+    ))
+    return ranked
+
+
+@app.command()
+def next_(
+    limit: int = typer.Option(3, "--limit", help="How many tasks to show (default 3)."),
+    json_flag: bool = typer.Option(False, "--json", help="Output JSON to stdout."),
+    json_path: str | None = typer.Option(
+        None, "--json-out", help="Write JSON to this file path.",
+    ),
+) -> None:
+    """Top N tasks ranked by impact (R1 heuristic, D89). Default N=3."""
+    conn = get_db()
+    try:
+        ranked = _gather_ranked_tasks(conn)
+    finally:
+        conn.close()
+    ranked = ranked[:max(0, limit)]
+    _emit_ranked(
+        ranked,
+        title=f"NEXT {limit} TASK{'S' if limit != 1 else ''}",
+        json_flag=json_flag, json_path=json_path,
+    )
+
+
+# Typer doesn't allow `next` as a function name (it's a builtin in some contexts);
+# register the command under `next` explicitly.
+app.command(name="next")(next_)
+
+
+@app.command()
+def impact(
+    limit: int = typer.Option(20, "--limit", help="Max tasks to show. 0 = unlimited."),
+    show_score: bool = typer.Option(False, "--show-score", help="Reveal numeric R1 scores."),
+    json_flag: bool = typer.Option(False, "--json", help="Output JSON to stdout."),
+    json_path: str | None = typer.Option(
+        None, "--json-out", help="Write JSON to this file path.",
+    ),
+) -> None:
+    """Full ranked task list (R1 heuristic, D89). Default top 20."""
+    conn = get_db()
+    try:
+        ranked = _gather_ranked_tasks(conn)
+    finally:
+        conn.close()
+    if limit > 0:
+        ranked = ranked[:limit]
+    _emit_ranked(
+        ranked, title="IMPACT (ranked)",
+        json_flag=json_flag, json_path=json_path, show_score=show_score,
+    )
+
+
+def _emit_ranked(
+    ranked: list[dict], *, title: str,
+    json_flag: bool = False, json_path: str | None = None,
+    show_score: bool = False,
+) -> None:
+    """Shared output path for next/impact. --json flag → stdout; --json-out path → file."""
+    import json as _json
+
+    if json_flag or json_path:
+        payload = [
+            {
+                "rank": i + 1,
+                "activity_id": r["activity_id"],
+                "slug": r["slug"],
+                "title": r["title"],
+                "bucket": r["bucket"],
+                "pinned": bool(r["pinned"]),
+                "due": str(r["due"]) if r["due"] else None,
+                "priority": r["priority"],
+                "score": r["score"],
+            }
+            for i, r in enumerate(ranked)
+        ]
+        text = _json.dumps(payload, ensure_ascii=False, default=str)
+        if json_path:
+            path = Path(json_path).expanduser()
+            path.write_text(text + "\n", encoding="utf-8")
+            console.print(f"[green]✓[/] wrote {len(payload)} ranked task(s) to {path}")
+        else:
+            print(text)
+        return
+
+    if not ranked:
+        console.print("[dim]no rankable tasks (try `octopus reindex` if you expected some).[/]")
+        return
+    console.print(f"\n[bold]{title}[/]\n")
+    for i, r in enumerate(ranked, 1):
+        marks = []
+        if r["pinned"]:
+            marks.append("📌")
+        if r["priority"] == "urgent":
+            marks.append("🔥")
+        elif r["priority"] == "high":
+            marks.append("!")
+        if r["issue"]:
+            marks.append(f"[red]{r['issue']}[/]")
+        marker = " ".join(marks)
+        score_str = f"  [dim]({r['score']})[/]" if show_score else ""
+        act_chip = f"[dim]{short_form(r['activity_id'])}/[/]"
+        console.print(
+            f"{i:>2}. {act_chip}[cyan]{r['slug']}[/]  {r['title']}  {marker}{score_str}"
+        )
+
+
+@app.command()
+def dashboard(
+    json_flag: bool = typer.Option(False, "--json", help="Output JSON to stdout."),
+    json_path: str | None = typer.Option(
+        None, "--json-out", help="Write JSON to this file path.",
+    ),
+) -> None:
+    """Composite cross-activity view (D90): pinned, overdue, now, blocked, sessions."""
+    import json as _json
+
+    conn = get_db()
+    try:
+        # Pinned across all activities, active only
+        pinned = conn.execute(
+            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            "JOIN activities a ON a.id = t.activity_id "
+            "WHERE t.pinned = 1 AND (t.archived IS NULL OR t.archived = 0) "
+            "AND t.bucket NOT IN ('done', 'dropped') "
+            "AND (a.status IS NULL OR a.status != 'archived') "
+            "ORDER BY t.due IS NULL, t.due"
+        ).fetchall()
+
+        today_str = date.today().isoformat()
+        overdue = conn.execute(
+            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            "JOIN activities a ON a.id = t.activity_id "
+            "WHERE t.due IS NOT NULL AND t.due < ? "
+            "AND (t.archived IS NULL OR t.archived = 0) "
+            "AND t.bucket NOT IN ('done', 'dropped') "
+            "AND (a.status IS NULL OR a.status != 'archived') "
+            "ORDER BY t.due",
+            (today_str,),
+        ).fetchall()
+
+        now_rows = conn.execute(
+            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            "JOIN activities a ON a.id = t.activity_id "
+            "WHERE t.bucket = 'now' AND (t.archived IS NULL OR t.archived = 0) "
+            "AND (a.status IS NULL OR a.status != 'archived') "
+            "ORDER BY t.activity_id, t.pinned DESC, t.slug"
+        ).fetchall()
+
+        blocked = conn.execute(
+            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            "JOIN activities a ON a.id = t.activity_id "
+            "WHERE t.issue IN ('blocked', 'waiting') "
+            "AND (t.archived IS NULL OR t.archived = 0) "
+            "AND t.bucket NOT IN ('done', 'dropped') "
+            "AND (a.status IS NULL OR a.status != 'archived')"
+        ).fetchall()
+
+        # Activity priority breakdown
+        prio_rows = db_list_activities(conn)
+    finally:
+        conn.close()
+
+    if json_flag or json_path:
+        def _row(r):
+            return {
+                "activity_id": r["activity_id"],
+                "activity_title": r["activity_title"],
+                "slug": r["slug"],
+                "title": r["title"],
+                "bucket": r["bucket"],
+                "due": str(r["due"]) if r["due"] else None,
+                "priority": r["priority"],
+                "pinned": bool(r["pinned"]),
+                "issue": r["issue"],
+            }
+        def _safe(r, key):
+            try:
+                return r[key]
+            except (KeyError, IndexError):
+                return None
+        payload = {
+            "date": today_str,
+            "pinned": [_row(r) for r in pinned],
+            "overdue": [_row(r) for r in overdue],
+            "now": [_row(r) for r in now_rows],
+            "blocked": [_row(r) for r in blocked],
+            "activities": [
+                {
+                    "id": r["id"], "title": r["title"], "type": r["type"],
+                    "status": r["status"], "priority": _safe(r, "priority"),
+                    "last_touched_at": str(_safe(r, "last_touched_at"))
+                                       if _safe(r, "last_touched_at") else None,
+                }
+                for r in prio_rows
+            ],
+        }
+        text = _json.dumps(payload, ensure_ascii=False, default=str)
+        if json_path:
+            path = Path(json_path).expanduser()
+            path.write_text(text + "\n", encoding="utf-8")
+            console.print(f"[green]✓[/] dashboard JSON written to {path}")
+        else:
+            print(text)
+        return
+
+    # Rich text render
+    console.print(f"\n[bold]DASHBOARD[/] — {today_str}\n")
+
+    def _section(label: str, items: list, render):
+        if not items:
+            return
+        console.print(f"[bold]{label}[/] ({len(items)})")
+        for r in items:
+            render(r)
+        console.print()
+
+    def _line(r, *, prefix: str = ""):
+        marks = []
+        if r["pinned"]:
+            marks.append("📌")
+        if r["priority"] == "urgent":
+            marks.append("🔥")
+        elif r["priority"] == "high":
+            marks.append("!")
+        if r["issue"]:
+            marks.append(f"[red]{r['issue']}[/]")
+        chip = " ".join(marks)
+        act = short_form(r["activity_id"])
+        due_str = ""
+        if r["due"]:
+            due_str = f"  [yellow]{r['due']}[/]"
+        console.print(f"  {prefix}[dim]{act}/[/][cyan]{r['slug']}[/]  {r['title']}  {chip}{due_str}")
+
+    _section("⚐ PINNED", pinned, _line)
+    _section("📅 OVERDUE", overdue, _line)
+    _section("● NOW", now_rows, _line)
+    _section("⏸ BLOCKED", blocked, _line)
+
+    # Activities by priority
+    if prio_rows:
+        urgent = [a for a in prio_rows if _row_safe(a, "priority") == "urgent"]
+        high = [a for a in prio_rows if _row_safe(a, "priority") == "high"]
+        if urgent or high:
+            console.print("[bold]ACTIVITY PRIORITIES[/]")
+            for a in urgent:
+                console.print(f"  [red]urgent[/]   {a['title']}")
+            for a in high:
+                console.print(f"  [yellow]high[/]     {a['title']}")
+            console.print()
+
+    console.print("[dim]next 3 tasks → octopus next         full ranked list → octopus impact[/]")
+
+
+def _row_safe(row, key):
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return None
 
 
 @app.command()

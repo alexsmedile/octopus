@@ -124,11 +124,21 @@ def test_add_activity_with_path(isolated, monkeypatch):
     assert (target / ".octopus" / "activity.md").is_file()
 
 
-def test_add_activity_priority_not_implemented(isolated, monkeypatch):
+def test_add_activity_with_priority(isolated, monkeypatch):
+    """D87: --priority is now valid on add activity (was stub-rejected in #26)."""
+    from octopus.fs.io import read_activity
     monkeypatch.chdir(isolated)
-    res = runner.invoke(app, ["add", "activity", "x", "--priority", "high"])
+    res = runner.invoke(app, ["add", "activity", "p1", "--priority", "high"])
+    assert res.exit_code == 0, res.output
+    act, _ = read_activity(isolated / "p1" / ".octopus" / "activity.md")
+    assert act.priority == "high"
+
+
+def test_add_activity_priority_invalid(isolated, monkeypatch):
+    monkeypatch.chdir(isolated)
+    res = runner.invoke(app, ["add", "activity", "x", "--priority", "medium"])
     assert res.exit_code != 0
-    assert "not implemented" in res.output
+    assert "low" in res.output
 
 
 def test_add_activity_rejects_nested(two_activities, monkeypatch):
@@ -255,13 +265,22 @@ def test_set_activity_multi_target_status(two_activities, monkeypatch, tmp_path)
         assert act.status == "paused"
 
 
-def test_set_activity_priority_stub_rejected(two_activities, monkeypatch):
+def test_set_activity_priority_now_works(two_activities, monkeypatch):
+    """D87: --priority on set --activity is implemented (was stubbed in #26)."""
+    from octopus.fs.io import read_activity
     a, _b = two_activities
     a_id, _ = _ids(a, _b)
     monkeypatch.chdir(a)
     res = runner.invoke(app, ["set", "--activity", a_id, "--priority", "high"])
-    assert res.exit_code != 0
-    assert "not implemented" in res.output
+    assert res.exit_code == 0, res.output
+    act, _ = read_activity(a / ".octopus" / "activity.md")
+    assert act.priority == "high"
+
+    # Clear it via explicit-default
+    res = runner.invoke(app, ["set", "--activity", a_id, "--priority", "normal"])
+    assert res.exit_code == 0, res.output
+    act, _ = read_activity(a / ".octopus" / "activity.md")
+    assert act.priority is None
 
 
 # ── --activity flag on other write verbs (D86) ────────────────────────

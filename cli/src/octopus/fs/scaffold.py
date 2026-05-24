@@ -31,6 +31,7 @@ def init_activity(
     activity_type: str = "other",
     status: str = "active",
     area: str | None = None,
+    priority: str | None = None,
     custom_id: str | None = None,
     storage_mode: str = DEFAULT_STORAGE_MODE,
 ) -> Activity:
@@ -66,6 +67,11 @@ def init_activity(
     resolved_title = title if title is not None else folder.name
     activity_id = custom_id or derive_activity_id(folder)
 
+    if priority is not None and priority not in {"low", "high", "urgent"}:
+        raise ValueError(
+            f"unknown priority {priority!r}; valid: low, high, urgent (or omit for normal)"
+        )
+
     activity = Activity(
         id=activity_id,
         title=resolved_title,
@@ -73,6 +79,7 @@ def init_activity(
         type=activity_type,
         status=status,
         area=area,
+        priority=priority,
         last_reviewed=None,
         last_known_path=str(folder),
     )

@@ -24,7 +24,7 @@ def sync_activity_after_write(folder: Path) -> str | None:
         activity, _ = read_activity(folder / ".octopus" / "activity.md")
         conn = get_db()
         try:
-            upsert_activity(conn, activity)
+            upsert_activity(conn, activity, touch=True)
         finally:
             conn.close()
     except Exception as e:
@@ -44,7 +44,7 @@ def sync_task_after_write(activity_folder: Path, task: Task) -> str | None:
         activity, _ = read_activity(activity_folder / ".octopus" / "activity.md")
         conn = get_db()
         try:
-            upsert_activity(conn, activity)  # FK prerequisite (D63)
+            upsert_activity(conn, activity, touch=True)  # FK prerequisite (D63)
             upsert_task(conn, activity.id, task)
         finally:
             conn.close()

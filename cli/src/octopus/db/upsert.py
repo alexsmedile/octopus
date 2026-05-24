@@ -72,22 +72,34 @@ def _task_raw_frontmatter(task: Task) -> str:
     return json.dumps(data, sort_keys=True)
 
 
-def upsert_activity(conn: sqlite3.Connection, activity: Activity) -> None:
-    """Insert or update the activity row in the index."""
+def upsert_activity(
+    conn: sqlite3.Connection, activity: Activity, *, touch: bool = False,
+) -> None:
+    """Insert or update the activity row in the index.
+
+    D88: pass `touch=True` to also bump `last_touched_at` to now. Used by
+    `sync_task_after_write` and `sync_activity_after_write` to mark the
+    activity as recently active. Plain reindex passes touch=False so it
+    doesn't artificially refresh every row.
+    """
+    now = _now()
     conn.execute(
         """
         INSERT INTO activities (
-            id, path, title, type, status, area,
-            created, last_reviewed, raw_frontmatter, indexed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, path, title, type, status, area, priority,
+            created, last_reviewed, last_touched_at,
+            raw_frontmatter, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             path = excluded.path,
             title = excluded.title,
             type = excluded.type,
             status = excluded.status,
             area = excluded.area,
+            priority = excluded.priority,
             created = excluded.created,
             last_reviewed = excluded.last_reviewed,
+            last_touched_at = COALESCE(excluded.last_touched_at, activities.last_touched_at),
             raw_frontmatter = excluded.raw_frontmatter,
             indexed_at = excluded.indexed_at
         """,
@@ -98,10 +110,12 @@ def upsert_activity(conn: sqlite3.Connection, activity: Activity) -> None:
             activity.type,
             activity.status,
             activity.area,
+            activity.priority,
             activity.created.isoformat() if activity.created else None,
             activity.last_reviewed.isoformat() if activity.last_reviewed else None,
+            now if touch else None,
             _activity_raw_frontmatter(activity),
-            _now(),
+            now,
         ),
     )
 

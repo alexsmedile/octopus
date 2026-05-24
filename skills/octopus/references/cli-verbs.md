@@ -91,15 +91,76 @@ octopus pin focus-this --activity /Users/alex/projects/work
 ## Listing & viewing
 
 ```
-octopus list [--all] [--bucket <name>] [--pinned] [--archived]
-             [--kind <enum>] [--promoted] [--spec <slug>]
-  Tasks grouped by bucket. Context-aware: scoped to current activity if inside one,
-  cross-activity otherwise. --all forces cross-activity even from inside.
+# Noun-explicit forms (D90)
+octopus list                            # context-aware: tasks in activity, activities outside
+octopus list tasks [<path-or-id>]       # tasks in cwd or named activity
+octopus list activities [filters]       # the dashboard list with filter flags
 
-  --kind <enum>   filter by kind (feat/bug/spec/polish/test/chore). Comma-separated for multi.
-  --promoted      scope override: only tasks with promoted_to: set (overrides default scope).
-  --spec <slug>   scope override: only tasks promoted to spectacular:<slug>.
+# Activity-level filter flags (D27, multi-value via comma)
+--status <a,b>          activity status (active|on_hold|done|cancelled|archived|...)
+--priority <p>          activity priority (low|high|urgent — D87)
+--type <t>              activity type
+--area <a>              activity area
+--has-pinned            only activities with ≥1 pinned task
+--has-overdue           only activities with overdue tasks
+--has-now               only activities with ≥1 task in `now`
+--touched-within N      only activities touched in last N days
+--include-archived      include status:archived (hidden by default — D83)
 
+# Task-scope filter flags
+--bucket <name>         filter tasks by bucket
+--kind <enum>           filter tasks by kind (comma-separated for multi)
+--promoted              scope override: only tasks with promoted_to set
+--spec <slug>           scope override: only tasks promoted to spectacular:<slug>
+```
+
+### Rich activity view + JSON read
+
+```
+octopus status [<path-or-id>] [--limit N]
+  Path-or-id auto-detect (D83). Shows metadata + bucket counts +
+  first N now/pinned/overdue task titles. Default limit = 5.
+
+octopus get activity <path-or-id> [--format pretty|compact]
+  JSON output. TTY=pretty (indented); pipe=compact (one-line).
+  Future-stable: get task <slug> not yet implemented.
+```
+
+### Dashboard & ranked views (D89/D90)
+
+```
+octopus dashboard
+octopus dashboard --json                # JSON to stdout
+octopus dashboard --json-out <path>     # JSON to file
+  Composite cross-activity view: pinned + overdue + now + blocked
+  + activity priorities. Hides archived activities by default.
+
+octopus next [--limit N] [--json|--json-out <path>]
+  Top N tasks ranked by R1 heuristic (default N=3).
+
+octopus impact [--limit N] [--show-score] [--json|--json-out <path>]
+  Full ranked task list (default top 20; 0 = unlimited). --show-score
+  reveals the numeric R1 score per row.
+```
+
+### R1 ranking heuristic (D89, locked)
+
+| Signal                          | Weight |
+|---|---|
+| `pinned: true`                  | +100 |
+| Overdue                         | +80 + days_overdue, cap at +30 |
+| `bucket: now`                   | +40 |
+| Due soon (≤7 days)              | +30 − days_until_due |
+| Task `priority: urgent`         | +50 |
+| Task `priority: high`           | +25 |
+| Activity `priority: urgent`     | +20 |
+| Activity `priority: high`       | +10 |
+| `issue: blocked` / `waiting`    | −30 |
+
+Archived, done, dropped tasks excluded. Ties broken by activity
+last_touched_at ascending (older = stale = bubbles up).
+
+```
 octopus show <slug>
   Full task content (frontmatter + body).
 

@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 SCHEMA_SQL = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -86,6 +86,18 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         _backfill_external_refs(conn)
         conn.execute("PRAGMA user_version = 3")
         current = 3
+    if current == 3:
+        # v3 → v4 (D87/D88): activity priority + last_touched_at columns.
+        conn.executescript(
+            """
+            ALTER TABLE activities ADD COLUMN priority TEXT;
+            ALTER TABLE activities ADD COLUMN last_touched_at DATETIME;
+            CREATE INDEX IF NOT EXISTS idx_activities_priority    ON activities(priority);
+            CREATE INDEX IF NOT EXISTS idx_activities_last_touch  ON activities(last_touched_at);
+            """
+        )
+        conn.execute("PRAGMA user_version = 4")
+        current = 4
     if current > SCHEMA_VERSION:
         raise RuntimeError(
             f"index.db schema version {current} > supported {SCHEMA_VERSION}; "

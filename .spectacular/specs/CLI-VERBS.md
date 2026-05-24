@@ -304,6 +304,41 @@ Multi-field invocations atomic: all validations against proposed final state; an
 
 `set` MUST NOT auto-apply verb side effects (date stamping, memory log entries, `pinned` flipping). Those are reserved for dedicated verbs.
 
+## Cross-activity reads & dashboards (D89/D90)
+
+```
+# Noun-explicit list (D90)
+octopus list                             # context-aware: tasks inside / activities outside
+octopus list tasks [<path-or-id>]        # tasks in cwd activity or named activity
+octopus list activities                  # the activity dashboard list
+octopus list activities --priority urgent          # priority filter (D87)
+octopus list activities --has-pinned --has-overdue # composite presence filters
+octopus list activities --touched-within 7         # touched in last 7 days
+octopus list activities --status active,on_hold    # multi-value comma-form
+
+# Rich activity view
+octopus status [<path-or-id>] [--limit N]
+  Path-or-id resolution: starts with /, ~, or contains / → path; else id/prefix.
+  Shows metadata + bucket counts + first N now/pinned/overdue task titles.
+
+# JSON access for agents
+octopus get activity <path-or-id> [--format pretty|compact]
+  TTY → pretty (indented). Pipe → compact (one-line). --format overrides.
+
+# Composite cross-activity view
+octopus dashboard
+octopus dashboard --json                 # JSON to stdout
+octopus dashboard --json-out <path>      # JSON to file
+
+# Ranked task views (R1 heuristic, D89)
+octopus next [--limit N] [--json|--json-out <path>]    # top-3 by default
+octopus impact [--limit N] [--show-score] [--json|--json-out <path>]
+  Ranks every active task by R1 (pinned +100, overdue +80+days,
+  now-bucket +40, due-soon +30−days, priority urgent +50/high +25,
+  activity-priority urgent +20/high +10, blocked −30). Excludes
+  archived/done/dropped. Ties broken by activity last_touched_at asc.
+```
+
 ## Inspection verbs (v1)
 
 ```

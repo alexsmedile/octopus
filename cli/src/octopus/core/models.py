@@ -65,6 +65,7 @@ class Activity:
     type: str = "other"
     status: str = "active"
     area: str | None = None
+    priority: str | None = None         # D87 — low|high|urgent; None = normal
     last_reviewed: date | None = None
     last_known_path: str = ""
     source_of_truth: str = "."
@@ -90,6 +91,11 @@ class Activity:
             errors.append("activity.last_known_path is required")
         if self.spec_version != 1:
             errors.append(f"activity.spec_version={self.spec_version} not supported")
+        # D87 — strict enum on activity priority (same set as tasks, None = normal)
+        if self.priority is not None and self.priority not in {"low", "high", "urgent"}:
+            errors.append(
+                f"activity.priority={self.priority!r} not in [low, high, urgent] (or omit for normal)"
+            )
         return errors
 
 
