@@ -1132,3 +1132,192 @@ def mark_open(self, match: str, first: bool = False) -> str: ...
 **Scope discipline:** these are limited verbs by design. Full CRUD (`edit`, `move`, `reorder`, `remove`, `--all`/`--matching`) is **deferred to request #23**. Activation criterion for #23: 4–6 weeks of dogfooding #22 surfaces concrete friction. If `add` + `complete` cover 95% of real edits, #23 stays in backlog.
 
 **Why not `$EDITOR` shell-out?** Considered (option A in grilling). Decided against: an editor shell-out solves "edit the file" but doesn't help with the common case of capturing a single item without leaving the terminal. The `add` verb specifically supports the inline-flag pattern (`--priority high --due tomorrow`) which an editor can't.
+
+---
+
+## D76 — Tag flag matrix (capture, set)
+
+**Date:** 2026-05-24
+**Request:** #24
+
+### Locked
+
+All edit verbs (`capture`, `set`) accept this tag-mutation matrix:
+
+| Flag | Behavior |
+|---|---|
+| `--tag <X>` / `--tags <X[,Y…]>` | **Replace** the entire tag list |
+| `--add-tag <X>` / `--add-tags <X[,Y…]>` | **Append** (dedup) |
+| `--remove-tag <X>` / `--remove-tags <X[,Y…]>` | **Remove** (no-op if absent) |
+| `--clear-tags` | **Empty** the tag list |
+
+Singular and plural are aliases — `--tag` ≡ `--tags`. Same for add/remove pairs.
+
+**Input forms:** all four flag families accept comma-separated, space-separated (in a single quoted arg), or repeated invocation. Examples:
+- `--tag X` · `--tag X,Y` · `--tag "X Y"` · `--tag X --tag Y`
+
+**Mutual exclusion:** `--tag/--tags` (replace) is mutually exclusive with **any** of `--add-tag/--remove-tag/--clear-tags`. Mixing them errors (exit 1).
+
+Combinations of `--clear-tags`, `--remove-tags`, `--add-tags` ARE allowed; applied in that order.
+
+### Storage format
+
+Tags stored with leading `#` in frontmatter to match Obsidian conventions:
+
+```yaml
+tags:
+  - "#bug"
+  - "#tui/marquee"
+```
+
+Nested tags use `/` separator (Obsidian convention). Stored verbatim.
+
+**Input normalization:** flag values accepted with OR without `#`. Normalizer adds `#` if missing. So `--tag bug`, `--tag "#bug"`, `--add-tag tui/marquee` are all valid.
+
+**Backwards-compatibility:** the reader accepts both forms. On any task write, existing tag values are normalized to include `#`. Quiet data migration — flagged in CHANGELOG.
+
+**Filter behavior:** `list --tag parent` matches `#parent` AND any `#parent/*` (prefix match on `/` boundary). Exact-only match (`--exact`) deferred.
+
+---
+
+## D77 — `set --bucket` is frontmatter-only; `move`/`mv` for file moves
+
+**Date:** 2026-05-24
+**Request:** #24
+
+### Locked
+
+`set` is the **frontmatter-only escape hatch**. It edits fields; it does not move files.
+
+Previously: `set --bucket next` would MOVE the file in folder mode (and update SQLite). New behavior:
+
+- `set --bucket next` edits the frontmatter `bucket` field only.
+- In folder mode, if the resulting state has `bucket` ≠ parent directory, emit a **soft warning** with a hint to run `octopus mv`.
+- In field mode (flat storage), no warning fires — no folder concept.
+
+New verb for the file-move case:
+
+```
+octopus move <slug> <bucket>
+octopus mv <slug> <bucket>     # alias
+```
+
+Behavior:
+- Validates bucket against enum.
+- Folder mode: moves the file to the right directory + updates frontmatter `bucket`.
+- Field mode: updates frontmatter only.
+- Updates SQLite index.
+- **No date stamps, no lifecycle side effects** (use `start`/`finish`/`drop` for those).
+- Validates resulting state (moving to `done` without `end_date` rejects).
+
+Separation of concerns: `set` mutates fields, `mv` moves files, lifecycle verbs do both + stamps.
+
+---
+
+## D78 — `set --slug` cascading slug rename
+
+**Date:** 2026-05-24
+**Request:** #24
+
+### Locked
+
+`octopus set <slug> --slug <new>` renames a task's slug with full auto-fix of Octopus-managed references.
+
+**Always auto-fixed (top 6):**
+1. Filesystem: `tasks/<bucket>/<old>.md` → `tasks/<bucket>/<new>.md`
+2. SQLite: `tasks.slug` + `tasks.id` columns
+3. `waiting_for: <old>` in other tasks' frontmatter
+4. `related_tasks: [..., <old>]` in spectacular PLAN.md
+5. `promoted_from: <old>` in spectacular PLAN.md
+6. `→ octopus:<old>` arrows in TODO.md files
+
+**Soft-warned (named files, not auto-fixed):**
+- Session bodies (`.octopus/sessions/*.md`)
+- Memory body (`.octopus/memory.md`)
+- Handoff bodies (`.octopus/handoffs/*.md`)
+
+**External tools** (Obsidian, IDE, git history): named in the warning, never auto-touched.
+
+**Interactive flow:** prompts with a preview of all changes. `-y` flag skips the prompt.
+
+A companion read-only verb `octopus refs find <slug>` (D79) helps the user locate residual occurrences after a rename.
+
+---
+
+## D79 — `octopus refs find <slug>` helper verb
+
+**Date:** 2026-05-24
+**Request:** #24
+
+### Locked
+
+Read-only verb. Greps every Octopus-managed text file in the activity for a slug and prints `file:line` with the matched line.
+
+```
+octopus refs find <slug>          # this activity
+octopus refs find <slug> --all    # cross-activity
+```
+
+Scope: task files, sessions, memory, handoffs, spectacular PLAN.md files, TODO.md files. **Read-only — never edits.** Companion to D78 slug rename for tracking down residual references.
+
+Out of scope: external tools (Obsidian backlinks, IDE bookmarks, git history) — user task.
+
+---
+
+## D80 — Explicit-default values clear instead of reject
+
+**Date:** 2026-05-24
+**Request:** #24
+
+### Locked
+
+When the user passes a value that equals the field's default (and the schema uses default-omission), accept it and clear the field. Don't reject.
+
+Applies to all `set`/`capture` flag values:
+
+| Field | Explicit-default values that clear |
+|---|---|
+| `--priority` | `normal`, `none`, `""` |
+| `--actor` | `human`, `""` |
+| `--energy` | `normal`, `none`, `""` |
+| `--run-state` | `idle`, `none`, `""` |
+| `--issue` | `none`, `""` |
+| `--bucket` | (no clear — bucket is required) |
+| `--kind` | `none`, `""` |
+| any optional date field | `""` |
+
+Rationale: refusing the user's explicit-default is just adversarial. The result is the same as omitting the flag entirely. Match user intent.
+
+---
+
+## D81 — Drop auto-pin on `capture --now`
+
+**Date:** 2026-05-24
+**Request:** #24
+
+### Locked
+
+`capture --now` previously set `pinned: true` along with `bucket: now`. **Drop the auto-pin.**
+
+Pin stays orthogonal to bucket per AXIS-MODEL (D43). If the user wants a pinned task, they `pin` it explicitly:
+
+```
+octopus capture "fire" --now && octopus pin fire
+```
+
+This restores the orthogonality the AXIS-MODEL is supposed to enforce. Behavior change is in the CHANGELOG.
+
+---
+
+## D82 — Empty body on `capture`
+
+**Date:** 2026-05-24
+**Request:** #24
+
+### Locked
+
+`capture` previously wrote `\n## References\n` as the default task body. **Drop that.** New captures have empty bodies.
+
+`## References` reappears as a section when the user wants it — manually or via a future `--body` flag (deferred to #26).
+
+Rationale: defaulting to a hardcoded section adds noise to every task. Empty is the honest default.
