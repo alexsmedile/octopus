@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 840" width="100%" role="img" aria-label="The five axes of task state — vertical layout">
+  <defs>
+    <style>
+      svg {
+        --fg: #1A1B22;
+        --muted: #3A3D48;
+        --dim: #6B6E7A;
+        --field: #7C4DD9;
+        --panel-bg: #F7F7FB;
+        --panel-border: #D5D7E0;
+        --fill-blue:   #E8F0FB;
+        --fill-teal:   #DCFAF3;
+        --fill-purple: #F3ECFC;
+        --fill-yellow: #FBF2D4;
+        --fill-pink:   #FCE4EB;
+        --stroke-blue:   #3D7CC4;
+        --stroke-teal:   #1FA587;
+        --stroke-purple: #7C4DD9;
+        --stroke-yellow: #B58A0F;
+        --stroke-pink:   #C9466B;
+        --chip-blue:   #3D7CC4;
+        --chip-teal:   #1FA587;
+        --chip-purple: #7C4DD9;
+        --chip-yellow: #B58A0F;
+        --chip-pink:   #C9466B;
+        --chip-fg: #FFFFFF;
+        --vis-bg: rgba(255, 246, 214, 0.45);
+        --vis-stroke: #B58A0F;
+        --derived-bg: #DCFAF3;
+        --derived-stroke: #1FA587;
+      }
+      @media (prefers-color-scheme: dark) {
+        svg {
+          --fg: #F5F5F7;
+          --muted: #C4C7D2;
+          --dim: #8A8D9A;
+          --field: #CBA6F7;
+          --panel-bg: #1A1B22;
+          --panel-border: #3A3D48;
+          --fill-blue:   #1E3A5F;
+          --fill-teal:   #1F5546;
+          --fill-purple: #3D2E66;
+          --fill-yellow: #5C4A1F;
+          --fill-pink:   #5C2A38;
+          --stroke-blue:   #7AB8FF;
+          --stroke-teal:   #5EEAD4;
+          --stroke-purple: #CBA6F7;
+          --stroke-yellow: #FACC15;
+          --stroke-pink:   #F38BA8;
+          --chip-blue:   #7AB8FF;
+          --chip-teal:   #5EEAD4;
+          --chip-purple: #CBA6F7;
+          --chip-yellow: #FACC15;
+          --chip-pink:   #F38BA8;
+          --chip-fg: #0F1014;
+          --vis-bg: rgba(58, 47, 26, 0.35);
+          --vis-stroke: #FACC15;
+          --derived-bg: #1F5546;
+          --derived-stroke: #5EEAD4;
+        }
+      }
+      .canvas-bg { fill: var(--panel-bg); }
+      .axis-name  { font-family: -apple-system, system-ui, sans-serif; font-size: 18px; font-weight: 800; fill: var(--fg); }
+      .axis-q     { font-family: -apple-system, system-ui, sans-serif; font-size: 14px; fill: var(--muted); font-style: italic; }
+      .axis-field { font-family: ui-monospace, monospace; font-size: 14px; fill: var(--field); font-weight: 600; }
+      .axis-val   { font-family: ui-monospace, monospace; font-size: 13px; fill: var(--dim); }
+      .axis-val-bright { font-family: ui-monospace, monospace; font-size: 14px; fill: var(--field); font-weight: 600; }
+      .axis-val-mid    { font-family: ui-monospace, monospace; font-size: 13px; fill: var(--muted); }
+      .side-h     { font-family: -apple-system, system-ui, sans-serif; font-size: 18px; font-weight: 800; fill: var(--fg); }
+      .side-q     { font-family: -apple-system, system-ui, sans-serif; font-size: 14px; fill: var(--muted); font-style: italic; }
+      .card-blue   { fill: var(--fill-blue);   stroke: var(--stroke-blue); }
+      .card-teal   { fill: var(--fill-teal);   stroke: var(--stroke-teal); }
+      .card-purple { fill: var(--fill-purple); stroke: var(--stroke-purple); }
+      .card-yellow { fill: var(--fill-yellow); stroke: var(--stroke-yellow); }
+      .card-pink   { fill: var(--fill-pink);   stroke: var(--stroke-pink); }
+      .chip-blue   { fill: var(--chip-blue); }
+      .chip-teal   { fill: var(--chip-teal); }
+      .chip-purple { fill: var(--chip-purple); }
+      .chip-yellow { fill: var(--chip-yellow); }
+      .chip-pink   { fill: var(--chip-pink); }
+      .chip-fg     { fill: var(--chip-fg); }
+      .chip-fg-bg  { fill: var(--panel-bg); }
+      .vis-card    { fill: var(--vis-bg); stroke: var(--vis-stroke); }
+      .derived-card{ fill: var(--derived-bg); stroke: var(--derived-stroke); }
+    </style>
+  </defs>
+  <rect class="canvas-bg" x="0" y="0" width="760" height="840" rx="14"/>
+
+  <!-- ── ROW 1 ────────────────────────────────────────── -->
+
+  <!-- PIPELINE (col 1) -->
+  <rect class="card-blue" x="20" y="20" width="350" height="200" rx="14" stroke-width="1.5"/>
+  <g transform="translate(40,46)">
+    <rect class="chip-blue" x="0" y="0" width="56" height="56" rx="12" opacity="0.25"/>
+    <circle class="chip-blue" cx="12" cy="28" r="4.5"/>
+    <circle class="chip-blue" cx="28" cy="28" r="4.5"/>
+    <circle class="chip-blue" cx="44" cy="28" r="4.5"/>
+    <line x1="16" y1="28" x2="24" y2="28" stroke="var(--chip-blue)" stroke-width="2"/>
+    <line x1="32" y1="28" x2="40" y2="28" stroke="var(--chip-blue)" stroke-width="2"/>
+  </g>
+  <text x="116" y="66" class="axis-name">PIPELINE</text>
+  <text x="116" y="88" class="axis-q">Where in my workflow?</text>
+  <text x="40" y="138" class="axis-field">bucket:</text>
+  <text x="40" y="164" class="axis-val">backlog · next · now</text>
+  <text x="40" y="186" class="axis-val">done · dropped</text>
+
+  <!-- DOMAIN WORKFLOW (col 2) -->
+  <rect class="card-teal" x="390" y="20" width="350" height="200" rx="14" stroke-width="1.5"/>
+  <g transform="translate(410,46)">
+    <rect class="chip-teal" x="0" y="0" width="56" height="56" rx="12" opacity="0.25"/>
+    <circle class="chip-teal" cx="13" cy="28" r="3.8"/>
+    <circle class="chip-teal" cx="43" cy="13" r="3.8"/>
+    <circle class="chip-teal" cx="43" cy="28" r="3.8"/>
+    <circle class="chip-teal" cx="43" cy="43" r="3.8"/>
+    <g fill="none" stroke="var(--chip-teal)" stroke-width="2.2" stroke-linecap="round">
+      <path d="M 17 28 Q 28 28 39 13"/>
+      <path d="M 17 28 L 39 28"/>
+      <path d="M 17 28 Q 28 28 39 43"/>
+    </g>
+  </g>
+  <text x="486" y="66" class="axis-name">DOMAIN WORKFLOW</text>
+  <text x="486" y="88" class="axis-q">What sub-stage of work?</text>
+  <text x="410" y="138" class="axis-field">stage:</text>
+  <text x="410" y="164" class="axis-val">free-form, e.g.</text>
+  <text x="410" y="186" class="axis-val">idea · draft · published</text>
+
+  <!-- ── ROW 2 ────────────────────────────────────────── -->
+
+  <!-- ATTENTION (col 1) -->
+  <rect class="card-yellow" x="20" y="240" width="350" height="200" rx="14" stroke-width="1.5"/>
+  <g transform="translate(40,266)">
+    <rect class="chip-yellow" x="0" y="0" width="56" height="56" rx="12" opacity="0.25"/>
+    <g transform="translate(28,28) rotate(-30)" class="chip-yellow">
+      <rect x="-7.5" y="-15" width="15" height="7.5" rx="1.5"/>
+      <path d="M -9 -7.5 L 9 -7.5 L 5 5 L -5 5 Z"/>
+      <line x1="0" y1="5" x2="0" y2="17" stroke="var(--chip-yellow)" stroke-width="2"/>
+    </g>
+  </g>
+  <text x="116" y="286" class="axis-name">ATTENTION</text>
+  <text x="116" y="308" class="axis-q">Jump to the top?</text>
+  <text x="40" y="358" class="axis-field">pinned:</text>
+  <text x="40" y="384" class="axis-val">true</text>
+  <text x="40" y="406" class="axis-val">(absent = not pinned)</text>
+
+  <!-- RUNTIME (col 2) -->
+  <rect class="card-purple" x="390" y="240" width="350" height="200" rx="14" stroke-width="1.5"/>
+  <g transform="translate(410,266)">
+    <rect class="chip-purple" x="0" y="0" width="56" height="56" rx="12" opacity="0.25"/>
+    <polygon class="chip-purple" points="20,15 20,41 43,28"/>
+  </g>
+  <text x="486" y="286" class="axis-name">RUNTIME</text>
+  <text x="486" y="308" class="axis-q">Is a machine running it?</text>
+  <text x="410" y="358" class="axis-field">run_state:</text>
+  <text x="410" y="384" class="axis-val">queued · running</text>
+  <text x="410" y="406" class="axis-val">finished · failed</text>
+
+  <!-- ── ROW 3 ────────────────────────────────────────── -->
+
+  <!-- IMPEDIMENT (col 1) -->
+  <rect class="card-pink" x="20" y="460" width="350" height="200" rx="14" stroke-width="1.5"/>
+  <g transform="translate(40,486)">
+    <rect class="chip-pink" x="0" y="0" width="56" height="56" rx="12" opacity="0.25"/>
+    <path d="M 18 25 V 20 a 10 10 0 0 1 20 0 V 25" fill="none" stroke="var(--chip-pink)" stroke-width="2.8"/>
+    <rect class="chip-pink" x="14" y="25" width="28" height="20" rx="3"/>
+    <circle class="chip-fg-bg" cx="28" cy="34" r="2.5"/>
+  </g>
+  <text x="116" y="506" class="axis-name">IMPEDIMENT</text>
+  <text x="116" y="528" class="axis-q">Anything stuck?</text>
+  <text x="40" y="578" class="axis-field">issue:</text>
+  <text x="40" y="604" class="axis-val">blocked · waiting</text>
+  <text x="40" y="626" class="axis-val">+ blocked_by / waiting_for</text>
+
+  <!-- VISIBILITY (col 2) — translucent + dashed -->
+  <rect class="vis-card" x="390" y="460" width="350" height="200" rx="14" stroke-dasharray="6,4" stroke-width="1.5"/>
+  <g transform="translate(410,486)">
+    <rect class="chip-yellow" x="0" y="0" width="56" height="56" rx="12" opacity="0.18"/>
+    <!-- eye-off icon -->
+    <g fill="none" stroke="var(--chip-yellow)" stroke-width="2.4" stroke-linecap="round">
+      <path d="M 10 28 Q 28 12 46 28"/>
+      <path d="M 10 28 Q 28 44 46 28"/>
+      <line x1="12" y1="14" x2="44" y2="42"/>
+    </g>
+    <circle class="chip-yellow" cx="28" cy="28" r="4.5"/>
+  </g>
+  <text x="486" y="506" class="axis-name">+ VISIBILITY</text>
+  <text x="486" y="528" class="axis-q">Should I see this at all?</text>
+  <text x="410" y="578" class="axis-field">archived:</text>
+  <text x="410" y="604" class="axis-val">true   (default: visible)</text>
+  <text x="410" y="626" class="axis-val" font-style="italic">— not really an axis</text>
+
+  <!-- ── ROW 4: DERIVED (full width) ──────────────────── -->
+
+  <rect class="derived-card" x="20" y="680" width="720" height="140" rx="14" stroke-width="1.5"/>
+  <text x="40" y="712" class="side-h">📐 Derived, not stored</text>
+  <text x="40" y="734" class="side-q">Octopus computes these on the fly — they live nowhere on disk.</text>
+
+  <text x="40" y="774" class="axis-val-bright">"started?"</text>
+  <text x="40" y="796" class="axis-val-mid">→ start_date is set</text>
+
+  <text x="280" y="774" class="axis-val-bright">"finished?"</text>
+  <text x="280" y="796" class="axis-val-mid">→ bucket: done</text>
+
+  <text x="500" y="774" class="axis-val-bright">"open loop?"</text>
+  <text x="500" y="796" class="axis-val-mid">→ bucket NOT IN (done, dropped)</text>
+</svg>
