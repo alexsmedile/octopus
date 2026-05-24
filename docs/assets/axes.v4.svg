@@ -89,7 +89,7 @@
   <!-- ── ROW 1 (top): 3 cards ──────────────────────────── -->
 
   <!-- 1. PIPELINE -->
-  <rect class="card-blue" x="20" y="30" width="240" height="150" rx="12" stroke-width="1.5"/>
+  <rect class="card-blue" x="20" y="30" width="230" height="150" rx="12" stroke-width="1.5"/>
   <g transform="translate(40,52)">
     <rect class="chip-blue" x="0" y="0" width="44" height="44" rx="10" opacity="0.25"/>
     <circle class="chip-blue" cx="9" cy="22" r="3.5"/>
@@ -105,7 +105,7 @@
   <text x="40" y="160" class="axis-val">done · dropped</text>
 
   <!-- 2. DOMAIN WORKFLOW -->
-  <rect class="card-teal" x="270" y="30" width="240" height="150" rx="12" stroke-width="1.5"/>
+  <rect class="card-teal" x="270" y="30" width="230" height="150" rx="12" stroke-width="1.5"/>
   <g transform="translate(290,52)">
     <rect class="chip-teal" x="0" y="0" width="44" height="44" rx="10" opacity="0.25"/>
     <circle class="chip-teal" cx="10" cy="22" r="3"/>
@@ -139,7 +139,7 @@
   <!-- ── ROW 2 (bottom-left): 2 cards ──────────────────── -->
 
   <!-- 4. ATTENTION -->
-  <rect class="card-yellow" x="20" y="200" width="240" height="150" rx="12" stroke-width="1.5"/>
+  <rect class="card-yellow" x="20" y="200" width="230" height="150" rx="12" stroke-width="1.5"/>
   <g transform="translate(40,222)">
     <rect class="chip-yellow" x="0" y="0" width="44" height="44" rx="10" opacity="0.25"/>
     <g transform="translate(22,22) rotate(-30)" class="chip-yellow">
@@ -155,7 +155,7 @@
   <text x="40" y="330" class="axis-val">(absent = not pinned)</text>
 
   <!-- 5. IMPEDIMENT -->
-  <rect class="card-pink" x="270" y="200" width="240" height="150" rx="12" stroke-width="1.5"/>
+  <rect class="card-pink" x="270" y="200" width="230" height="150" rx="12" stroke-width="1.5"/>
   <g transform="translate(290,222)">
     <rect class="chip-pink" x="0" y="0" width="44" height="44" rx="10" opacity="0.25"/>
     <path d="M 14 20 V 16 a 8 8 0 0 1 16 0 V 20" fill="none" stroke="var(--chip-pink)" stroke-width="2.2"/>
