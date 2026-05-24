@@ -169,17 +169,17 @@ Three lines added beyond the capture defaults. Everything else is omitted becaus
 
 ---
 
-## Five axes — how a task knows where it stands
+## Axes — how a task knows where it stands
 
-Tasks have five independent ways of being "in motion." Each one answers a different question. None of them overlap.
+Tasks have several independent ways of being "in motion." Each one answers a different question. None of them overlap.
 
 <div align="center">
 
-<img src="docs/assets/axes.v5.svg" width="100%" alt="Five axes — pipeline, domain workflow, runtime, attention, impediment."/>
+<img src="docs/assets/axes.v6.svg" width="100%" alt="Task axes — pipeline, domain workflow, runtime, attention, impediment, visibility."/>
 
 </div>
 
-The trick is that all five are *independent*. A task can be `bucket: backlog` (haven't committed) AND `pinned: true` (nagging at me) AND `issue: waiting` (need someone else's input) AND `run_state: queued` (an agent will pick it up tonight) — all at once. Each axis carries information no other axis can.
+The trick is that they're all *independent*. A task can be `bucket: backlog` (haven't committed) AND `pinned: true` (nagging at me) AND `issue: waiting` (need someone else's input) AND `run_state: queued` (an agent will pick it up tonight) — all at once. Each axis carries information no other axis can.
 
 > [!TIP]
 > **Default-omission**: if a field is at its default, Octopus doesn't write it. So a normal-priority human task captured with no fuss has *three lines* of frontmatter: `title`, `created`, `bucket`. The file stays small. The signal stays loud.

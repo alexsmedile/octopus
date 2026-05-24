@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 840" width="100%" role="img" aria-label="The five axes of task state — vertical layout">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 840" width="100%" role="img" aria-label="Task axes — vertical layout">
   <defs>
     <style>
       svg {
@@ -37,11 +37,11 @@
           --field: #CBA6F7;
           --panel-bg: #1A1B22;
           --panel-border: #3A3D48;
-          --fill-blue:   #1E3A5F;
-          --fill-teal:   #1F5546;
-          --fill-purple: #3D2E66;
-          --fill-yellow: #5C4A1F;
-          --fill-pink:   #5C2A38;
+          --fill-blue:   #1F2632;
+          --fill-teal:   #1F2E2A;
+          --fill-purple: #262130;
+          --fill-yellow: #2F2A1E;
+          --fill-pink:   #2E1F25;
           --stroke-blue:   #7AB8FF;
           --stroke-teal:   #5EEAD4;
           --stroke-purple: #CBA6F7;
@@ -201,5 +201,5 @@
   <text x="280" y="796" class="axis-val-mid">→ bucket: done</text>
 
   <text x="500" y="774" class="axis-val-bright">"open loop?"</text>
-  <text x="500" y="796" class="axis-val-mid">→ bucket NOT IN (done, dropped)</text>
+  <text x="500" y="796" class="axis-val-mid">→ bucket ∉ done, dropped</text>
 </svg>
