@@ -1,10 +1,10 @@
 ---
 name: octopus
-description: Use when capturing, planning, focusing, starting, finishing, dropping, blocking, or reviewing tasks; querying open loops, stuck items, or the current activity; managing the .octopus/ folder system on disk; recording sessions; writing memory or handoffs. Folder-native, CLI-driven (octopus / octo); prefer verbs over hand-editing.
-version: 0.6.1
+description: Use when capturing, planning, focusing, starting, finishing, dropping, blocking, or reviewing tasks; querying open loops, stuck items, dashboards, or the current activity; managing the .octopus/ folder system on disk; recording sessions; writing memory or handoffs; routing user intent like "what should I do" or "what's going on" to the right verb. Folder-native, CLI-driven (octopus / octo); cross-activity write and read verbs let agents work from any cwd.
+version: 0.9.1
 category: productivity
 status: active
-tags: [activities, tasks, sessions, memory, handoffs, local-first, agents, cli, folder-native]
+tags: [activities, tasks, sessions, memory, handoffs, local-first, agents, cli, folder-native, dashboard, ranking]
 ---
 
 # Octopus
@@ -30,6 +30,9 @@ These are non-negotiable; never bypass them, never load a reference to confirm t
 7. **Default-omission.** Never write a field at its default value. `actor: human`, `pinned: false`, `tags: []` etc. must be absent, not set explicitly. Passing an explicit-default value (`--priority normal`, `--actor human`, empty string, etc.) is accepted and clears the field (D80).
 8. **Tags are stored with `#` prefix** in frontmatter to match Obsidian (`tags: ["#bug", "#tui/marquee"]`). Nested via `/`. Reader accepts both `#bug` and `bug` (silent normalization on write). Flag values accept with or without `#`.
 9. **`set` is frontmatter-only.** `set --bucket next` changes the field but does NOT move the file (D77). For physical moves, use `octopus mv <slug> <bucket>`.
+10. **Never `forget` or cascading slug rename without explicit confirmation.** `octopus forget activity <id>` removes from the index (and with `--archive` moves files); `octopus set <slug> --slug <new>` cascades the rename across every Octopus-managed ref. Both are powerful and surprising — confirm with the user every time, even when they look reversible.
+11. **Cross-activity writes use `--activity <id>` (D86).** When the user names a target ("add to project X", "finish task Y in Z"), pass `--activity` explicitly. Do NOT silently assume the cwd activity is the target when the user's words say otherwise. Every task-mutation verb accepts `--activity` (path, id, or unambiguous prefix).
+12. **When intent is ambiguous, ASK or fall back to an inbox.** If the user says "add this idea" with no clear target, ask which activity. Do NOT pick arbitrarily and do NOT default to the cwd activity if the user's intent suggests something else.
 
 ---
 
@@ -68,21 +71,34 @@ This is a verb directory only. For flags, exit codes, and full examples, load `r
 
 | Group | Verbs |
 |---|---|
-| Init & navigation | `init`, `where` |
-| Capture & pipeline | `capture` (rich flags — see below), `plan`, `focus`, `park`, `defer` |
+| Init & navigation | `init`, `where`, `add activity` (sibling of `init`) |
+| Capture & pipeline | `capture`, `add task` (cross-activity sibling of capture), `plan`, `focus`, `park`, `defer` |
 | Lifecycle | `start`, `finish` (alias `end`), `drop` |
 | Impediment | `block`, `wait`, `unblock` |
 | Attention & visibility | `pin`, `unpin`, `archive`, `restore` |
-| Editing | `set` (frontmatter-only), `set --slug <new>` (cascading rename), `move` / `mv` (file move) |
+| Editing | `set` (frontmatter-only — supports `--task`/`--activity` multi-target), `set --slug <new>` (cascading rename), `move` / `mv` (file move), `forget activity` |
 | References | `refs find <slug> [--all]` |
 | Promotion | `promote` (Octopus → Spectacular and other targets) |
 | Bridges | `bridge list / enable / disable / status / peek / pull / search / add / complete / uncomplete` |
-| Inspection | `show`, `task list`, `task show` |
-| Views | `loops`, `today`, `stuck`, `stale`, `context`, `list --kind/--promoted/--spec/--tag` |
+| Inspection | `show`, `task list`, `task show`, `status <path-or-id>` (rich), `get activity <path-or-id>` (JSON) |
+| Cross-activity views | `dashboard`, `next`, `impact`, `list activities`, `list tasks <path-or-id>` |
+| Curated views | `loops`, `today`, `stuck`, `stale`, `context` |
 | Sessions | `session start`, `log`, `end`, `switch`, `list`, `show`, `prune` |
 | Memory | `memory show`, `append`, `summary`, `summary set`, `state`, `state set` |
 | Handoffs | `handoff new`, `list`, `show` |
-| Index | `reindex`, `config root add/list/remove` |
+| Index | `reindex`, `forget activity`, `config root add/list/remove` |
+
+### Cross-activity flag — `--activity <id>` (D86)
+
+Every task-mutation verb accepts `--activity <id>` to redirect the operation to a specific activity without `cd`. The token is a filesystem path (starts with `/`, `~`, or contains `/`) or an activity id / unambiguous prefix.
+
+```
+octopus add task "review PR" --activity octopus
+octopus finish ship-it --activity ~/code/octopus
+octopus pin focus-this --activity /Users/alex/projects/work
+```
+
+Apply this whenever the user names a target activity, even when cwd is elsewhere.
 
 ### Capture and edit at a glance (v0.6.0)
 
@@ -151,6 +167,145 @@ If multiple references apply, load all of them up front rather than re-loading m
 5. **Be terse.** A session log entry is one line about what changed. A memory append is one paragraph. A handoff body is 30–60 lines. Length is a smell.
 
 6. **Ask before destructive moves.** Even "non-destructive" archives and renames have downstream effects (external refs, cross-activity handoffs). Confirm scope before bulk operations.
+
+---
+
+## Proactive behaviors — user intent → verb routing
+
+Octopus is the agent's task-management protocol. When the user asks open-ended questions about their work, route to the right verb instead of grepping or listing manually.
+
+| User says | Run | Then offer |
+|---|---|---|
+| "what should I do" / "what's next" / "what's on my plate" | `octopus next` | `octopus impact` for the full ranked list |
+| "what's going on" / "dashboard" / "overview" / "give me the picture" | `octopus dashboard` | drill into top-priority activity via `octopus status <id>` |
+| "what's the status of \<project\>" / "how's \<project\>" | `octopus status <project>` (rich view with path-or-id) | `octopus list tasks <project>` for the full task list |
+| "show me everything across all projects" | `octopus list activities` (card layout, priority-sorted) | filter flags as needed |
+| "add a task to \<project\>" / "remind me to X for \<project\>" | `octopus add task "X" --activity <project>` | no `cd` needed |
+| "add this idea" with no project named | **ASK** "which activity?" — do not pick arbitrarily (Rule 12) | propose the most recently-touched activity if helpful |
+| "what's overdue" | `octopus list activities --has-overdue` | drill in with `octopus status <id>` |
+| "what's pinned" | `octopus list activities --has-pinned` | or `octopus dashboard` (pinned section) |
+| "what's blocked" | `octopus stuck` | the dashboard's `BLOCKED` section also surfaces these |
+| "what did I touch recently" / "what was I working on" | `octopus list activities --touched-within 7` | `octopus status <id>` on the freshest |
+| "give me JSON of \<project\>" / "pipe this to jq" | `octopus get activity <project>` (TTY → pretty, pipe → compact) | `--format compact` to force |
+| "I'm starting on \<project\>" | `octopus status <project>` first (read), then any writes | use `--activity` on every write that follows |
+
+Three rules that frame everything above:
+- **Read before write.** When the user names a project, `status` it first to confirm the target resolves.
+- **JSON for agents, rich text for humans.** Use `octopus get` / `--json` when the output feeds into your next decision. Use `octopus status` / `dashboard` (rich) when the user is watching.
+- **Never grep what a verb knows.** `octopus dashboard`, `octopus next`, `octopus impact`, `octopus list --has-*` exist precisely so you don't have to glue together `list --all | grep`.
+
+---
+
+## Triage rituals
+
+Recurring patterns the agent should suggest or run autonomously when the user invites them:
+
+### Morning review
+1. `octopus dashboard` — what's loud right now.
+2. `octopus next` — the top 3 things the heuristic surfaces.
+3. Drill into the top item: `octopus status <slug>` or `octopus get activity <id>` for full context.
+4. Pick one, `octopus start <slug>` (use `--activity` if running from outside).
+
+### End of day
+1. `octopus list activities --touched-within 1` — what got worked on today.
+2. For each touched activity, `octopus memory append <id> "<one-line>"` for what changed.
+3. If a work block needs continuity: `octopus session end --handoff` to leave a router note.
+
+### Inbox triage
+1. `octopus bridge pull --all` — drain TODO.md, Reminders, etc.
+2. `octopus list activities --has-now --has-pinned` — see where the pulled items landed.
+3. Promote anything that's really a project, not a task: `octopus promote <slug> --to spectacular:<slug>`.
+
+### Weekly stale check
+1. `octopus stale` (default: next-bucket tasks not touched in >14 days).
+2. For each, decide: `octopus park <slug>` (back to backlog), `octopus archive <slug>` (hide), or `octopus drop <slug>` (acknowledge it's not happening).
+3. `octopus list activities --include-archived --touched-within 60` to spot zombies.
+
+### Cross-project sweep
+- `octopus impact --limit 0 --show-score` — full ranked list.
+- `octopus list activities --priority urgent` — the projects that should be loudest.
+- Mismatch (urgent project with no high-priority tasks)? → review whether the priority is still right.
+
+---
+
+## Choosing the right verb (decision trees)
+
+### Adding a task
+
+```
+User wants to add a task.
+  ├─ cwd inside the target activity, no other project named?
+  │     → octopus capture "<title>" [flags]
+  │     → octopus add task "<title>" [flags]   (equivalent — pick either)
+  ├─ User named a specific project, cwd elsewhere?
+  │     → octopus add task "<title>" --activity <id-or-path> [flags]
+  └─ No clear target?
+        → ASK "which activity?" (Rule 12)
+        → If you have an inbox convention configured, propose it; don't auto-route
+```
+
+### Editing a task
+
+```
+User wants to edit task fields.
+  ├─ Single task, cwd inside its activity?
+  │     → octopus set <slug> --field X
+  ├─ Multiple tasks in the current activity?
+  │     → octopus set --task t1 --task t2 --field X
+  │     → octopus set --task t1,t2,t3 --field X     (comma-form is equivalent)
+  ├─ Activity-level field (priority, status, title, type, area)?
+  │     → octopus set --activity <id> --field X     (works from anywhere)
+  ├─ Multiple activities at once?
+  │     → octopus set --activity a1 --activity a2 --status paused
+  └─ Renaming the slug?
+        → octopus set <slug> --slug <new> [-y]      (confirm — Rule 10)
+```
+
+D84 axes are **mutually exclusive**: positional + `--task` / positional + `--activity` / `--task` + `--activity` all error. Pick one shape per invocation.
+
+### Moving a task between buckets
+
+```
+Goal of the move?
+  ├─ Lifecycle (real start/finish/drop with date stamps)?
+  │     → octopus start | finish | drop
+  ├─ Promote/demote in the pipeline (with verb side effects)?
+  │     → octopus plan | focus | park | defer
+  ├─ Just relocate the file + frontmatter, no lifecycle side effects?
+  │     → octopus mv <slug> <bucket>
+  └─ Just change the frontmatter bucket without moving the file?
+        → octopus set <slug> --bucket <name>   (warns on folder mismatch — D77)
+```
+
+### Reading a project
+
+```
+What does the user want to see?
+  ├─ Quick "what's the state of X" for a human?
+  │     → octopus status <path-or-id>
+  ├─ JSON for programmatic consumption?
+  │     → octopus get activity <path-or-id>
+  ├─ Just the tasks in X?
+  │     → octopus list tasks <path-or-id>
+  ├─ Composite cross-project view?
+  │     → octopus dashboard
+  ├─ "What should I focus on next?"
+  │     → octopus next                (top 3)
+  │     → octopus impact              (full ranked list)
+  └─ Activity catalog with filters?
+        → octopus list activities [filter flags]
+```
+
+---
+
+## Reading vs writing — never blow up the user's data
+
+- **Always read first.** Before any non-trivial write, `octopus status` or `octopus get` to confirm the target.
+- **Never `octopus init` or `octopus add activity` without explicit confirmation.** Creating a new activity reshapes the user's workspace.
+- **Never `octopus forget activity` without explicit confirmation.** Even though it doesn't touch files by default, the index removal is surprising.
+- **Never `--slug` (cascading rename) without explicit confirmation and `-y`.** It rewrites every Octopus-managed reference. Reversible only with another rename.
+- **Bulk writes (`set --task t1 t2 t3` or `set --activity a1 a2`) get explicit confirmation.** The leverage is real.
+- **JSON output is for the agent's next decision.** Don't dump JSON to the user unless they asked; use `octopus status` or `dashboard` (rich) when the user is watching.
 
 ---
 

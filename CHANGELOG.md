@@ -5,6 +5,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.1] — 2026-05-24
+
+**Skill upgrade — proactive agent behaviors** (#29 done). `skills/octopus/SKILL.md` now teaches agents *when* to use the verbs that shipped in 0.8.0/0.9.0. Pure documentation; no CLI changes. The skill version bumps to 0.9.1 to track.
+
+### Added (SKILL.md)
+
+- **"Proactive behaviors — user intent → verb routing"** section: a table mapping common user phrasings ("what should I do", "what's going on", "add to <project>", "what's overdue", "give me JSON of <project>") to the verb the agent should run, plus the natural follow-up.
+- **"Triage rituals"** section: morning review, end of day, inbox triage, weekly stale check, cross-project sweep. Each is a sequence of CLI invocations the agent can suggest or run autonomously.
+- **"Choosing the right verb"** decision trees for: adding a task, editing a task, moving between buckets, reading a project. Forces the agent to confront the question "which axis am I on?" before composing a command.
+- **"Reading vs writing — never blow up the user's data"** section: confirmation checklist for the destructive corners (`forget`, `--slug` rename, bulk `set --task`/`set --activity`).
+- **Hard rules 10/11/12**:
+  - **Rule 10** — never `forget` or cascading slug rename without explicit confirmation.
+  - **Rule 11** — cross-activity writes use `--activity <id>` whenever the user names a target; never silently default to cwd.
+  - **Rule 12** — when intent is ambiguous, ASK; never pick arbitrarily.
+
+### Changed (SKILL.md)
+
+- **Description** in frontmatter expanded to include dashboards, ranking, and the cross-activity routing intent — so the skill is invoked by Claude on questions like "what should I do" without the user naming Octopus.
+- **Verb index** refreshed with the new `add task/activity`, `dashboard`, `next`, `impact`, `get activity`, `list tasks/activities`, `forget activity`, and the `--activity` flag.
+- **Cross-activity flag callout** (`--activity <id>`) added inline after the verb index so the pattern is impossible to miss.
+
+### Notes
+
+- The skill is now self-contained for the proactive use case: an agent loaded with it can answer "what should I do" or "what's the status of X" without further coaching, and won't try to grep `list --all` when `dashboard` / `next` / `impact` exist.
+- The decision-tree section is intentionally exhaustive — agents pattern-match better with explicit branches than with prose advice.
+
+---
+
 ## [0.9.0] — 2026-05-24
 
 **Cross-activity reads + dashboards** (#27 done). Octopus now answers "what's going on across all my projects" without `cd` — and ranks tasks by impact so agents can pick the right next thing automatically. New verbs: `dashboard`, `next`, `impact`, `get activity`, plus noun-explicit `list tasks/activities` with rich filter flags. The activity-level `priority` field that #26 stubbed out is now live.
