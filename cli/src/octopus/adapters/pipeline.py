@@ -212,16 +212,24 @@ def resolve_groups(
     flag_list: str | None,
     flag_capture_all: bool,
     adapter_list_groups: list[str] | None = None,
+    adapter_has_groups: bool = True,
     verb: str = "pull",
 ) -> list[str] | None:
-    """Apply the D59 flag matrix for peek/pull/search.
+    """Apply the D60 flag matrix for peek/pull/search.
+
+    Args:
+        adapter_has_groups: If False, the adapter is a single-source one
+            (TODO.md, future single-file readers). The "lists/--list/
+            --capture-all" matrix doesn't apply — return None to signal
+            "use adapter default." Multi-group adapters (Reminders, GitHub)
+            pass True; single-source ones pass False.
 
     Returns:
         list[str] — explicit groups to use
-        None       — discovery mode (peek only)
+        None       — single-source adapter OR peek-discovery for multi-group
 
     Raises PipelineError on invalid combinations (exit 1 mutual exclusion;
-    exit 3 unbounded pull/search).
+    exit 3 unbounded pull/search on a multi-group adapter).
     """
     if flag_list and flag_capture_all:
         raise PipelineError(
@@ -232,10 +240,13 @@ def resolve_groups(
         return list(adapter_list_groups or [])
     if flag_list:
         return [s.strip() for s in flag_list.split(",") if s.strip()]
-    # No flags — use configured default, or fall through to discovery/error.
+    # No flags — use configured default if any.
     if configured_lists:
         return list(configured_lists)
-    # No configured default, no flag.
+    # No flags and no configured default.
+    if not adapter_has_groups:
+        # Single-source adapter — None means "use adapter default behavior."
+        return None
     if verb == "peek":
         return None  # discovery mode
     raise PipelineError(

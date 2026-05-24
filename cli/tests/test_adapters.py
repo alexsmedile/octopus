@@ -54,19 +54,29 @@ def test_dataclass_defaults():
 
 
 def test_stub_adapters_satisfy_protocol():
-    """All three built-in stubs implement the Adapter Protocol surface."""
+    """All built-in adapters implement the Adapter Protocol surface.
+
+    Obsidian/Reminders remain stubs as of v0.4.0; TODO.md was promoted
+    to a real implementation in v0.4.1 (#21).
+    """
     from octopus.adapters.obsidian import ObsidianAdapter
     from octopus.adapters.reminders import RemindersAdapter
     from octopus.adapters.todo_md import TodoMdAdapter
 
     for cls in (ObsidianAdapter, RemindersAdapter, TodoMdAdapter):
         adapter = cls()
-        # runtime_checkable Protocol check
         assert isinstance(adapter, Adapter)
-        status = adapter.status()
+        assert Capability.PULL in adapter.capabilities
+
+    # Stubs report unhealthy + "not implemented"
+    for cls in (ObsidianAdapter, RemindersAdapter):
+        status = cls().status()
         assert status.healthy is False
         assert "not implemented" in status.error.lower()
-        assert Capability.PULL in adapter.capabilities
+
+    # TodoMd is real now — reports healthy.
+    todo_status = TodoMdAdapter().status()
+    assert todo_status.healthy is True
 
 
 # ── adapters.registry ─────────────────────────────────────────────────

@@ -697,7 +697,9 @@ All mutations route through `octopus.actions` — the same write layer the CLI u
 
 ## Status & what's next
 
-**v0.4.0** released 2026-05-24 — the **adapter framework**. New `octopus bridge` subcommand group with seven verbs (`list/enable/disable/status/peek/pull/search`), `Capability` enum + `Adapter` Protocol, hybrid config layout (`[adapters.<name>] enabled` in main config, content in `~/.config/octopus/bridges/<name>.toml`), per-adapter sync journal, dedup index via new `task_external_refs` join table. Ships framework-only — Obsidian/Reminders/TODO.md land as honest stubs that satisfy the protocol; real implementations follow in #07/#09/#21. SQLite schema v2→v3 migrated in-place. **299 tests passing** (was 271). Install with `pipx install ./dist/octopus_cli-0.4.0-py3-none-any.whl`. See [CHANGELOG.md](CHANGELOG.md).
+**v0.4.1** released 2026-05-24 — **first real adapter ships**. `todo-md` (#21) replaces its stub with a working pull-only adapter that reads `- [ ] task` checkbox lines from a `TODO.md` file, maps `BUG:`/`HACK:` prefixes to `kind`, honors `[-]`/`[/]` in-progress markers, supports heading-slug section filtering, and stays idempotent via slug-based `external_id`s. **329 tests passing** (was 299). See [CHANGELOG.md](CHANGELOG.md).
+
+**v0.4.0** released 2026-05-24 — the **adapter framework**. New `octopus bridge` subcommand group with seven verbs (`list/enable/disable/status/peek/pull/search`), `Capability` enum + `Adapter` Protocol, hybrid config layout (`[adapters.<name>] enabled` in main config, content in `~/.config/octopus/bridges/<name>.toml`), per-adapter sync journal, dedup index via new `task_external_refs` join table. SQLite schema v2→v3 migrated in-place.
 
 | Phase | What | State |
 |---|---|---|

@@ -1098,30 +1098,29 @@ def _bridge_read_verb(
     # Resolve groups per D59 flag matrix.
     bridge_cfg = load_adapter_config(name)
     configured = bridge_cfg.get("lists") if isinstance(bridge_cfg.get("lists"), list) else None
+    # Probe once so resolve_groups knows whether the adapter has groups at all.
+    available_groups = adapter.list_groups()
+    has_groups = bool(available_groups)
     try:
         groups = resolve_groups(
             configured_lists=configured,
             flag_list=flag_list,
             flag_capture_all=flag_capture_all,
-            adapter_list_groups=adapter.list_groups() if flag_capture_all else None,
+            adapter_list_groups=available_groups if flag_capture_all else None,
+            adapter_has_groups=has_groups,
             verb=verb,
         )
     except PipelineError as exc:
         err_console.print(f"[red]✗[/] {exc}")
         raise typer.Exit(exc.exit_code) from exc
 
-    # peek + groups=None (discovery mode)
-    if groups is None:
-        available = adapter.list_groups()
-        if not available:
-            console.print(
-                f"[dim]{name} has no groups available (or it's a single-source adapter).[/]"
-            )
-            return
+    # groups=None means either (a) multi-group adapter, peek-discovery, or
+    # (b) single-source adapter — fall through. D60.
+    if groups is None and has_groups and verb == "peek":
         console.print(
             f"\nno default list configured. Available groups for [cyan]{name}[/]:"
         )
-        for g in available:
+        for g in available_groups:
             console.print(f"  - {g}")
         console.print(
             "\nSpecify --list <name> to peek into one, or --capture-all for every group."

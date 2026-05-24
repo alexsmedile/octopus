@@ -5,6 +5,36 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.1] — 2026-05-24
+
+**First real adapter ships.** TODO.md (#21) replaces its stub with a working
+pull-only adapter. The simplest possible adapter — single file source, no API,
+no auth — and the reference implementation for #07 (Obsidian) and #09
+(Reminders).
+
+### Added
+
+- **`todo-md` adapter** reads `- [ ] task` checkbox lines from a `TODO.md` file at the activity root (or any configured path).
+- **Checkbox markers:** `[ ]` → backlog, `[x]`/`[X]` → done (skipped unless `include_checked = true`), `[-]`/`[/]` → in-progress (`bucket: now`). Unknown markers fall back to unchecked.
+- **Title cleanup:** strips and maps leading prefixes. `BUG:` → `kind: bug`, `HACK:` → `kind: chore`, `TODO:`/`FIXME:` stripped without kind. `NOTE:` items are skipped (notes ≠ tasks). Unknown ALLCAPS prefixes are kept verbatim — no false positives.
+- **Section filtering** via `bridges/todo-md.toml`: `section_filter = ["backlog", "ideas"]` matches heading slugs (`## Backlog` → `backlog`). Empty list = import every section.
+- **Stable `external_id`s** via slug-of-title (`TODO.md#fix-crash-on-save`) — survives line-number drift, idempotent across re-pulls. Duplicate titles get a `-N` counter suffix.
+- **Missing-file soft no-op:** `peek` returns empty, `pull` exits 0 with a "no TODO.md found at <path>" entry. Running after the file appears just works.
+- **`search()`** falls back to `peek + filter` on title substring — no native API needed.
+- **Single-source semantics:** `list_groups()` returns `[]`. `peek` no longer goes into discovery mode for single-source adapters; it just runs.
+
+### Changed
+
+- **`resolve_groups`** now takes `adapter_has_groups: bool` to distinguish multi-group adapters (Reminders, GitHub, …) from single-source ones (TODO.md). Single-source skips the `--list` / `--capture-all` matrix entirely.
+- **CLI flow** updated: peek-discovery only fires when the adapter actually has groups.
+- **Stub-protocol test** updated to reflect that TODO.md is now a real implementation (Obsidian + Reminders remain stubs).
+
+### Tests
+
+- **30 new tests** in `tests/test_adapter_todo_md.py`: checkbox parsing (all marker variants), title prefix mapping, slug heading normalization, full-content parsing under every config combination, dedup-by-slug across duplicate titles, missing-file no-op, search filter, validate_config rejection cases. Total suite **329 passing** (was 299).
+
+---
+
 ## [0.4.0] — 2026-05-24
 
 The **adapter framework**: a shared protocol every external integration implements (Obsidian, Apple Reminders, TODO.md, future GitHub/Linear/Notion), plus the `octopus bridge` CLI surface to operate them generically. Ships framework-only — no working adapter; the three known integrations land as stubs that satisfy the protocol but point at requests #07/#09/#21 for real implementations.

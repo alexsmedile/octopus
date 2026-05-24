@@ -1,8 +1,8 @@
 ---
-status: backlog
+status: done
 priority: medium
 owner: alex
-updated: 2026-05-23
+updated: 2026-05-24
 summary: "Octopus reads tasks from a TODO.md markdown file at the activity root, importing checkbox lines into the backlog. Pull-only v1; co-resident with the Octopus task tree."
 related:
   - 06-adapter-framework
@@ -92,10 +92,15 @@ If the watcher daemon (#12-watcher-daemon) is running, file-changed events on `T
 - [ ] `references/adapters/todo-md.md` in the skill
 - [ ] D-entry in `DECISIONS.md` if any contract is locked
 
-## Open for grilling
+## Locked decisions (2026-05-24)
 
-- **Default path.** `TODO.md` at activity root, or scan upward like the activity-locator? Probably activity-root only — keep it simple.
-- **Checkbox semantics.** Treat `- [-]` (in-progress, common Obsidian Tasks convention) as `bucket: now`? Or only handle `[ ]` and `[x]`?
-- **Title cleanup.** Strip leading "TODO:", "FIXME:", "BUG:" prefixes? Or import verbatim?
-- **What if `TODO.md` doesn't exist?** Silent no-op, or print a one-line "no TODO.md found, nothing to pull"?
-- **Section filter mechanics.** Match by heading text (`## Backlog`), heading slug (`backlog`), or heading level + position? Probably slug-based to allow renaming the heading text without breaking config.
+| # | Decision |
+|---|---|
+| Q1 | Default path: `TODO.md` at activity root. No upward scan. Configurable via `path =` in `bridges/todo-md.toml`. |
+| Q2 | Checkbox marks: `[ ]` → backlog, `[x]`/`[X]` → done (skipped unless `include_checked = true`), `[-]`/`[/]` → in-progress (`bucket: now`). Any other char → treated as unchecked. |
+| Q3 | Title cleanup: strip leading uppercase prefixes (`TODO:`, `FIXME:`, `BUG:`, `HACK:`, `NOTE:`) and map to `kind`: `BUG:` → `bug`, `HACK:` → `chore`. `NOTE:` items skipped (notes ≠ tasks). `TODO:`/`FIXME:` → no kind set. |
+| Q4 | Missing `TODO.md`: soft no-op. `peek` returns empty; `pull` exits 0 with "no TODO.md found at <path>". Re-running after file creation just works. |
+| Q5 | Section filter: heading slug-based (lowercase + slugify the heading text). Empty list = no filter (import everything). |
+| Q6 | `external_id` format: `<path>#<slug-of-title>`. Survives line-number drift; collision risk on duplicate titles is acceptable and visible to the reader. |
+
+Implementation maps cleanly: `_parse_checkbox(line)` and `_extract_title_meta(text)` are pure functions; the adapter wires them via `peek()` returning `PullResult.tasks` from the parsed file.
