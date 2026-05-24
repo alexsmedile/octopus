@@ -76,29 +76,30 @@ Top-to-bottom; commit per group (or small cluster) so the migration is reviewabl
 - [x] `_write_full_system_config` extends the canonical writer with `[adapters.*]` sections
 - [x] Hand-rolled TOML writer for bridges files (supports str/int/bool/list)
 
-## Group 8 — Code: pipeline
+## Group 8 — Code: pipeline ✅
 
-- [ ] `cli/src/octopus/adapters/pipeline.py`
-  - `materialize_pull_result(activity_root, adapter_name, result: PullResult)` — creates Octopus tasks from `ExternalTask` items
-  - Dedup via `task_external_refs`
-  - Sets `imported_from`, `import_date`, `actor=human`, `external_refs.<name>`
-  - Returns `(new_count, skipped_count, error_count)`
-- [ ] Resolve target activity (config `default_activity` → cwd → exit 2)
-- [ ] Resolve groups (`--list` / `--capture-all` / config `lists` / discovery)
+- [x] `adapters/pipeline.py`
+  - `materialize_pull_result()` — creates Octopus tasks from `ExternalTask` items via `actions.capture_task`, then merges provenance/classification fields
+  - Dedup via `find_by_external_ref` (task_external_refs)
+  - Sets `actor=human`, `imported_from`, `import_date`, `kind` (if suggested), `tags` (if suggested), `external_refs.<adapter>`
+  - Returns `MaterializeResult` (new_slugs, skipped, errors, source_groups)
+- [x] `resolve_target_activity` — `default_activity` → cwd → `PipelineError(exit_code=2)`
+- [x] `resolve_groups` — full D59 flag matrix; mutual-exclusion (exit 1); pull/search no-config no-flag (exit 3); peek discovery (returns None)
+- [x] `update_journal` called after every pull (last_pull, pull_count, cursor)
 
-## Group 9 — Code: CLI verbs
+## Group 9 — Code: CLI verbs ✅
 
-- [ ] `cli/src/octopus/cli.py`
-  - `octopus bridge list` — table of registered adapters
-  - `octopus bridge enable <name> [adapter-flags]` — dispatches to adapter sub-app
-  - `octopus bridge disable <name>` — flips flag, keeps config
-  - `octopus bridge status [<name>]` — health check
-  - `octopus bridge peek <name> [--list / --capture-all]` — read-only
-  - `octopus bridge pull <name> [--list / --capture-all]` — import
-  - `octopus bridge search <name> <query> [--list / --capture-all]` — adapter-side search
-  - Hidden alias `octopus adapter` → `octopus bridge`
-- [ ] Verbose mode (`-v`) for traceback on adapter exceptions
-- [ ] Output discipline: summary line + per-task lines on success; clear error on failure
+- [x] `octopus bridge list [-v]` — compact table by default; verbose per-adapter blocks
+- [x] `octopus bridge enable <name> [--set k=v ...] [--force]` — validates first (unless --force), writes both main config + bridges/<name>.toml
+- [x] `octopus bridge disable <name>` — flips flag, keeps bridges file (preserves settings)
+- [x] `octopus bridge status [<name>] [-v]` — health check; all bridges if no name
+- [x] `octopus bridge peek <name> [--list / --capture-all]` — discovery when no group + no flag
+- [x] `octopus bridge pull <name> [--list / --capture-all]` — materializes via pipeline
+- [x] `octopus bridge search <name> <query> [--list / --capture-all]` — adapter-side search
+- [x] Hidden alias `octopus adapter` → `octopus bridge` via duplicate `app.add_typer(..., hidden=True)`
+- [x] `--set` parser: `lists`/`*_list` keys always coerced to lists; comma → list; true/false → bool; digits → int
+- [x] Adapter exception → exit 4 with message; stub errors (in PullResult.errors with no tasks) → exit 4
+- [x] Output discipline: "pulled N new · M already-known · K errors" + per-task lines on success
 
 ## Group 10 — Code: stub adapters ✅ (landed alongside Group 5)
 

@@ -861,6 +861,359 @@ def promote(
         console.print(f"[green]✓[/] {s} repointed to {target}")
 
 
+# ── bridge verbs (D56-D66) ────────────────────────────────────────────
+
+
+bridge_app = typer.Typer(
+    help="Manage adapters (Obsidian, Apple Reminders, TODO.md, future bridges)."
+)
+app.add_typer(bridge_app, name="bridge")
+# Hidden alias per D57 — same Typer app under a second name.
+app.add_typer(bridge_app, name="adapter", hidden=True)
+
+
+@bridge_app.command("list")
+def bridge_list(
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """Show all registered adapters with enabled status + health."""
+    from octopus.adapters.registry import load_registry
+    from octopus.config import is_adapter_enabled
+
+    registry = load_registry()
+    if not registry:
+        console.print("[dim]no adapters registered[/]")
+        return
+
+    if not verbose:
+        table = Table(show_edge=False)
+        table.add_column("NAME", style="cyan")
+        table.add_column("ENABLED", justify="center")
+        table.add_column("CAPABILITIES", style="dim")
+        table.add_column("STATUS")
+        for name, cls in sorted(registry.items()):
+            adapter = cls()
+            status = adapter.status()
+            enabled = "●" if is_adapter_enabled(name) else "○"
+            caps = ", ".join(sorted(c.value for c in adapter.capabilities))
+            status_str = "[green]healthy[/]" if status.healthy else f"[red]{status.error or 'unhealthy'}[/]"
+            table.add_row(name, enabled, caps, status_str)
+        console.print(table)
+        return
+
+    # Verbose: per-adapter block
+    for name, cls in sorted(registry.items()):
+        adapter = cls()
+        status = adapter.status()
+        enabled = is_adapter_enabled(name)
+        console.print(f"\n[bold cyan]{name}[/]  ({'enabled' if enabled else 'disabled'})")
+        console.print(f"  capabilities: {', '.join(sorted(c.value for c in adapter.capabilities))}")
+        health_str = (
+            "[green]✓[/] healthy" if status.healthy
+            else f"[red]✗[/] {status.error or 'unhealthy'}"
+        )
+        console.print(f"  health: {health_str}")
+        if status.last_pull:
+            console.print(f"  last pull: {status.last_pull.isoformat(timespec='seconds')}")
+        if status.last_push:
+            console.print(f"  last push: {status.last_push.isoformat(timespec='seconds')}")
+
+
+@bridge_app.command("enable")
+def bridge_enable(
+    name: str = typer.Argument(..., help="Adapter name (obsidian / reminders / todo-md)."),
+    set_: list[str] | None = typer.Option(
+        None, "--set",
+        help="Set a config key. Format: key=value. Repeatable. v1 generic; per-adapter sub-apps will replace this in #07/#09/#21.",
+    ),
+    force: bool = typer.Option(
+        False, "--force",
+        help="Skip the adapter's validate_config() check. Use for stubs or "
+             "to enable an adapter that's temporarily unhealthy.",
+    ),
+) -> None:
+    """Enable an adapter — flips main config + writes bridges/<name>.toml.
+
+    Adapter's validate_config() runs first; rejection aborts unless --force.
+    """
+    from octopus.adapters.registry import get_adapter_class
+    from octopus.config import (
+        load_adapter_config,
+        set_adapter_enabled,
+        write_adapter_config,
+    )
+
+    cls = get_adapter_class(name)
+    if cls is None:
+        err_console.print(f"[red]✗[/] unknown adapter {name!r}")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    # Merge --set flags into existing bridge config.
+    data = load_adapter_config(name)
+    if set_:
+        for entry in set_:
+            if "=" not in entry:
+                err_console.print(f"[red]✗[/] --set value must be key=value: {entry!r}")
+                raise typer.Exit(EXIT_USER_ERROR)
+            k, v = entry.split("=", 1)
+            k = k.strip()
+            data[k] = _parse_set_value(v.strip(), key=k)
+
+    adapter = cls()
+    errors = adapter.validate_config(data)
+    if errors and not force:
+        err_console.print(f"[red]✗[/] {name} validation failed:")
+        for e in errors:
+            err_console.print(f"    - {e}")
+        err_console.print("    (use --force to enable anyway)")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+    if errors and force:
+        for e in errors:
+            err_console.print(f"[yellow]⚠[/] {e}")
+
+    write_adapter_config(name, data)
+    set_adapter_enabled(name, True)
+    console.print(f"[green]✓[/] {name} enabled")
+
+
+@bridge_app.command("disable")
+def bridge_disable(
+    name: str = typer.Argument(..., help="Adapter name."),
+) -> None:
+    """Disable an adapter — flips main config. bridges/<name>.toml is KEPT."""
+    from octopus.adapters.registry import get_adapter_class
+    from octopus.config import set_adapter_enabled
+
+    if get_adapter_class(name) is None:
+        # Per D66, unknown name → idempotent ignore on disable.
+        console.print(f"[dim]{name!r} not registered; nothing to disable[/]")
+        return
+    set_adapter_enabled(name, False)
+    console.print(f"[green]✓[/] {name} disabled (settings preserved)")
+
+
+@bridge_app.command("status")
+def bridge_status(
+    name: str | None = typer.Argument(None, help="Adapter name (omit for all)."),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """Health check. No name = table of all. With name = per-adapter block."""
+    from octopus.adapters.registry import get_adapter_class, registered_names
+    from octopus.config import is_adapter_enabled
+
+    if name is None:
+        # Reuse the verbose `list` path
+        bridge_list(verbose=verbose)
+        return
+
+    cls = get_adapter_class(name)
+    if cls is None:
+        err_console.print(f"[red]✗[/] unknown adapter {name!r}; registered: {registered_names()}")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    adapter = cls()
+    status = adapter.status()
+    enabled = is_adapter_enabled(name)
+    console.print(f"\n[bold cyan]{name}[/]  ({'enabled' if enabled else 'disabled'})")
+    console.print(f"  capabilities: {', '.join(sorted(c.value for c in adapter.capabilities))}")
+    health_str = (
+        "[green]✓[/] healthy" if status.healthy
+        else f"[red]✗[/] {status.error or 'unhealthy'}"
+    )
+    console.print(f"  health: {health_str}")
+    if status.last_pull:
+        console.print(f"  last pull: {status.last_pull.isoformat(timespec='seconds')}")
+    if status.last_push:
+        console.print(f"  last push: {status.last_push.isoformat(timespec='seconds')}")
+
+
+@bridge_app.command("peek")
+def bridge_peek(
+    name: str = typer.Argument(..., help="Adapter name."),
+    list_: str | None = typer.Option(None, "--list", help="Group name(s), comma-separated."),
+    capture_all: bool = typer.Option(False, "--capture-all", help="Pull from every available group."),
+) -> None:
+    """READ-ONLY display of what the adapter sees. No files created."""
+    _bridge_read_verb(name, list_, capture_all, verb="peek")
+
+
+@bridge_app.command("pull")
+def bridge_pull(
+    name: str = typer.Argument(..., help="Adapter name."),
+    list_: str | None = typer.Option(None, "--list", help="Group name(s), comma-separated."),
+    capture_all: bool = typer.Option(False, "--capture-all", help="Pull from every available group."),
+) -> None:
+    """Import external items as Octopus tasks. Deduped via task_external_refs."""
+    _bridge_read_verb(name, list_, capture_all, verb="pull")
+
+
+@bridge_app.command("search")
+def bridge_search(
+    name: str = typer.Argument(..., help="Adapter name."),
+    query: str = typer.Argument(..., help="Search query (adapter-interpreted)."),
+    list_: str | None = typer.Option(None, "--list"),
+    capture_all: bool = typer.Option(False, "--capture-all"),
+) -> None:
+    """Adapter-side search. No imports."""
+    _bridge_read_verb(name, list_, capture_all, verb="search", query=query)
+
+
+def _bridge_read_verb(
+    name: str,
+    flag_list: str | None,
+    flag_capture_all: bool,
+    *,
+    verb: str,
+    query: str | None = None,
+) -> None:
+    """Shared body for peek/pull/search. Handles capability + flag + dispatch."""
+    from octopus.adapters.base import Capability
+    from octopus.adapters.pipeline import (
+        PipelineError,
+        materialize_pull_result,
+        resolve_groups,
+        resolve_target_activity,
+    )
+    from octopus.adapters.registry import get_adapter_class
+    from octopus.config import is_adapter_enabled, load_adapter_config
+
+    cls = get_adapter_class(name)
+    if cls is None:
+        err_console.print(f"[red]✗[/] unknown adapter {name!r}")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    if not is_adapter_enabled(name):
+        err_console.print(
+            f"[red]✗[/] {name} is disabled — `octopus bridge enable {name}` first"
+        )
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    adapter = cls()
+
+    # All three verbs require PULL capability.
+    if Capability.PULL not in adapter.capabilities:
+        err_console.print(f"[red]✗[/] {name} does not declare PULL capability")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    # Resolve groups per D59 flag matrix.
+    bridge_cfg = load_adapter_config(name)
+    configured = bridge_cfg.get("lists") if isinstance(bridge_cfg.get("lists"), list) else None
+    try:
+        groups = resolve_groups(
+            configured_lists=configured,
+            flag_list=flag_list,
+            flag_capture_all=flag_capture_all,
+            adapter_list_groups=adapter.list_groups() if flag_capture_all else None,
+            verb=verb,
+        )
+    except PipelineError as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(exc.exit_code) from exc
+
+    # peek + groups=None (discovery mode)
+    if groups is None:
+        available = adapter.list_groups()
+        if not available:
+            console.print(
+                f"[dim]{name} has no groups available (or it's a single-source adapter).[/]"
+            )
+            return
+        console.print(
+            f"\nno default list configured. Available groups for [cyan]{name}[/]:"
+        )
+        for g in available:
+            console.print(f"  - {g}")
+        console.print(
+            "\nSpecify --list <name> to peek into one, or --capture-all for every group."
+        )
+        return
+
+    # Run the adapter call.
+    try:
+        if verb == "peek":
+            result = adapter.peek(groups=groups)
+        elif verb == "pull":
+            result = adapter.pull(groups=groups)
+        elif verb == "search":
+            result = adapter.search(query or "", groups=groups)
+        else:
+            err_console.print(f"[red]✗[/] unknown verb {verb!r}")
+            raise typer.Exit(EXIT_USER_ERROR)
+    except Exception as exc:
+        err_console.print(f"[red]✗[/] {name} {verb} raised: {exc}")
+        raise typer.Exit(4) from exc
+
+    # Surface adapter errors (e.g. stubs return errors without raising).
+    if result.errors and not result.tasks:
+        for e in result.errors:
+            err_console.print(f"[red]✗[/] {e}")
+        raise typer.Exit(4)
+
+    # peek/search: display only.
+    if verb in ("peek", "search"):
+        if not result.tasks:
+            console.print("[dim]no items[/]")
+            for e in result.errors:
+                err_console.print(f"[yellow]⚠[/] {e}")
+            return
+        console.print(
+            f"\n[cyan]{name}[/] {verb} — {len(result.tasks)} item(s) from {groups or 'configured'}"
+        )
+        for et in result.tasks:
+            console.print(f"  ▢ {et.title}   [dim]({et.external_id})[/]")
+        for e in result.errors:
+            err_console.print(f"[yellow]⚠[/] {e}")
+        return
+
+    # pull: materialize.
+    try:
+        activity_root = resolve_target_activity(
+            config_default=bridge_cfg.get("default_activity") or None,
+            cwd_activity=find_activity_root(Path.cwd()),
+        )
+    except PipelineError as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(exc.exit_code) from exc
+
+    mr = materialize_pull_result(activity_root, name, result)
+    msg = f"pulled {mr.new_count} new · {mr.skipped_count} already-known · {mr.error_count} errors"
+    if mr.source_groups:
+        msg += f"  (from {', '.join(mr.source_groups)})"
+    if mr.new_count > 0:
+        console.print(f"[green]✓[/] {msg}")
+    elif mr.error_count > 0 and mr.skipped_count == 0:
+        err_console.print(f"[red]✗[/] {msg}")
+        for e in mr.errors:
+            err_console.print(f"    - {e}")
+        raise typer.Exit(4)
+    else:
+        console.print(msg)
+    for s in mr.new_slugs:
+        console.print(f"  + {s}")
+
+
+def _parse_set_value(v: str, key: str | None = None):
+    """Coerce a `--set key=value` value to bool/int/list/str.
+
+    Heuristic: keys named `lists` or ending in `_list` are ALWAYS lists,
+    even for a single value (so `--set lists=Inbox` becomes `["Inbox"]`).
+    Other keys: comma-separated → list; "true"/"false" → bool; digits → int.
+    """
+    low = v.lower()
+    if key and (key == "lists" or key.endswith("_lists") or key.endswith("_list")):
+        return [s.strip() for s in v.split(",") if s.strip()]
+    if low == "true":
+        return True
+    if low == "false":
+        return False
+    if "," in v:
+        return [s.strip() for s in v.split(",") if s.strip()]
+    try:
+        return int(v)
+    except ValueError:
+        return v
+
+
 # ── views ─────────────────────────────────────────────────────────────
 
 
