@@ -76,16 +76,35 @@ def resolve_activity(token: str) -> Activity:
 
 Locked centrally so the rule is identical everywhere.
 
-### Phase 3 — `octopus tasks <path-or-id>`
+### Phase 3 — `octopus list tasks <path-or-id>` and the context-aware `list`
 
-Lists tasks in the named activity. Same shape as the in-activity `task list` but accepts a target argument.
+Locked naming model (noun-explicit, context-aware default):
 
 ```
-octopus tasks <path-or-id> [--bucket B] [--kind K] [--all]
-                           [--promoted] [--spec S] [--tag T]
+GLOBAL CONTEXT (cwd outside any .octopus/)
+  octopus list               → activities (default)
+  octopus list activities    → explicit form
+  octopus list tasks         → cross-activity tasks (rare; needs filters)
+
+INSIDE AN ACTIVITY (cwd has .octopus/ above)
+  octopus list               → tasks in this activity (default)
+  octopus list tasks         → explicit form
+  octopus list activities    → still works — shows all activities
 ```
 
-All the existing `task list` filter flags. Default scope still excludes `done`/`dropped` unless `--all`.
+`octopus list tasks <path-or-id>` reaches into a specific activity by id or path.
+
+```
+octopus list tasks [<path-or-id>] [--bucket B] [--kind K] [--all]
+                                  [--promoted] [--spec S] [--tag T]
+                                  [--status S] [--priority P] [--has-overdue]
+```
+
+All existing `task list` filter flags carry over. Default scope still excludes `done`/`dropped` unless `--all`.
+
+`octopus list activities [<filter-flags>]` is the dashboard-style activity list (see Phase 7).
+
+**Sub-activity behavior:** if an activity contains nested `.octopus/` folders, those are separate activities. `list tasks` does NOT recurse into nested activities — they appear in `list activities` instead. This matches the "folder = activity = atomic" model.
 
 ### Phase 4 — `octopus status <path-or-id>` (richer)
 
@@ -102,9 +121,11 @@ Current `status <prefix>` shows bucket counts. Extend to show:
 
 This is the "what's going on with this project" agent-facing view.
 
-### Phase 5 — `octopus get <path-or-id>`
+### Phase 5 — `octopus get activity <path-or-id>`
 
-JSON-shaped programmatic access. Same data as `status --rich` but as a single JSON document:
+JSON-shaped programmatic access. Same data as `status --rich` but as a single JSON document.
+
+Noun-explicit form: `get activity <path-or-id>`. Future-stable for `get task <slug>` (symmetric task-level JSON, not v1 scope).
 
 ```json
 {

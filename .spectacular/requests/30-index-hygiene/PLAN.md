@@ -36,10 +36,12 @@ Three sources of noise:
 
 This is shell-script work — no code changes needed. Documented in the request CHANGELOG entry so anyone replicating the workspace knows what to run.
 
-### Phase 2 — New verb: `octopus forget <path-or-id> [--archive] [-y]`
+### Phase 2 — New verb: `octopus forget activity <path-or-id> [--archive] [-y]`
+
+Noun-explicit form. Future-stable: if `forget task` ever becomes useful, the surface is ready for it. v1 ships activity-only.
 
 ```
-octopus forget <activity>
+octopus forget activity <path-or-id>
   Removes the activity from the SQLite index. Files on disk are NOT touched
   by default. Optionally moves files to <activity-parent>/_archive/<name>/ if
   --archive (or --also-archive) is passed.
@@ -49,19 +51,20 @@ octopus forget <activity>
 
   Flags:
     --archive / --also-archive   Move files to _archive/ as part of forgetting.
-    -y                           Skip the interactive prompt.
+    -y                           Skip the interactive prompt (assumes default = yes
+                                 on archive prompt when set).
 
   Without --archive AND without -y, the verb prompts interactively:
     "Also archive files to _archive/? [y/N]"
-    "  (or run: octopus forget <id> --archive -y to skip this prompt)"
+    "  (or run: octopus forget activity <id> --archive -y to skip this prompt)"
 ```
 
 Behavior:
 - Always: delete the row from `activities` table (CASCADE will drop related `tasks` rows + `task_external_refs` rows).
 - With `--archive`: also move the activity folder to its parent's `_archive/<name>/` directory.
-- Re-running `forget` on an already-forgotten activity errors clearly ("activity not in index").
+- Re-running `forget activity` on an already-forgotten activity errors clearly ("activity not in index").
 
-Activities-only by design. Tasks have their own lifecycle (`archive`/`drop`/`done`). The rare "remove a task from index but keep the file" case can wait for explicit demand.
+Activities-only by design. Tasks have their own lifecycle (`archive`/`drop`/`done`). The rare "remove a task from index but keep the file" case can wait for explicit demand — and when it does, the verb shape is `forget task <slug>`.
 
 ### Phase 3 — Archived-by-default filter on `list --all`
 

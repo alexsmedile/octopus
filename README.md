@@ -75,6 +75,56 @@ Open the same folder in Obsidian? Symlink it. Open it in the terminal? `octopus 
 
 ---
 
+## The mental model in 5 lines
+
+```
+╭──────────────────────────────────────────────────────────────╮
+│   octopus     the orchestrator — one CLI, everywhere         │
+│      │                                                       │
+│      ├── activity      a folder with .octopus/ — your project│
+│      │       │                                               │
+│      │       ├── tasks/         the items inside it          │
+│      │       ├── sessions/      work blocks, dated           │
+│      │       ├── memory.md      append-only journal          │
+│      │       └── handoffs/      hand-off notes               │
+│      │                                                       │
+│      ├── activity   …another folder, another project         │
+│      └── activity   …                                        │
+│                                                              │
+│   index    one SQLite file that knows where everything is    │
+╰──────────────────────────────────────────────────────────────╯
+```
+
+Three nouns, one orchestrator. Read it as **Octopus → activity → task**:
+
+- **Octopus** is the omnipresent CLI. Run it from anywhere; it finds the right activity by walking up from cwd, or by `--activity <id>` when you name one.
+- An **activity** is a position — a folder containing `.octopus/activity.md`. Self-describing, portable, git-trackable.
+- **Tasks** are the items inside an activity. Plain markdown files under `.octopus/tasks/`.
+
+How commands flow follows the hierarchy:
+
+```
+GLOBAL CONTEXT (cwd outside any .octopus/)
+  octopus list               → activities (the default at global scope)
+  octopus list activities    → explicit form
+  octopus list tasks         → cross-activity tasks (rare; use filters)
+  octopus dashboard          → composite view across all activities
+  octopus add task "X" --activity <id>   → reach into an activity by name
+
+INSIDE AN ACTIVITY (cwd has .octopus/ above it)
+  octopus list               → tasks (the default at activity scope)
+  octopus list tasks         → explicit form
+  octopus list activities    → still works — shows all activities
+  octopus capture "X"        → adds a task here
+  octopus where              → "you are in <activity>"
+```
+
+The split: **`list` is context-aware** (defaults to whichever level you're at). **`list tasks` and `list activities` are explicit overrides** when you want the other axis.
+
+If a folder you're in contains sub-folders with their own `.octopus/`, the inner ones are *visible to the index* but `list tasks` from the outer activity does not recurse into them — they're separate activities. You'd see them via `list activities`.
+
+---
+
 ## Why this exists
 
 We tried the alternatives. Each one solved one slice and broke three others:
