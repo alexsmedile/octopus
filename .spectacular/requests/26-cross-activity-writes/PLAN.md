@@ -31,32 +31,39 @@ After #30 ships the index hygiene, the global `list --all` view is clean. But th
 
 ## Locked resolution rules (the mental model)
 
-Single rule to remember: **one target axis per invocation.**
+**Mental model:** positional = "this activity, one." `--task` = "this activity, multiple." `--activity` = "anywhere, multiple."
+
+One target axis per invocation. Mixing axes errors.
 
 ```
 octopus set <slug> --priority high
-  ✅ Single target, resolved by cwd-walk-up. Errors if cwd is outside an activity.
+  ✅ cwd inside activity → resolves slug against current activity
+  ❌ cwd outside activity → errors with "not inside an activity; specify --task or --activity"
+  ❌ Single target only (multi-positional without --task/--activity rejected)
 
-octopus set --task task1 task2 task3 --priority high
-  ✅ Multi-target on tasks. Resolves each slug by prefix (errors on ambiguous matches).
+octopus set --task t1 t2 t3 --priority high
+  ✅ cwd inside activity → multi-target tasks within the CURRENT activity only
+  ❌ cwd outside activity → errors ("specify which activity with --activity or cd into one")
+  ❌ Ambiguous slug → lists candidate slugs in this activity, exits 1
 
-octopus set --activity id1 id2 id3 --priority high
-  ✅ Multi-target on activities. Activity-level fields only.
+octopus set --activity a1 a2 a3 --priority high
+  ✅ Anywhere — multi-target activities by id (or unambiguous prefix)
+  ❌ Task-level flags rejected (--bucket, --due, --kind, etc. — list the offending flag)
 
 octopus set <slug> --task other-slug
-  ❌ Rejected — positional and --task are mutually exclusive.
+  ❌ Rejected — positional and --task are mutually exclusive
 
-octopus set <slug> --activity id1
-  ❌ Rejected — positional and --activity are mutually exclusive.
+octopus set <slug> --activity a1
+  ❌ Rejected — positional and --activity are mutually exclusive
 
 octopus set --task t1 --activity a1
-  ❌ Rejected — --task and --activity are mutually exclusive.
+  ❌ Rejected — --task and --activity are mutually exclusive (mixing target types)
 
 octopus set --priority high
-  ❌ Rejected — no target. Specify a positional slug, --task, or --activity.
+  ❌ Rejected — no target specified
 ```
 
-The positional argument is shorthand for the cwd-resolved case: `octopus set foo --priority X` is the common in-activity case and stays unchanged.
+Cross-activity task mutation (e.g. "update task X in project A from project B") is **not v1 scope**. Users do that by `cd`-ing or by going through activity-level fields. Avoids the "wrong project's task" foot-gun.
 
 ## Scope
 
@@ -106,12 +113,14 @@ def set_(
 
 Resolution:
 
-1. If `slugs` is non-empty AND `--task`/`--activity` are both empty → cwd-resolve (single target).
-2. If `slugs` is empty AND `--task` is non-empty → multi-target tasks (resolve each by prefix).
-3. If `slugs` is empty AND `--activity` is non-empty → multi-target activities.
+1. If `slugs` is non-empty AND `--task`/`--activity` are both empty → cwd-resolve (single target). Errors if cwd is outside an activity.
+2. If `slugs` is empty AND `--task` is non-empty → multi-target tasks **within the current activity**. Errors if cwd is outside an activity.
+3. If `slugs` is empty AND `--activity` is non-empty → multi-target activities (anywhere).
 4. Any other combination → reject with a clear error.
 
-When resolving multi-target tasks, each slug must match unambiguously across all indexed activities. Ambiguous matches print the candidates and exit 1.
+For task multi-target (`--task t1 t2 t3`), each slug is resolved against the current activity's task list. Ambiguous matches print the candidate slugs in this activity and exit 1.
+
+For activity multi-target (`--activity a1 a2 a3`), each id is matched by exact id or unambiguous prefix against the index. Ambiguous matches print candidates and exit 1.
 
 ### Phase 4 — `--activity` flag on other write verbs
 
@@ -125,9 +134,9 @@ Lower priority than `set`, but the pattern is the same. Add `--activity <id>` to
 - `octopus block / wait / unblock`.
 - `octopus promote`.
 
-Behavior: when `--activity` is omitted, cwd-walk-up (current behavior). When specified, look up the task in that activity instead.
+Behavior: when `--activity` is omitted, cwd-walk-up (current behavior). When specified, **redirect the operation to that activity** — the task is resolved within the named activity, not the cwd one.
 
-These verbs stay **single-target on tasks**. Only `set` gets the `--task task1 task2...` multi-target shape.
+These verbs stay **single-target on tasks**. Only `set` gets multi-target shapes (and `set --task` stays scoped to the current activity per the resolution matrix above). `set --activity a1 a2 a3` is the only multi-target form that crosses activity boundaries, and it operates on activity-level fields only.
 
 ### Phase 5 — Activity-level fields on `set`
 
