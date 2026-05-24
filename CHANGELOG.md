@@ -5,6 +5,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.6.1] — 2026-05-24
+
+**Skill documentation patch.** Brings `skills/octopus/SKILL.md` and its references up to date with the v0.3.0 → v0.6.0 surface (kind enum, task promotion, adapter framework, three adapters, capture/edit polish). No code changes; agents using this skill now see the full v0.6.0 verb set, the tag flag matrix, the slug-rename cascade, the `set` vs `mv` boundary, and the corrected legacy-field rules.
+
+### Changed
+
+- **`skills/octopus/SKILL.md` → v0.6.1** (was v0.4.0).
+  - Hard rules updated: `kind` is no longer legacy (rule 4); slug rename uses `set --slug` not `octopus rename` (rule 5); two new rules covering D80 explicit-default semantics, D76 tag storage, and D77 `set` vs `mv` separation.
+  - Verb index updated: editing row now reads `set` (frontmatter-only), `set --slug` (cascading rename), `move`/`mv` (file move). New "References" row for `refs find`. `list` views row includes `--tag`. Capture row notes "rich flags".
+  - New "Capture and edit at a glance (v0.6.0)" cheat-sheet below the verb index showing the full flag surface in copy-pasteable form.
+  - New section "Tags (D76)" with the full flag matrix, input forms, mutex rule, and filter semantics.
+  - New section "Slug renames and references (D78, D79)" documenting the cascade contract and `refs find` companion.
+  - New section "`set` vs `mv` vs lifecycle verbs (D77)" explaining the three-way boundary.
+  - New section "Capture flag surface (v0.6.0)" listing every accepted flag.
+- **`skills/octopus/references/cli-verbs.md`** updated:
+  - `capture` documentation shows the full v0.6.0 flag set with explicit-default behavior.
+  - `archive`/`unarchive` corrected to `archive`/`restore` (the actual verbs).
+  - `Set / rename / move` section rewritten with the full set/mv/slug-rename contract.
+  - New "Tag input forms" + "Tag filter" + "References" sections.
+- **`skills/octopus/references/critical-dependencies.md`** updated:
+  - Rule T6 corrected: `kind` is no longer in the forbidden list.
+  - Rule X1 clarified: default-omission applies to frontmatter; CLI flags follow D80 (explicit-default values clear).
+  - Rule X3 corrected: filename stability uses `set --slug`, not the non-existent `octopus rename`.
+  - Five new rules X8–X12 covering D76 (tag matrix), D77 (`set` frontmatter-only + `mv`), D78 (slug rename cascade), D80 (explicit-default clear), D81/D82 (capture defaults).
+
+### Fixed
+
+- Outdated references in skill docs that pointed at verbs which never shipped (`octopus rename`) or were superseded (the `kind` forbidden-field rule).
+
+---
+
 ## [0.6.0] — 2026-05-24
 
 **Capture and edit polish.** Months of paper-cuts cleaned in one pass: richer `capture` flags, atomic tag mutations with full Obsidian compatibility, a proper slug rename with cascading auto-fix, a `move`/`mv` verb that separates file-move from frontmatter-edit, and a `refs find` helper that locates every Octopus-managed reference to a slug.

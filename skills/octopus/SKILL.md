@@ -1,7 +1,7 @@
 ---
 name: octopus
 description: Use when capturing, planning, focusing, starting, finishing, dropping, blocking, or reviewing tasks; querying open loops, stuck items, or the current activity; managing the .octopus/ folder system on disk; recording sessions; writing memory or handoffs. Folder-native, CLI-driven (octopus / octo); prefer verbs over hand-editing.
-version: 0.4.0
+version: 0.6.1
 category: productivity
 status: active
 tags: [activities, tasks, sessions, memory, handoffs, local-first, agents, cli, folder-native]
@@ -24,10 +24,12 @@ These are non-negotiable; never bypass them, never load a reference to confirm t
 1. **Never delete files.** Use `archive` (hides from default views). Soft-delete to `.trash/` is a v2 feature.
 2. **Don't write `.octopus/` files outside the CLI** during normal operation. Validation lives in the verbs. Hand-edits are an escape hatch, not the default.
 3. **Walk up to find the activity.** From any folder, walk parents until you hit `.octopus/activity.md`. If none, the user is not in an activity — either `octopus init` or work elsewhere.
-4. **Legacy fields are rejected.** `status`, `kind`, `open` are not v1 fields. If you see them in a file, they will surface as parse errors. See `references/critical-dependencies.md` rule T6.
-5. **Filenames are CLI-owned.** Never rename a task/session/handoff file by hand. Use `octopus rename` (tasks); session and handoff slugs are never renamed.
+4. **Legacy fields are rejected.** `status` and `open` are not v1 fields — they surface as parse errors. (Note: `kind` IS a v1 field as of D46, used as a work-classification enum: `feat | bug | spec | polish | test | chore`. The earlier "kind is forbidden" rule is obsolete.)
+5. **Filenames are CLI-owned.** Never rename a task file by hand. Use `octopus set <slug> --slug <new-slug> [-y]` for slug renames — it cascades the change to every Octopus-managed reference. Session and handoff slugs are never renamed.
 6. **Live user task data lives elsewhere.** The vault user's real task data is at `/Users/alex/vault/tasks`. The Octopus repo (where this skill ships from) is the *development workspace*, not a task database.
-7. **Default-omission.** Never write a field at its default value. `actor: human`, `pinned: false`, `tags: []` etc. must be absent, not set explicitly.
+7. **Default-omission.** Never write a field at its default value. `actor: human`, `pinned: false`, `tags: []` etc. must be absent, not set explicitly. Passing an explicit-default value (`--priority normal`, `--actor human`, empty string, etc.) is accepted and clears the field (D80).
+8. **Tags are stored with `#` prefix** in frontmatter to match Obsidian (`tags: ["#bug", "#tui/marquee"]`). Nested via `/`. Reader accepts both `#bug` and `bug` (silent normalization on write). Flag values accept with or without `#`.
+9. **`set` is frontmatter-only.** `set --bucket next` changes the field but does NOT move the file (D77). For physical moves, use `octopus mv <slug> <bucket>`.
 
 ---
 
@@ -67,19 +69,47 @@ This is a verb directory only. For flags, exit codes, and full examples, load `r
 | Group | Verbs |
 |---|---|
 | Init & navigation | `init`, `where` |
-| Capture & pipeline | `capture`, `plan`, `focus`, `park`, `defer` |
+| Capture & pipeline | `capture` (rich flags — see below), `plan`, `focus`, `park`, `defer` |
 | Lifecycle | `start`, `finish` (alias `end`), `drop` |
 | Impediment | `block`, `wait`, `unblock` |
 | Attention & visibility | `pin`, `unpin`, `archive`, `restore` |
-| Editing | `set`, `rename`, `mv` |
+| Editing | `set` (frontmatter-only), `set --slug <new>` (cascading rename), `move` / `mv` (file move) |
+| References | `refs find <slug> [--all]` |
 | Promotion | `promote` (Octopus → Spectacular and other targets) |
 | Bridges | `bridge list / enable / disable / status / peek / pull / search / add / complete / uncomplete` |
 | Inspection | `show`, `task list`, `task show` |
-| Views | `loops`, `today`, `stuck`, `stale`, `context`, `list --kind/--promoted/--spec` |
+| Views | `loops`, `today`, `stuck`, `stale`, `context`, `list --kind/--promoted/--spec/--tag` |
 | Sessions | `session start`, `log`, `end`, `switch`, `list`, `show`, `prune` |
 | Memory | `memory show`, `append`, `summary`, `summary set`, `state`, `state set` |
 | Handoffs | `handoff new`, `list`, `show` |
 | Index | `reindex`, `config root add/list/remove` |
+
+### Capture and edit at a glance (v0.6.0)
+
+```
+# Rich capture
+octopus capture "ship it" \
+    --priority high --due 2026-07-01 \
+    --tag work,urgent --add-tag p0 \
+    --energy mid --actor ai --owner alex --stage draft
+
+# Tag mutations (all four families accept comma/space/repeated input)
+octopus set ship-it --add-tag p0,review        # append
+octopus set ship-it --remove-tag urgent        # remove
+octopus set ship-it --clear-tags               # empty
+octopus set ship-it --tags release,launch      # replace
+# --tag/--tags is mutually exclusive with --add-tag/--remove-tag/--clear-tags
+
+# Frontmatter-only vs physical move
+octopus set ship-it --bucket next              # frontmatter only (warns about mismatch)
+octopus mv ship-it next                        # physical file move + frontmatter
+
+# Slug rename with cascading auto-fix
+octopus set old-name --slug new-name -y        # -y skips prompt
+
+# Find every reference
+octopus refs find old-name [--all]
+```
 
 ---
 
@@ -182,6 +212,100 @@ Rules:
 - Soft validation — unknown values log a warning, don't reject.
 - Indexed. Filter via `octopus list --kind <enum>` (comma-sep for multi).
 - Survives promotion. Hidden from default scope (because promoted tasks live in `done/`); surface via `--all`, `--promoted`, or `--spec`.
+
+---
+
+## Tags (D76)
+
+Tags are stored with leading `#` in frontmatter to match Obsidian:
+
+```yaml
+tags:
+  - "#bug"
+  - "#tui/marquee"        # nested via /
+  - "#release/p0"
+```
+
+The reader accepts both `#bug` and `bug` (silent normalization on write). All tag flag values accept input with or without `#`.
+
+### Tag flag matrix
+
+The same four flag families exist on both `capture` and `set`:
+
+| Flag | Behavior |
+|---|---|
+| `--tag <X>` / `--tags <X[,Y…]>` | **Replace** the tag list |
+| `--add-tag <X>` / `--add-tags <X[,Y…]>` | **Append** (dedup) |
+| `--remove-tag <X>` / `--remove-tags <X[,Y…]>` | **Remove** (no-op if absent) |
+| `--clear-tags` | **Empty** the tag list |
+
+Singular and plural are aliases. All accept three input forms, interchangeable:
+- comma-separated: `--tag X,Y,Z`
+- space-separated within quotes: `--tag "X Y Z"`
+- repeated invocation: `--tag X --tag Y --tag Z`
+
+**Mutex:** `--tag/--tags` (replace) cannot be combined with `--add-tag/--remove-tag/--clear-tags` (incremental). Mixing them errors with a clear message. When combining incremental flags, the apply order is `clear → remove → add`.
+
+### Tag filtering
+
+`octopus list --tag parent` matches both `#parent` and any `#parent/*` (prefix match on `/` boundary, Obsidian convention).
+
+---
+
+## Slug renames and references (D78, D79)
+
+Slugs are filenames — they're CLI-owned. To change one safely, use `octopus set <old> --slug <new>`. This is the **only** way to rename a task.
+
+The rename cascades automatically:
+- Filesystem rename (`tasks/<bucket>/<old>.md` → `tasks/<bucket>/<new>.md`)
+- SQLite index update
+- `waiting_for: <old>` rewrites in any other task's frontmatter
+- `related_tasks: [..., <old>, ...]` and `promoted_from: <old>` rewrites in spectacular PLAN.md files
+- `→ octopus:<old>` arrow rewrites in any TODO.md the activity has
+
+User-prose bodies are NOT auto-fixed but ARE named in the warning:
+- session bodies, memory body, handoff bodies
+
+Without `-y`, the rename prompts with a full preview. Pass `-y` to skip.
+
+**Companion verb:** `octopus refs find <slug>` is a read-only grep over every Octopus-managed text file in the activity (`--all` for cross-activity). Splits output into managed refs and user-prose mentions. Useful after a rename to spot residual references, or just to answer "where does this slug appear?"
+
+---
+
+## `set` vs `mv` vs lifecycle verbs (D77)
+
+These three categories overlap on `bucket`, and the boundary is intentional:
+
+| Use this when… | Verb | Side effects |
+|---|---|---|
+| You want to change frontmatter only — no file move | `set --bucket <x>` | Frontmatter only. Soft warning if folder mismatches in folder-mode storage. |
+| You want to physically move the file (and update frontmatter) | `octopus move <slug> <bucket>` / `mv` | File move + frontmatter. **No date stamps, no other side effects.** |
+| You want lifecycle side effects (date stamps, clearing pinned/issue/run_state) | `start` / `finish` (alias `end`) / `drop` | File move + frontmatter + lifecycle bookkeeping. |
+
+`mv` will reject a move to `done`/`dropped` without the required dates and points the user at `finish`/`drop`.
+
+---
+
+## Capture flag surface (v0.6.0)
+
+`octopus capture <title>` accepts:
+
+| Flag | Field set |
+|---|---|
+| `--next` / `--now` | `bucket` (mutually exclusive). `--now` does **NOT** auto-pin (D81). |
+| `--slug <x>` | Override the auto-generated slug |
+| `--priority <urgent\|high\|low>` | `priority` (use `normal`/`none`/`""` to clear) |
+| `--due <YYYY-MM-DD>` | `due` |
+| `--scheduled <YYYY-MM-DD>` | `scheduled` |
+| `--start-date <YYYY-MM-DD>` | `start_date` (does NOT trigger the `start` verb) |
+| `--end-date <YYYY-MM-DD>` | `end_date` (validation will reject this without a terminal bucket) |
+| `--actor <ai\|automation>` | `actor` (use `human`/`""` to clear — human is the default) |
+| `--energy <low\|mid\|high>` | `energy` |
+| `--owner <name>` | `owner` |
+| `--stage <text>` | `stage` (per-activity workflow stage) |
+| `--tag/--tags/--add-tag/...` | full tag flag matrix (see above) |
+
+Empty body by default (D82) — no more hardcoded `## References`.
 
 ---
 

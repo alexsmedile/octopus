@@ -33,9 +33,21 @@ octopus where
 ## Capture & pipeline
 
 ```
-octopus capture "<title>" [--next] [--now] [--bucket <name>]
-  Capture a new task. Defaults to bucket: backlog.
+octopus capture "<title>" [--next | --now] [--slug <override>]
+                          [--priority <urgent|high|low>] [--energy <low|mid|high>]
+                          [--due <YYYY-MM-DD>] [--scheduled <YYYY-MM-DD>]
+                          [--start-date <YYYY-MM-DD>] [--end-date <YYYY-MM-DD>]
+                          [--actor <ai|automation>] [--owner <name>] [--stage <text>]
+                          [TAG-FLAGS — see "Tag flag matrix" below]
+  Capture a new task. Defaults to bucket: backlog. Empty body by default (D82).
   --next is shorthand for --bucket next; --now for --bucket now.
+  --now does NOT auto-pin (D81). For pinned-and-now, run `pin` after.
+
+  D80: explicit-default values clear instead of rejecting.
+    --priority normal/none/""    → cleared
+    --actor human                → cleared (human is the default)
+    --energy normal/none/""      → cleared
+    etc.
 
 octopus plan <slug>       # backlog → next
 octopus focus <slug>      # next → now
@@ -47,7 +59,7 @@ octopus drop <slug>       # set end_date, bucket: dropped
 octopus pin <slug>        # pinned: true
 octopus unpin <slug>      # pinned: false (omit field)
 octopus archive <slug>    # archived: true (hides from default lists)
-octopus unarchive <slug>  # archived: false
+octopus restore <slug>    # archived: false (clears the flag)
 ```
 
 ## Listing & viewing
@@ -88,17 +100,87 @@ octopus stale               # next-bucket tasks not touched in >14 days
 octopus context             # current activity + active session + memory summary
 ```
 
-## Set / rename / move
+## Set / rename / move (D76, D77, D78)
 
 ```
-octopus set <slug> <field>=<value> [<field>=<value> ...]
-  Direct frontmatter edit with validation. Multi-field allowed.
+octopus set <slug> [--field <value> ...]
+  Frontmatter-only escape hatch. Multi-field is atomic.
 
-octopus rename <slug> <new-slug>
-  Rename a task. Updates external refs (when index implements them).
+  Workflow:
+    --bucket <name>          changes the FIELD only (D77); does NOT move the file.
+                             Soft warning fires if folder no longer matches.
+    --stage <text>           per-activity workflow stage
+    --title <text>           change displayed title (does NOT change the slug)
+    --slug <new-slug> [-y]   D78: rename the slug with cascading auto-fix
+                             (filesystem + index + waiting_for + related_tasks
+                             + promoted_from + TODO.md → octopus: arrows).
+                             Prompts unless -y. Soft warning for session/memory/
+                             handoff prose.
 
-octopus mv <slug> <bucket>
-  Move a task to a different bucket explicitly (bypasses pipeline verbs).
+  Attention / impediment:
+    --pinned / --no-pinned       (overlap with pin/unpin)
+    --issue blocked|waiting      (overlap with block/wait/unblock)
+    --blocked-by <text>          required when issue=blocked
+    --waiting-for <text>         required when issue=waiting
+    --archived / --no-archived   (overlap with archive/restore)
+
+  Runtime / classification / actors:
+    --run-state queued|running|finished|failed   (or idle/none/"" to clear)
+    --priority urgent|high|low                    (or normal/none/"" to clear)
+    --energy low|mid|high                         (or normal/none/"" to clear)
+    --actor ai|automation                         (or human/"" to clear)
+    --owner <name>
+    --kind feat|bug|spec|polish|test|chore        (soft validation; "" to clear)
+
+  Dates (or "" to clear):
+    --due / --scheduled / --start-date / --end-date  (ISO YYYY-MM-DD)
+
+  Tag flag matrix (D76):
+    --tag, --tags                REPLACE the tag list
+    --add-tag, --add-tags        APPEND (dedup)
+    --remove-tag, --remove-tags  REMOVE (no-op if absent)
+    --clear-tags                 EMPTY
+  All four families accept comma-separated, space-separated (in quotes),
+  or repeated invocation. --tag/--tags (replace) is mutually exclusive
+  with --add/--remove/--clear. Tags stored with `#` prefix.
+
+octopus move <slug> <bucket>      # D77: physical file move + frontmatter
+octopus mv <slug> <bucket>        # alias of `move`
+  Pure file-move. No date stamps, no lifecycle side effects.
+  Validates the resulting state (mv to done/dropped without dates → exit 1
+  with a hint to use finish/drop instead).
+```
+
+### Tag input forms (capture + set, D76)
+
+```
+--tag bug                              # one tag
+--tag bug,tui,release                  # comma-separated
+--tag "bug tui release"                # space-separated within quotes
+--tag bug --tag tui --tag release      # repeated
+--tag tui/marquee                      # nested (Obsidian convention)
+--tag "#bug"                           # explicit # is accepted; the normalizer is idempotent
+```
+
+### Tag filter
+
+`octopus list --tag parent` matches `#parent` AND any `#parent/*` (prefix match on `/` boundary).
+
+## References
+
+```
+octopus refs find <slug> [--all]
+  Read-only grep for a slug across every Octopus-managed text file in the
+  current activity (or all activities with --all).
+
+  Splits output into:
+    Octopus-managed refs (tasks, spectacular PLAN.md, TODO.md) — auto-fixed
+      by `set --slug` rename.
+    User-prose mentions (sessions, memory, handoffs) — soft warning only;
+      user updates manually.
+
+  Useful after a slug rename to spot residuals, or just to answer
+  "where does this slug appear?"
 ```
 
 ## Bridges (adapters)

@@ -47,9 +47,11 @@ Resolution: fix the date order, OR move to a terminal bucket.
 
 ### Rule T6 — Forbidden legacy fields
 
-`status`, `kind`, `open` in task frontmatter → reject (v1 schema collapse).
+`status`, `open` in task frontmatter → reject (v1 schema collapse).
 
-Resolution: remove the field. See `schemas/task.md` for the replacement field for each.
+`kind` is **NOT** legacy as of D46 (v0.3.0) — it's a v1 work-classification enum (`feat | bug | spec | polish | test | chore`). The earlier "kind is forbidden" rule was reversed when the schema was extended. See rule X4 for the active `kind` semantics.
+
+Resolution: remove `status` and `open` fields. See `schemas/task.md` for replacements.
 
 ## Activities
 
@@ -133,15 +135,17 @@ Resolution: set the corresponding status, OR clear the date.
 
 ### Rule X1 — Default omission
 
-Writing a field at its default value is rejected on write (tolerated on read).
+In FRONTMATTER: writing a field at its default value is rejected on write (tolerated on read).
 
-Defaults that must be omitted:
+Defaults that must be omitted from frontmatter:
 - `actor: human`
 - Task `priority: <normal>` (just don't write the field)
 - `pinned: false`, `archived: false`
 - Empty lists/dicts: `tags: []`, `external_refs: {}`, `related_tasks: []`
 
-Resolution: remove the field from frontmatter entirely.
+In CLI FLAGS (D80): passing an explicit-default value (`--priority normal`, `--actor human`, `""`, etc.) is **accepted** and **clears the field**. See rule X11 for the full list.
+
+Resolution: remove the field from frontmatter entirely. From flags, use the default value or omit the flag — both work.
 
 ### Rule X2 — Body preservation
 
@@ -154,7 +158,11 @@ Any other write that changes body bytes is a bug. Report it.
 
 ### Rule X3 — Filename stability
 
-Filenames are CLI-owned. Hand-renaming a file breaks the index and any cross-refs pointing at the old slug. Use `octopus rename` (tasks) or the relevant lifecycle verb (sessions, handoffs are never renamed).
+Filenames are CLI-owned. Hand-renaming a file breaks the index and any cross-refs pointing at the old slug.
+
+For tasks: use `octopus set <slug> --slug <new-slug> [-y]` (D78) — this is the ONLY supported rename path. It cascades the change across all Octopus-managed references. See rule X10 for the full cascade contract.
+
+For sessions and handoffs: slugs are never renamed (timestamps in the slug make rename meaningless).
 
 ### Rule X4 — `kind` field validation (D46)
 
@@ -232,3 +240,50 @@ Filenames are CLI-owned. Hand-renaming a file breaks the index and any cross-ref
 - Sorted, deduped, default-omitted when empty.
 - Malformed `promoted_to` → warn but don't abort.
 - Non-`spectacular:` values are no-op for v1 (other providers ship with their adapters).
+
+### Rule X8 — Tag flag matrix (D76)
+
+- Tags stored with `#` prefix in frontmatter (`tags: ["#bug", "#tui/marquee"]`). Nested via `/`.
+- Reader accepts both `#bug` and `bug` for backwards compatibility; the writer always emits `#`.
+- Four flag families on `capture` and `set`:
+  - `--tag` / `--tags` REPLACE
+  - `--add-tag` / `--add-tags` APPEND (dedup)
+  - `--remove-tag` / `--remove-tags` REMOVE
+  - `--clear-tags` EMPTY
+- All accept comma-separated, space-separated (in quotes), or repeated input.
+- Singular and plural are aliases.
+- Replace is mutually exclusive with any incremental flag; mixing them errors (exit 1).
+- Combined incremental flags apply in order: clear → remove → add.
+- Filter: `--tag parent` matches `#parent` AND `#parent/*` (prefix on `/` boundary).
+
+### Rule X9 — `set` is frontmatter-only (D77)
+
+- `set` edits frontmatter fields only. It never moves files.
+- In folder-mode storage, if `--bucket` changes a value such that the parent directory no longer matches, `set` emits a soft warning pointing at `octopus mv`.
+- For physical file moves, use `octopus move <slug> <bucket>` (alias `mv`) — pure file-move + frontmatter update with no date stamps or lifecycle side effects.
+- `mv` validates the resulting state — moves that would violate cross-field rules (e.g. `bucket: done` requires `end_date`) are rejected; the error points at `finish`/`drop` for the lifecycle path.
+
+### Rule X10 — Slug rename cascade (D78)
+
+- `octopus set <slug> --slug <new-slug>` is the ONLY supported way to rename a task slug.
+- Always auto-fixed:
+  - filesystem rename
+  - SQLite index (`tasks.slug` + `tasks.id`)
+  - `waiting_for: <old>` in other tasks' frontmatter
+  - `related_tasks: [..., <old>]` in spectacular PLAN.md
+  - `promoted_from: <old>` in spectacular PLAN.md
+  - `→ octopus:<old>` arrows in TODO.md files
+- Soft-warned (named, not auto-fixed): session bodies, memory body, handoff bodies.
+- External tools (Obsidian backlinks, IDE bookmarks, git) are never touched.
+- `-y` skips the interactive confirmation prompt.
+
+### Rule X11 — Explicit-default values clear (D80)
+
+- Passing a value equal to a field's default is accepted and clears the field — does not reject.
+- Applies to `--priority normal`, `--actor human`, `--energy normal`, `--run-state idle`, `--issue none`, `--kind none`, empty strings on any optional field, etc.
+- Result is identical to omitting the flag entirely.
+
+### Rule X12 — Capture defaults (D81, D82)
+
+- `capture --now` sets `bucket: now` but does NOT auto-pin. `pinned` stays orthogonal to bucket. For pinned-and-now, run `pin` after.
+- `capture` writes an empty body by default. No more hardcoded `## References` section.
