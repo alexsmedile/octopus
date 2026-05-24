@@ -975,6 +975,82 @@ def mv(
     _move_impl(slug, bucket)
 
 
+# ── refs find (D79) ───────────────────────────────────────────────────
+
+
+refs_app = typer.Typer(help="Find or rewrite cross-references to a slug.")
+app.add_typer(refs_app, name="refs")
+
+
+@refs_app.command("find")
+def refs_find(
+    slug: str = typer.Argument(..., help="The slug to search for."),
+    cross_activity: bool = typer.Option(
+        False, "--all", help="Search across every indexed activity, not just cwd's.",
+    ),
+) -> None:
+    """Find references to a slug across Octopus-managed files (read-only).
+
+    Prints `category | file:line | line` rows. Managed files (tasks,
+    spectacular PLAN.md, TODO.md) come first; user-prose files (sessions,
+    memory, handoffs) come after a separator.
+    """
+    from octopus.core.refs import categorize_hits, find_refs
+
+    activities: list[Path]
+    if cross_activity:
+        # Walk every indexed activity.
+        conn = get_db()
+        try:
+            rows = conn.execute("SELECT path FROM activities").fetchall()
+        finally:
+            conn.close()
+        activities = [Path(r["path"]) for r in rows]
+        if not activities:
+            console.print(EMPTY_INDEX_HINT)
+            return
+    else:
+        root = _require_activity()
+        activities = [root]
+
+    total_hits: list = []
+    for act in activities:
+        hits = find_refs(act, slug)
+        total_hits.extend(hits)
+
+    if not total_hits:
+        console.print(f"[dim]no references to {slug!r} found.[/]")
+        return
+
+    managed, warn = categorize_hits(total_hits)
+
+    if managed:
+        console.print(f"\n[bold]Octopus-managed references[/] ({len(managed)}):")
+        for h in managed:
+            rel = _try_relative(h.file, activities)
+            console.print(
+                f"  [cyan]{h.category:12}[/] {rel}:{h.line_number}    [dim]{h.line.strip()[:100]}[/]"
+            )
+    if warn:
+        console.print(f"\n[bold yellow]User-prose mentions[/] ({len(warn)}):")
+        for h in warn:
+            rel = _try_relative(h.file, activities)
+            console.print(
+                f"  [yellow]{h.category:12}[/] {rel}:{h.line_number}    [dim]{h.line.strip()[:100]}[/]"
+            )
+    console.print()
+
+
+def _try_relative(p: Path, roots: list[Path]) -> str:
+    """Return p relative to the first root it lives under; else the absolute path."""
+    for r in roots:
+        try:
+            return str(p.relative_to(r))
+        except ValueError:
+            continue
+    return str(p)
+
+
 # ── promotion verb ────────────────────────────────────────────────────
 
 
@@ -1541,6 +1617,95 @@ VERB_OVERLAP_FIELDS = {
 }
 
 
+def _handle_slug_rename(
+    *,
+    activity_root: Path,
+    source_file: Path,
+    old_slug: str,
+    new_slug: str,
+    yes: bool,
+) -> None:
+    """D78: full cascading slug rename. Builds preview, prompts, applies."""
+    from octopus.core.slug_rename import (
+        SlugRenameError,
+        apply_rewrite_plan,
+        scan_rewrite_plan,
+    )
+
+    try:
+        plan = scan_rewrite_plan(activity_root, source_file, old_slug, new_slug)
+    except SlugRenameError as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+
+    # Build the preview output.
+    console.print(f"\n[bold]Rename slug:[/]")
+    console.print(f"  {old_slug}  →  {new_slug}")
+    console.print(f"\n[bold]Octopus-managed refs to update automatically:[/]")
+    # Group actions by category for the preview.
+    by_cat: dict[str, list] = {}
+    for a in plan.actions:
+        by_cat.setdefault(a.category, []).append(a)
+    if not by_cat:
+        console.print("  [dim](none)[/]")
+    else:
+        for cat, items in by_cat.items():
+            console.print(f"  [cyan]{cat}[/] ({len(items)}):")
+            for a in items[:6]:
+                console.print(f"    {a.description}")
+            if len(items) > 6:
+                console.print(f"    [dim]…and {len(items) - 6} more[/]")
+
+    if plan.soft_warnings:
+        console.print(f"\n[bold yellow]Soft warnings (user-managed, not touched):[/]")
+        for w in plan.soft_warnings:
+            console.print(f"  [yellow]{w.category}[/] {w.description}")
+        console.print(
+            "  [dim]External tools (Obsidian backlinks, IDE bookmarks, git history) "
+            "not touched.[/]"
+        )
+        console.print(
+            f"  [dim]Run `octopus refs find {new_slug}` after the rename to locate "
+            "residual references.[/]"
+        )
+
+    if not yes:
+        if not typer.confirm("\nProceed?", default=False):
+            console.print("[dim]aborted[/]")
+            raise typer.Exit(EXIT_OK)
+
+    # Apply rewrites.
+    try:
+        apply_rewrite_plan(plan)
+    except Exception as exc:
+        err_console.print(f"[red]✗[/] slug rename failed mid-cascade: {exc}")
+        err_console.print(
+            "[yellow]⚠[/] some changes may have been applied. "
+            "Run `octopus reindex` to reconcile."
+        )
+        raise typer.Exit(4) from exc
+
+    # Update the SQLite index — the renamed task file needs a new row, the
+    # old row needs to go. sync_task_after_write handles upsert of the new
+    # path; sync_delete_task drops the old.
+    sync_delete_task(plan.source_file)
+    # Read the new task to upsert it under its new path.
+    try:
+        new_task, _new_body = read_task(plan.target_file)
+        new_task.slug = new_slug
+        new_task.path = plan.target_file
+        err = sync_task_after_write(activity_root, new_task)
+        if err:
+            err_console.print(f"[yellow]⚠[/] {err} (run `octopus reindex` to reconcile)")
+    except Exception as exc:
+        err_console.print(
+            f"[yellow]⚠[/] file renamed but index sync failed: {exc}. "
+            "Run `octopus reindex` to reconcile."
+        )
+
+    console.print(f"[green]✓[/] {old_slug} → {new_slug} (cascade applied)")
+
+
 def set_(
     slug: str = typer.Argument(..., help="Task slug."),
     # Workflow
@@ -1571,6 +1736,12 @@ def set_(
         help="Work classification: feat | bug | spec | polish | test | chore. Use '' to clear.",
     ),
     title: str | None = typer.Option(None, "--title"),
+    # D78: slug rename
+    new_slug: str | None = typer.Option(
+        None, "--slug",
+        help="Rename the task slug (filename). Cascades to Octopus-managed refs.",
+    ),
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompts."),
     # Tag flag matrix (D76)
     tag: list[str] | None = typer.Option(None, "--tag", help="Replace the tag list (alias of --tags)."),
     tags: list[str] | None = typer.Option(None, "--tags", help="Replace the tag list."),
@@ -1584,12 +1755,30 @@ def set_(
 
     D77: this is the frontmatter-only escape hatch. `--bucket` changes the
     frontmatter field but does NOT move the file. Use `octopus mv` for that.
+    D78: --slug renames the task slug with full cascading auto-fix.
     D80: explicit-default values (normal/none/human/idle/"") clear fields.
     D76: tag flag matrix — see --tag/--tags/--add-tag/--remove-tag/--clear-tags.
     """
     from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
 
     path, task, body, octopus_dir, storage_mode = _load_task(slug)
+
+    # D78: handle --slug rename BEFORE other edits — it's its own flow with
+    # cascading refs and a confirmation prompt. If --slug is the only flag,
+    # we exit after the rename. If --slug is combined with other flags, we
+    # apply the rename first, then continue editing the renamed task.
+    if new_slug is not None:
+        _handle_slug_rename(
+            activity_root=octopus_dir.parent,
+            source_file=path,
+            old_slug=slug,
+            new_slug=new_slug,
+            yes=yes,
+        )
+        # Re-load using the new slug for any further edits.
+        slug = new_slug
+        path, task, body, octopus_dir, storage_mode = _load_task(slug)
+
     overlaps_used: list[str] = []
     bucket_changed_to: str | None = None
 

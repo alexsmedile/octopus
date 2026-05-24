@@ -697,7 +697,9 @@ All mutations route through `octopus.actions` — the same write layer the CLI u
 
 ## Status & what's next
 
-**v0.5.0** released 2026-05-24 — **TODO.md becomes a living index** (#22). Adopts GFM + Obsidian Tasks emoji conventions for parsing; adds `→ provider:slug` arrow as the "handed off elsewhere" marker; rewrites the source file in place on pull so every imported `- [ ] thing` becomes `- [x] thing → octopus:<slug>`. New mutation verbs `bridge add/complete/uncomplete` edit `TODO.md` directly without importing. New capability flag `MARK_PULLED` on the adapter protocol. **404 tests passing** (was 364). See [CHANGELOG.md](CHANGELOG.md).
+**v0.6.0** released 2026-05-24 — **capture + edit polish** (#24). Richer `capture` flags (`--due/--scheduled/--start-date/--end-date/--actor/--energy/--owner/--stage` + tags), atomic Obsidian-compatible tag mutations (`--tag/--add-tag/--remove-tag/--clear-tags` with comma/space/repeated input), new `octopus move`/`mv` verb (separates file-move from frontmatter-edit), cascading slug rename (`set --slug` updates all Octopus-managed refs), and `octopus refs find` helper. Explicit-default values now clear instead of reject. **489 tests passing** (was 404). See [CHANGELOG.md](CHANGELOG.md).
+
+**v0.5.0** released 2026-05-24 — **TODO.md becomes a living index** (#22). Adopts GFM + Obsidian Tasks emoji conventions for parsing; adds `→ provider:slug` arrow as the "handed off elsewhere" marker; rewrites the source file in place on pull so every imported `- [ ] thing` becomes `- [x] thing → octopus:<slug>`. New mutation verbs `bridge add/complete/uncomplete` edit `TODO.md` directly without importing. New capability flag `MARK_PULLED` on the adapter protocol.
 
 **v0.4.2** released 2026-05-24 — **Apple Reminders adapter ships** (#09). Pull-only via [`remindctl`](https://github.com/steipete/remindctl); stable EventKit UUIDs for dedup; multi-list aggregation; native priority + due-date + notes mapping into Octopus fields.
 

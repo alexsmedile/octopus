@@ -5,6 +5,79 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.6.0] — 2026-05-24
+
+**Capture and edit polish.** Months of paper-cuts cleaned in one pass: richer `capture` flags, atomic tag mutations with full Obsidian compatibility, a proper slug rename with cascading auto-fix, a `move`/`mv` verb that separates file-move from frontmatter-edit, and a `refs find` helper that locates every Octopus-managed reference to a slug.
+
+### Added
+
+- **Tag flag matrix** on `capture` and `set` (D76):
+  - `--tag` / `--tags` — replace the tag list.
+  - `--add-tag` / `--add-tags` — append, dedup.
+  - `--remove-tag` / `--remove-tags` — subtract.
+  - `--clear-tags` — empty.
+  - All accept **comma-separated**, **space-separated** (within a quoted arg), and **repeated invocation**: `--tag X,Y` ≡ `--tag "X Y"` ≡ `--tag X --tag Y`.
+  - Singular and plural are aliases.
+  - Replace and incremental are **mutually exclusive** — mixing them errors with a clear message. Forces clarity over guessing.
+- **Tag storage** with leading `#` to match Obsidian (`tags: ["#bug", "#tui/marquee"]`). Nested via `/`. Reader accepts both `#bug` and `bug` (silent normalization on write). Flag values accept with or without `#`.
+- **Tag prefix-match filter** (`list --tag parent` matches `#parent` AND `#parent/*`) — Obsidian-compatible.
+- **`capture` gains** `--due`, `--scheduled`, `--start-date`, `--end-date`, `--actor`, `--energy`, `--owner`, `--stage` flags.
+- **`octopus move <slug> <bucket>` + `mv` alias** (D77) — pure file-move + frontmatter update. No date stamps, no lifecycle side effects. Validates against schema rules (e.g. `mv x done` without `end_date` is rejected and points at `finish`).
+- **`octopus set <slug> --slug <new>` with cascading rename** (D78). Auto-fixes filesystem, SQLite index, `waiting_for` in other tasks, `related_tasks` and `promoted_from` in spectacular PLAN.md, and `→ octopus:<slug>` arrows in TODO.md. Soft warning (named files, not touched) for session bodies, memory body, handoff bodies. `-y` skips the confirmation prompt; default is interactive.
+- **`octopus refs find <slug>`** (D79) — read-only verb. Greps every Octopus-managed text file for a slug and prints `category | file:line | line`. Splits managed vs user-prose categories. `--all` for cross-activity. Companion to `set --slug` for tracking down residual references.
+- **7 decisions locked** (D76–D82).
+- **85 new tests** (46 in `test_tag_parser.py` + 39 in `test_capture_edit_polish.py`). Total suite **489 passing** (was 404).
+
+### Changed
+
+- **`set --bucket` is frontmatter-only** (D77). Previously moved the file in folder mode; now edits the field only. Emits a soft warning in folder mode when the file's parent directory no longer matches the new bucket value, pointing at `octopus mv`. The lifecycle verbs (`start`/`finish`/`drop`) still move files because that's their job.
+- **Explicit-default values clear instead of reject** (D80). `--priority normal`, `--actor human`, `--energy normal`, `--run-state idle`, empty strings on any optional field, etc. — all accepted and clear the field.
+- **`capture --now` no longer auto-pins** (D81). Pin stays orthogonal to bucket per the AXIS-MODEL (D43). If you want a pinned-now task: `octopus capture X --now && octopus pin X`.
+- **`capture` body is empty by default** (D82). Previously wrote `\n## References\n`; now writes nothing. `## References` reappears as a manual user choice. (Inline `--body` is deferred to a future request.)
+- **Backwards-compatible tag migration:** tasks with `tags: ["bug"]` (no `#`) are still read correctly. On any write, the tag values are normalized to include `#`. Quiet migration — no schema change.
+
+### Behavioral compatibility risks
+
+- **Anyone scripting `set --bucket` and expecting the file to move** will be surprised. Use `octopus mv` instead. The soft warning makes this discoverable.
+- **Anyone relying on the implicit pin from `capture --now`** will get an unpinned task. Add `&& octopus pin` if needed.
+- **`capture` no longer writes `## References`**. New tasks have empty bodies. Add the heading manually or via a future `--body` flag.
+
+### Smoke
+
+```bash
+# Capture with everything
+octopus capture "ship it" --priority high --due 2026-07-01 --tag work,urgent --energy mid
+
+# Tag mutations are now atomic + Obsidian-compatible
+octopus set ship-it --add-tag p0 --remove-tag urgent
+octopus set ship-it --clear-tags --add-tags release,launch
+
+# Frontmatter ≠ file move
+octopus set ship-it --bucket next        # → warning: run `octopus mv` to match
+octopus mv ship-it next                  # → physical move + frontmatter
+
+# Rename a slug, refs auto-fixed everywhere
+octopus set old-name --slug new-name -y
+
+# Find every reference
+octopus refs find old-name --all
+```
+
+### Deferred
+
+- `capture --kind` and full kind clarification — request #25.
+- `capture --body` / inline body input — future.
+- Tag exact-match (`--tag X --exact`) — future.
+- Auto-fix of session/memory/handoff prose during slug rename — too risky; remains user task.
+- `octopus refs rewrite` (would auto-fix the soft-warned files too) — too risky for v1; read-only `find` for now.
+
+### Migration
+
+- **No schema migration.** Tag format change is reader-tolerant; the next write normalizes.
+- **SQLite untouched.** Schema stays at v3.
+
+---
+
 ## [0.5.0] — 2026-05-24
 
 **TODO.md becomes a real protocol surface** (#22). Adopts GFM checklist + [Obsidian Tasks emoji format](https://publish.obsidian.md/tasks/Reference/Task+Formats/Tasks+Emoji+Format) as the parsing standard, adds the `→ provider:slug` arrow convention (Octopus's only new syntax), and makes the adapter **two-way for source annotation**: on successful pull, `TODO.md` is rewritten in place so each imported `- [ ] thing` line becomes `- [x] thing → octopus:<task-slug>`. The file is now a living at-a-glance index of "what's in Octopus."
