@@ -19,6 +19,7 @@
         --stroke-yellow: #B58A0F;
         --stroke-teal:   #1FA587;
         --stroke-pink:   #C9466B;
+        --panel-bg: #F7F7FB;
       }
       @media (prefers-color-scheme: dark) {
         svg {
@@ -36,6 +37,7 @@
           --stroke-yellow: #FACC15;
           --stroke-teal:   #5EEAD4;
           --stroke-pink:   #F38BA8;
+          --panel-bg: #1A1B22;
         }
       }
       .root  { font-family: -apple-system, system-ui, sans-serif; font-size: 16px; font-weight: 800; fill: var(--fg); }
@@ -50,8 +52,10 @@
       .card-yellow { fill: var(--fill-yellow); stroke: var(--stroke-yellow); }
       .card-teal   { fill: var(--fill-teal);   stroke: var(--stroke-teal); }
       .card-pink   { fill: var(--fill-pink);   stroke: var(--stroke-pink); }
+      .canvas-bg { fill: var(--panel-bg); }
     </style>
   </defs>
+  <rect class="canvas-bg" x="0" y="0" width="760" height="380" rx="14"/>
 
   <!-- top: octopus (orchestrator) -->
   <rect class="card-purple" x="290" y="20" width="180" height="56" rx="10" stroke-width="2"/>

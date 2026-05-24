@@ -8,7 +8,7 @@
         --tag: #6B6E7A;
         --opt: #6B6E7A;
         --opt-meta: #8A8D9A;
-        --panel-bg: #FAFAFC;
+        --panel-bg: #F7F7FB;
         --panel-border: #D5D7E0;
         --guide: #C4C7D2;
         --accent: #7C4DD9;
@@ -26,7 +26,7 @@
           --tag: #8A8D9A;
           --opt: #8A8D9A;
           --opt-meta: #6B6E7A;
-          --panel-bg: #16171E;
+          --panel-bg: #1A1B22;
           --panel-border: #3A3D48;
           --guide: #3A3D48;
           --accent: #CBA6F7;
@@ -53,8 +53,10 @@
       .b-done    { fill: var(--c-done); }
       .b-dropped { fill: var(--c-dropped); }
       .opt-meta  { fill: var(--opt-meta); }
+      .canvas-bg { fill: var(--panel-bg); }
     </style>
   </defs>
+  <rect class="canvas-bg" x="0" y="0" width="760" height="520" rx="14"/>
 
   <!-- Left column: the tree -->
   <rect class="panel" x="20" y="20" width="450" height="480" rx="12"/>

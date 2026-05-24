@@ -50,7 +50,7 @@ Open the same folder in Obsidian? Symlink it. Open it in the terminal? `octopus 
 
 <div align="center">
 
-<img src="docs/assets/mental-model.v2.svg" width="100%" alt="Mental model — octopus orchestrates activities; each activity holds tasks, sessions, memory, and handoffs."/>
+<img src="docs/assets/mental-model.v3.svg" width="100%" alt="Mental model — octopus orchestrates activities; each activity holds tasks, sessions, memory, and handoffs."/>
 
 </div>
 
@@ -108,7 +108,7 @@ Every tracked folder gets a hidden `.octopus/` directory. That's where the brain
 
 <div align="center">
 
-<img src="docs/assets/scaffold.v2.svg" width="100%" alt="Folder scaffold — what an .octopus/ directory looks like on disk."/>
+<img src="docs/assets/scaffold.v3.svg" width="100%" alt="Folder scaffold — what an .octopus/ directory looks like on disk."/>
 
 </div>
 
@@ -122,7 +122,7 @@ Octopus has one big idea about workflow: **five piles**, and tasks move between 
 
 <div align="center">
 
-<img src="docs/assets/pipeline.v2.svg" width="100%" alt="Five-bucket pipeline — backlog → next → now → done, with dropped as a side exit."/>
+<img src="docs/assets/pipeline.v3.svg" width="100%" alt="Five-bucket pipeline — backlog → next → now → done, with dropped as a side exit."/>
 
 </div>
 
@@ -147,7 +147,7 @@ That's the whole pipeline. Eight verbs, five buckets.
 
 <div align="center">
 
-<img src="docs/assets/lifecycle.v2.svg" width="100%" alt="Task lifecycle — capture, focus, start, block, unblock, finish."/>
+<img src="docs/assets/lifecycle.v3.svg" width="100%" alt="Task lifecycle — capture, focus, start, block, unblock, finish."/>
 
 </div>
 
@@ -175,7 +175,7 @@ Tasks have five independent ways of being "in motion." Each one answers a differ
 
 <div align="center">
 
-<img src="docs/assets/axes.v2.svg" width="100%" alt="Five axes — pipeline, domain workflow, runtime, attention, impediment."/>
+<img src="docs/assets/axes.v3.svg" width="100%" alt="Five axes — pipeline, domain workflow, runtime, attention, impediment."/>
 
 </div>
 

@@ -19,6 +19,7 @@
         --dot-yellow: #B58A0F;
         --dot-pink:   #C9466B;
         --dot-green:  #2A8A3F;
+        --panel-bg: #F7F7FB;
       }
       @media (prefers-color-scheme: dark) {
         svg {
@@ -36,6 +37,7 @@
           --dot-yellow: #FACC15;
           --dot-pink:   #F38BA8;
           --dot-green:  #86EFAC;
+          --panel-bg: #1A1B22;
         }
       }
       .step-num  { font-family: -apple-system, system-ui, sans-serif; font-size: 22px; font-weight: 800; fill: #FFFFFF; }
@@ -53,8 +55,10 @@
       .c-yellow { fill: var(--dot-yellow); }
       .c-pink   { fill: var(--dot-pink); }
       .c-green  { fill: var(--dot-green); }
+      .canvas-bg { fill: var(--panel-bg); }
     </style>
   </defs>
+  <rect class="canvas-bg" x="0" y="0" width="760" height="510" rx="14"/>
 
   <!-- Step 1: capture -->
   <circle class="c-blue" cx="60" cy="60" r="22"/>

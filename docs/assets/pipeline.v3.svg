@@ -20,6 +20,7 @@
         --stroke-yellow: #B58A0F;
         --stroke-green:  #2A8A3F;
         --stroke-grey:   #9CA0AE;
+        --panel-bg: #F7F7FB;
       }
       @media (prefers-color-scheme: dark) {
         svg {
@@ -38,6 +39,7 @@
           --stroke-yellow: #FACC15;
           --stroke-green:  #86EFAC;
           --stroke-grey:   #8A8D9A;
+          --panel-bg: #1A1B22;
         }
       }
       .b-title { font-family: -apple-system, system-ui, sans-serif; font-size: 16px; font-weight: 700; fill: var(--fg); }
@@ -52,8 +54,10 @@
       .b-yellow { fill: var(--fill-yellow); stroke: var(--stroke-yellow); }
       .b-green  { fill: var(--fill-green);  stroke: var(--stroke-green); }
       .b-grey   { fill: var(--fill-grey);   stroke: var(--stroke-grey); }
+      .canvas-bg { fill: var(--panel-bg); }
     </style>
   </defs>
+  <rect class="canvas-bg" x="0" y="0" width="760" height="280" rx="14"/>
 
   <text x="380" y="30" class="head" text-anchor="middle">a task flows left → right, with one side exit</text>
 

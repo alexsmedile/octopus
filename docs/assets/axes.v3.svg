@@ -6,7 +6,7 @@
         --muted: #3A3D48;
         --dim: #6B6E7A;
         --field: #7C4DD9;
-        --panel-bg: #FAFAFC;
+        --panel-bg: #F7F7FB;
         --panel-border: #D5D7E0;
         --fill-blue:   #E8F0FB;
         --fill-teal:   #DCFAF3;
@@ -35,7 +35,7 @@
           --muted: #C4C7D2;
           --dim: #8A8D9A;
           --field: #CBA6F7;
-          --panel-bg: #16171E;
+          --panel-bg: #1A1B22;
           --panel-border: #3A3D48;
           --fill-blue:   #1F2A3A;
           --fill-teal:   #1F3530;
@@ -81,8 +81,10 @@
       .chip-fg-bg  { fill: var(--panel-bg); }
       .vis-card    { fill: var(--vis-bg); stroke: var(--vis-stroke); }
       .derived-card{ fill: var(--derived-bg); stroke: var(--derived-stroke); }
+      .canvas-bg { fill: var(--panel-bg); }
     </style>
   </defs>
+  <rect class="canvas-bg" x="0" y="0" width="760" height="540" rx="14"/>
 
   <!-- ── ROW 1 (top): 3 cards ──────────────────────────── -->
 
