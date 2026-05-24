@@ -33,11 +33,18 @@ def sync_activity_after_write(folder: Path) -> str | None:
 
 
 def sync_task_after_write(activity_folder: Path, task: Task) -> str | None:
-    """Upsert the task row after a file write. Returns error message or None."""
+    """Upsert the activity AND task rows after a file write.
+
+    The activity upsert is necessary because task_external_refs has a
+    foreign key to tasks(id), which has FK to activities(id). On a fresh
+    DB, calling upsert_task without first ensuring the activity row exists
+    would fail with a foreign-key constraint violation.
+    """
     try:
         activity, _ = read_activity(activity_folder / ".octopus" / "activity.md")
         conn = get_db()
         try:
+            upsert_activity(conn, activity)  # FK prerequisite (D63)
             upsert_task(conn, activity.id, task)
         finally:
             conn.close()

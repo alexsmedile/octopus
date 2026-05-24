@@ -1,6 +1,6 @@
 ---
 request: 06-adapter-framework
-status: active
+status: done
 updated: 2026-05-24
 ---
 
@@ -108,57 +108,44 @@ Top-to-bottom; commit per group (or small cluster) so the migration is reviewabl
 - [x] `adapters/todo_md.py` — STUB pointing to #21; same shape (`list_groups() == []` by design — single file)
 - [x] All three registered in `REGISTRY` (built-ins)
 
-## Group 11 — Tests
+## Group 11 — Tests ✅ (299 passing, was 271 — +28 new in `test_adapters.py`)
 
-- [ ] `cli/tests/test_adapters_base.py`
-  - Capability enum has exactly four values
-  - Dataclass defaults work
-- [ ] `cli/tests/test_adapters_registry.py`
-  - Built-in registry populated
-  - Entry-point overlay merges
-  - Built-in wins on name conflict
-  - Broken entry-point doesn't kill loading
-- [ ] `cli/tests/test_adapters_journal.py`
-  - Read missing journal returns sane defaults
-  - Write creates file with XDG path
-  - Update merges; counters increment
-- [ ] `cli/tests/test_adapters_pipeline.py`
-  - Mock adapter returns N items; pipeline creates N tasks
-  - Second run with same items → all skipped (dedup)
-  - Mixed batch (some new, some known) → counts split correctly
-  - `imported_from`, `import_date`, `external_refs` all set correctly
-- [ ] `cli/tests/test_cli_bridge.py`
-  - `bridge list` shows registered adapters
-  - `bridge enable` writes both main config + bridges file
-  - `bridge disable` flips flag, keeps config
-  - `bridge status` per-name + all
-  - `bridge peek` no-group discovery message
-  - `bridge pull` no-list error
-  - `bridge pull --list X --capture-all` mutual-exclusion error
-  - Stub adapter pull returns honest error
-- [ ] `cli/tests/test_db_external_refs.py`
-  - Schema v3 migration creates table on existing v2 DB
-  - upsert_task populates refs
-  - find_by_external_ref returns correct task_id
-  - delete cascade works
+Consolidated `tests/test_adapters.py` (single file, easier to maintain than splitting):
+- [x] `Capability` enum has exactly four values; `ExternalRef is str`
+- [x] Dataclass defaults: `ExternalTask`, `PullResult`, `AdapterStatus`
+- [x] All three stub adapters satisfy the `Adapter` runtime_checkable Protocol
+- [x] Registry: contains builtins; `get_adapter_class("nope")` → None
+- [x] Journal: missing file → defaults; write→read round-trip; cursor sentinel preserves; explicit None clears; corrupt-file recovers to defaults
+- [x] `resolve_groups`: configured-only, flag overrides (single + multi), `--capture-all`, mutual-exclusion exit 1, pull-no-config-no-flag exit 3, peek-discovery returns None
+- [x] Config adapter helpers: enable→write→disable cycle preserves bridges file
+- [x] Config writer: handles str/int/bool/list values round-trip
+- [x] Schema v3 confirmed; `task_external_refs` table exists
+- [x] `find_by_external_ref` happy path + absent
+- [x] `upsert_task` populates external_refs; UPDATE-with-changed-refs clears stale entries
+- [x] Materialize creates new task with full provenance + matches stub body
+- [x] Materialize dedups on re-run
+- [x] Materialize mixed batch (one known + one new) splits correctly
+- [x] Materialize uses `suggested_bucket`/`kind`/`tags` when present
 
-## Group 12 — Smoke test
+**Bug fixed during testing:** `sync_task_after_write` was failing FK constraint on fresh DBs because it upserted the task before the activity row existed. Now upserts activity first. This was masked in normal CLI use because `octopus init` always indexes the activity, but materialize-on-fresh-DB exposed it.
 
-- [ ] Manual end-to-end against /tmp fixture:
-  - `octopus init`
-  - `octopus bridge list` (shows 3 stubs)
-  - `octopus bridge enable reminders --list "Test"` (stub: should still write config)
-  - `octopus bridge status reminders` (reports honest "not implemented")
-  - `octopus bridge pull reminders` (reports NotImplementedError clearly)
-  - Verify `bridges/reminders.toml` written, `[adapters.reminders] enabled = true` in main config
+## Group 12 — Smoke test ✅
 
-## Group 13 — Ship
+Manual end-to-end run against `/tmp/promote-smoke`:
+- [x] `bridge list` shows 3 stubs as disabled+unhealthy with honest "not implemented" status
+- [x] `bridge enable reminders --set lists=Inbox --force` writes `bridges/reminders.toml` (with `lists = ["Inbox"]` correctly parsed as TOML array) and flips `[adapters.reminders] enabled = true`
+- [x] `bridge status reminders` shows verbose block with capabilities + health
+- [x] `bridge pull reminders` exits 4 with stub's "not implemented" message
+- [x] `bridge disable reminders` flips flag, keeps `bridges/reminders.toml`
 
-- [ ] Update CHANGELOG.md with 0.4.0 entry (minor — new framework, new commands, new schema)
-- [ ] Bump `cli/pyproject.toml` 0.3.0 → 0.4.0
-- [ ] Update README.md status line
-- [ ] `/update-docs` workflow
-- [ ] Tag v0.4.0
+## Group 13 — Ship ✅
+
+- [x] CHANGELOG.md [0.4.0] entry written — Added / Changed / Migration sections
+- [x] `cli/pyproject.toml` 0.3.0 → 0.4.0
+- [x] README.md status line updated to 0.4.0 (mentions 299 tests, new bridge verb set, schema v3 migration)
+- [x] Request PLAN status: active → done
+- [x] TASKS.md status: active → done
+- [ ] Tag v0.4.0 (next step)
 
 ---
 

@@ -5,6 +5,47 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.0] — 2026-05-24
+
+The **adapter framework**: a shared protocol every external integration implements (Obsidian, Apple Reminders, TODO.md, future GitHub/Linear/Notion), plus the `octopus bridge` CLI surface to operate them generically. Ships framework-only — no working adapter; the three known integrations land as stubs that satisfy the protocol but point at requests #07/#09/#21 for real implementations.
+
+### Added
+
+- **`octopus bridge` subcommand group** with seven verbs: `list / enable / disable / status / peek / pull / search`. Hidden alias `octopus adapter` works the same.
+- **`peek` vs. `pull` split.** `peek` is read-only display (no files created, no index writes). `pull` materializes external items as Octopus tasks deduped via the new index. With no configured group and no flag, `peek` lists available groups (discovery mode); `pull` exits 3 to refuse unbounded materialization.
+- **`bridge search <name> <query>`** — adapter-side search. Adapters with native APIs use them; others fall back to `peek + filter` internally.
+- **`Capability` enum** with four atomic values: `PULL / PUSH / NOTIFY / RECONCILE`. v1 adapters declare only `PULL`; the others are forward-stable flags whose methods ship with #12 / #10.
+- **`Adapter` Protocol** (`runtime_checkable`) with seven methods: `status / validate_config / list_groups / peek / pull / push / search`. `link()` from the PRD sketch dropped — pipeline glue, not adapter behavior.
+- **Per-adapter Typer flags** via the generic `--set key=value` (repeatable). `lists`-named keys are always coerced to TOML arrays. `--force` skips `validate_config` (useful for stubs and temporarily-unhealthy adapters).
+- **`list_groups()`** method on the protocol — drives both `peek` discovery and `--capture-all` resolution.
+- **Group selection matrix:** `lists = []` config + `--list NAME[,NAME...]` flag + `--capture-all` override; `--list` and `--capture-all` mutually exclusive (exit 1). Per-adapter native flag names planned for #07/#09/#21 (Reminders `--list`, GitHub `--repo`, etc.).
+- **Hybrid config layout** (D58): `[adapters.<name>] enabled` lives in main `~/.config/octopus/config.toml`; per-adapter content lives in `~/.config/octopus/bridges/<name>.toml`. Disable preserves the bridge file — re-enable is one command.
+- **Sync journal**: one JSON file per adapter at `~/.local/share/octopus/sync/<name>.json` carrying `last_pull`, `last_push`, counters, and opaque `cursor`. Fixed-size in v1; no rotation needed.
+- **Pull pipeline** (`adapters/pipeline.py`): materializes `ExternalTask` items into Octopus tasks with full provenance (`actor=human`, `imported_from=<adapter>`, `import_date=<today>`, `external_refs.<adapter>=<external_id>`). Honors `suggested_bucket`, `suggested_kind`, `suggested_tags` hints. Returns `MaterializeResult` (new / skipped / errors / source_groups).
+- **Dedup index** (`task_external_refs` join table, schema v3): fast indexed lookup of `(adapter, external_id) → task_id`. `upsert_task` keeps it in sync with frontmatter on every write. v2→v3 migration backfills from existing tasks' `raw_frontmatter`.
+- **Adapter registry** (`adapters/registry.py`): hardcoded built-ins + `importlib.metadata` entry-point overlay for v2's adapter SDK (#15). Built-in wins on name conflict; broken third-party loader is logged + skipped, never aborts.
+- **Three stub adapters** registered as built-ins: `obsidian`, `reminders`, `todo-md`. Each satisfies the protocol and returns clear "not implemented — see request #NN" errors. The framework is testable end-to-end on this release; #07/#09/#21 each replace the stub body.
+- **11 decisions locked** (D56–D66) in `.spectacular/DECISIONS.md`.
+- **28 new tests** in `tests/test_adapters.py`. Total suite **299 passing** (was 271).
+
+### Changed
+
+- **`SCHEMA_VERSION` → 3.** Forward-chained migrator (`db/connection.py`) handles v1→v2→v3 in-place on first open.
+- **`sync_task_after_write` now upserts the activity first** before the task — was failing FK constraint on fresh DBs.
+- **`skills/octopus/SKILL.md` → v0.4.0.** New verb-index "Bridges" group; new load-on-demand entry for `adapter-framework.md`; "Bridges (v1 scope)" section rewritten to explain peek vs. pull and list the three v1 adapters.
+- **`SCHEMA-ADAPTER.md`** (new spec doc, 10 sections): protocol, data types, config layout, registry, sync journal, pull pipeline, stub shape, repo layout.
+- **`CLI-VERBS.md`** gains a "Bridge verbs" section with the full command reference, flag matrix, and exit codes.
+- **`CRITICAL-DEPENDENCIES.md`** gains section U: config rules, capability gating, flag-matrix mutual exclusion, pipeline materialization invariants, dedup-index sync, sync-journal semantics, registry conflict resolution.
+- **`SCHEMA-CONFIG.md`** documents the hybrid layout in §2b — main config holds only `enabled` per adapter; content moves to `bridges/<name>.toml`. Validation rules updated.
+- **`SCHEMA-INDEX.md`** documents `task_external_refs` and the new `idx_tasks_kind` / `idx_tasks_promoted_to` (carry-over from D46/D48). `PRAGMA user_version = 3`.
+- **Skill references mirrored** (`adapter-framework.md` new; `cli-verbs.md` + `critical-dependencies.md` extended).
+
+### Migration
+
+- Existing databases auto-migrate v2→v3 on first open: `task_external_refs` table created, then backfilled from each task's `raw_frontmatter.external_refs`.
+
+---
+
 ## [0.3.0] — 2026-05-24
 
 The **task → request promotion seam**: a single CLI verb makes Octopus and Spectacular work as one system, with one-way migration and derived back-references. Folds in the F1 naming + `kind` enum work that was tracked separately under request #19 (now superseded).

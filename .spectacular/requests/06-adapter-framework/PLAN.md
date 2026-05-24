@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 priority: medium
 owner: alex
 updated: 2026-05-24
