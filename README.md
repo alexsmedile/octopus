@@ -20,7 +20,7 @@
 
 <div align="center">
 
-<img src="docs/assets/tui-hero.svg" width="100%" alt="Octopus TUI — three-pane Focus mode with the animated mascot in the header, backlog/now/next panes, a task detail pane, and a keymap status bar."/>
+<img src="docs/assets/tui-hero.v2.svg" width="100%" alt="Octopus TUI — three-pane Focus mode with the animated mascot in the header, backlog/now/next panes, a task detail pane, and a keymap status bar."/>
 
 </div>
 
@@ -360,7 +360,7 @@ Four top-level folders that matter: **`cli/`** (the Python CLI), **`skills/octop
 
 <div align="center">
 
-<img src="docs/assets/tui-hero.svg" width="100%" alt="Focus mode mockup — backlog, now (focused/pinned), next, and detail panes."/>
+<img src="docs/assets/tui-hero.v2.svg" width="100%" alt="Focus mode mockup — backlog, now (focused/pinned), next, and detail panes."/>
 
 </div>
 
