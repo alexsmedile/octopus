@@ -55,33 +55,25 @@ WIGGLE_3 = _with_legs(_LEG3_UP)
 WIGGLE_4 = _with_legs(_LEG4_UP)
 
 TIMELINE: list[tuple[str, int]] = [
-    # Calm bob: rest → up → rest → down → rest (one full cycle = 4800ms)
-    (REST, 1100),
-    # Blink mid-rest (380ms)
+    # One tight cycle: bob + blink + leg-wiggle, total ~4800ms.
+    # Designed to read as "alive" without dominating the README hero.
+    (REST, 600),
+    # Blink (380ms) on rest
     (REST_HALF, 100),
     (REST_CLOSED, 180),
     (REST_HALF, 100),
-    (REST, 600),
-    (UP, 1200),
-    (REST, 1200),
-    (DOWN, 1200),
-    # Leg wiggle wave (1600ms = two passes of 4×200ms)
-    (WIGGLE_1, 200),
-    (WIGGLE_2, 200),
-    (WIGGLE_3, 200),
-    (WIGGLE_4, 200),
-    (WIGGLE_1, 200),
-    (WIGGLE_2, 200),
-    (WIGGLE_3, 200),
-    (WIGGLE_4, 200),
-    # Return-to-rest + second blink (this one a single, on UP)
-    (REST, 800),
+    (REST, 400),
+    # Body bob up
     (UP, 700),
-    (UP_HALF, 100),
-    (UP_CLOSED, 180),
-    (UP_HALF, 100),
-    (UP, 400),
-    (REST, 1200),
+    # Leg-wiggle wave during up-pose (4 legs × 150ms = 600ms)
+    (WIGGLE_1, 150),
+    (WIGGLE_2, 150),
+    (WIGGLE_3, 150),
+    (WIGGLE_4, 150),
+    # Settle back to rest, then down, then close loop
+    (REST, 500),
+    (DOWN, 700),
+    (REST, 600),
 ]
 
 # Total loop duration
@@ -133,7 +125,8 @@ def emit_svg() -> str:
     parts.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {width_px} {height_px}" '
-        f'width="{width_px}" height="{height_px}" '
+        f'shape-rendering="crispEdges" '
+        f'style="image-rendering: pixelated;" '
         f'role="img" aria-label="Octopus pixel mascot — lavender, animated">'
     )
     parts.append("  <title>Octopus mascot (animated)</title>")
@@ -159,6 +152,7 @@ def emit_svg() -> str:
                 f'<animate attributeName="fill" '
                 f'values="{values_str}" '
                 f'keyTimes="{key_times_str}" '
+                f'calcMode="discrete" '
                 f'dur="{dur_s:.3f}s" repeatCount="indefinite"/>'
                 f"</rect>"
             )
