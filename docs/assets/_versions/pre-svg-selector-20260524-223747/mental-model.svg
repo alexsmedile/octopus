@@ -26,11 +26,11 @@
           --muted: #C4C7D2;
           --dim: #8A8D9A;
           --line: #5A5D6A;
-          --fill-purple: #2A2540;
-          --fill-blue:   #1F2A3A;
-          --fill-yellow: #3A2F1A;
-          --fill-teal:   #1F3530;
-          --fill-pink:   #3A1F25;
+          --fill-purple: #3D2E66;
+          --fill-blue:   #1E3A5F;
+          --fill-yellow: #5C4A1F;
+          --fill-teal:   #1F5546;
+          --fill-pink:   #5C2A38;
           --stroke-purple: #CBA6F7;
           --stroke-blue:   #7AB8FF;
           --stroke-yellow: #FACC15;
