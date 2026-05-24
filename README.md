@@ -56,7 +56,7 @@ Open the same folder in Obsidian? Symlink it. Open it in the terminal? `octopus 
 
 Three nouns, one orchestrator. Read it as **Octopus → activity → task**:
 
-- **Octopus** is the omnipresent brain. Two surfaces, one engine: the **CLI** (`octopus …`) for humans in a terminal, and the **Claude Code skill** for agents working in the same folders. Both read and write the same files — no API, no daemon.
+- **Octopus** is the omnipresent entity. Invoke it from the terminal, or hand it to any agent.
 - An **activity** is a position — a folder containing `.octopus/activity.md`. Self-describing, portable, git-trackable.
 - **Tasks** are the items inside an activity. Plain markdown files under `.octopus/tasks/`.
 
