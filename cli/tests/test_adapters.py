@@ -33,8 +33,11 @@ from octopus.adapters import (
 # ── adapters.base ─────────────────────────────────────────────────────
 
 
-def test_capability_enum_has_four_values():
-    assert {c.value for c in Capability} == {"pull", "push", "notify", "reconcile"}
+def test_capability_enum_has_five_values():
+    """v0.4.x shipped four; D74 (#22) added MARK_PULLED for source-annotating adapters."""
+    assert {c.value for c in Capability} == {
+        "pull", "push", "notify", "reconcile", "mark_pulled",
+    }
 
 
 def test_external_ref_is_str():

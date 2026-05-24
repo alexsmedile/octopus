@@ -73,7 +73,7 @@ This is a verb directory only. For flags, exit codes, and full examples, load `r
 | Attention & visibility | `pin`, `unpin`, `archive`, `restore` |
 | Editing | `set`, `rename`, `mv` |
 | Promotion | `promote` (Octopus → Spectacular and other targets) |
-| Bridges | `bridge list / enable / disable / status / peek / pull / search` |
+| Bridges | `bridge list / enable / disable / status / peek / pull / search / add / complete / uncomplete` |
 | Inspection | `show`, `task list`, `task show` |
 | Views | `loops`, `today`, `stuck`, `stale`, `context`, `list --kind/--promoted/--spec` |
 | Sessions | `session start`, `log`, `end`, `switch`, `list`, `show`, `prune` |

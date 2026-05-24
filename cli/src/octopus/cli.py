@@ -1058,6 +1058,113 @@ def bridge_search(
     _bridge_read_verb(name, list_, capture_all, verb="search", query=query)
 
 
+# ── D75: limited mutation verbs ───────────────────────────────────────
+
+
+@bridge_app.command("add")
+def bridge_add(
+    name: str = typer.Argument(..., help="Adapter name."),
+    title: str = typer.Argument(..., help="The task title."),
+    priority: str | None = typer.Option(
+        None, "--priority", help="urgent | low (encoded as Obsidian Tasks emoji)."
+    ),
+    due: str | None = typer.Option(
+        None, "--due", help="ISO date YYYY-MM-DD (encoded as 📅)."
+    ),
+    tag: list[str] | None = typer.Option(
+        None, "--tag", help="Repeatable. Tags appended as #tag.", show_default=False,
+    ),
+    section: str | None = typer.Option(
+        None, "--section", help="Heading slug to append under. Defaults to first section_filter entry.",
+    ),
+    state: str = typer.Option(
+        "open", "--state", help="open | in-progress (marker: [ ] or [/])."
+    ),
+) -> None:
+    """Append a new item to the adapter's source. No import to the task tree.
+
+    Adapter must declare MARK_PULLED capability.
+    """
+    from octopus.adapters.base import Capability
+    from octopus.adapters.registry import get_adapter_class
+
+    cls = get_adapter_class(name)
+    if cls is None:
+        err_console.print(f"[red]✗[/] unknown adapter {name!r}")
+        raise typer.Exit(EXIT_USER_ERROR)
+    adapter = cls()
+    if Capability.MARK_PULLED not in adapter.capabilities:
+        err_console.print(
+            f"[red]✗[/] {name} does not support mutation verbs "
+            f"(missing MARK_PULLED capability)"
+        )
+        raise typer.Exit(EXIT_USER_ERROR)
+    if state not in ("open", "in-progress"):
+        err_console.print(f"[red]✗[/] --state must be 'open' or 'in-progress'")
+        raise typer.Exit(EXIT_USER_ERROR)
+    if priority is not None and priority not in ("urgent", "low"):
+        err_console.print(f"[red]✗[/] --priority must be 'urgent' or 'low'")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    try:
+        msg = adapter.add_item(
+            title,
+            section=section,
+            priority=priority,
+            due=due,
+            tags=list(tag or []),
+            state=state,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+    console.print(f"[green]✓[/] {msg}")
+
+
+@bridge_app.command("complete")
+def bridge_complete(
+    name: str = typer.Argument(..., help="Adapter name."),
+    match: str = typer.Argument(..., help="Substring match against open items."),
+    first: bool = typer.Option(False, "--first", help="Pick the top hit if multiple match."),
+) -> None:
+    """Toggle a matching open item to checked, in place. No import."""
+    _bridge_toggle(name, match, target="complete", first=first)
+
+
+@bridge_app.command("uncomplete")
+def bridge_uncomplete(
+    name: str = typer.Argument(..., help="Adapter name."),
+    match: str = typer.Argument(..., help="Substring match against checked items."),
+    first: bool = typer.Option(False, "--first"),
+) -> None:
+    """Toggle a matching checked item back to open. Strips any `→` arrow."""
+    _bridge_toggle(name, match, target="open", first=first)
+
+
+def _bridge_toggle(name: str, match: str, *, target: str, first: bool) -> None:
+    from octopus.adapters.base import Capability
+    from octopus.adapters.registry import get_adapter_class
+
+    cls = get_adapter_class(name)
+    if cls is None:
+        err_console.print(f"[red]✗[/] unknown adapter {name!r}")
+        raise typer.Exit(EXIT_USER_ERROR)
+    adapter = cls()
+    if Capability.MARK_PULLED not in adapter.capabilities:
+        err_console.print(f"[red]✗[/] {name} does not support mutation verbs")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    try:
+        if target == "complete":
+            msg = adapter.mark_complete(match, first=first)
+        else:
+            msg = adapter.mark_open(match, first=first)
+    except (ValueError, FileNotFoundError) as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+    console.print(f"[green]✓[/] {msg}")
+
+
 def _bridge_read_verb(
     name: str,
     flag_list: str | None,

@@ -129,7 +129,28 @@ octopus bridge pull <name> [--list NAME[,NAME...]] [--capture-all]
 octopus bridge search <name> <query> [--list NAME] [--capture-all]
   Adapter-side search. No imports. Adapters with API use it;
   others fall back to peek + filter.
+
+octopus bridge add <name> <title> [--priority urgent|low] [--due YYYY-MM-DD]
+                                  [--tag T...] [--section S] [--state open|in-progress]
+  Append a new item to the source. No Octopus task created.
+  Adapter must declare MARK_PULLED capability.
+
+octopus bridge complete <name> <match> [--first]
+  Toggle a matching open item to [x] in place. No Octopus task affected.
+
+octopus bridge uncomplete <name> <match> [--first]
+  Reverse — [x] → [ ]. Strips any `→ provider:slug` arrow.
 ```
+
+### TODO.md format (D72–D73)
+
+The `todo-md` adapter parses:
+- **GFM checklist:** `- [ ]`, `- [x]`, `- [/]` / `- [-]` (in-progress), `- [!]` (cancelled).
+- **Obsidian Tasks emoji:** `⏫`/`🔺` urgent, `🔽`/`⏬` low, `📅 YYYY-MM-DD` due, `⏳` scheduled, `🛫` start, `#tag`.
+- **Octopus arrow:** `→ <provider>:<slug>` — items with arrows are excluded from import (already handed off).
+- **Carry-over prefixes:** `BUG:` → `kind: bug`, `HACK:` → `kind: chore`, `NOTE:` skipped.
+
+On pull, the adapter rewrites `- [ ] thing` lines to `- [x] thing → octopus:<slug>` in place. The file becomes an at-a-glance map of what's in Octopus.
 
 ### Group flag matrix (peek / pull / search)
 

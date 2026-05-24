@@ -21,10 +21,11 @@ from typing import Protocol, runtime_checkable
 class Capability(Enum):
     """Atomic adapter capability verbs. No meta-capabilities (D56)."""
 
-    PULL = "pull"           # adapter.pull() works
-    PUSH = "push"           # adapter.push() works
-    NOTIFY = "notify"       # external change events (flag only in v1; method ships with #12)
-    RECONCILE = "reconcile" # has a conflict-resolution policy (flag only in v1; method ships with #10)
+    PULL = "pull"            # adapter.pull() works
+    PUSH = "push"            # adapter.push() works
+    NOTIFY = "notify"        # external change events (flag only in v1; method ships with #12)
+    RECONCILE = "reconcile"  # has a conflict-resolution policy (flag only in v1; method ships with #10)
+    MARK_PULLED = "mark_pulled"  # adapter annotates its source after successful pull (D74)
 
 
 # ── data types ────────────────────────────────────────────────────────

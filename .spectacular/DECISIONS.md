@@ -995,3 +995,140 @@ This is fine because:
 
 The `cursor` field in the journal stays `None` for reminders. Forward-compat reserved.
 
+
+---
+
+## D72 — TODO.md format: GFM + Obsidian Tasks emoji conventions
+
+**Date:** 2026-05-24
+**Request:** #22
+
+### Locked
+
+The TODO.md adapter parses two layers, both established standards:
+
+1. **GFM checklist** (`- [ ]`, `- [x]`, `- [/]`, `- [-]`, `- [!]`, `- [?]`) — the universal base. Renders in every markdown viewer.
+
+2. **Obsidian Tasks emoji format** for inline metadata — adopted verbatim, no invention:
+
+| Emoji | Octopus mapping |
+|---|---|
+| `🔺` / `⏫` | `priority: urgent` |
+| `🔼` | omitted (no medium in Octopus) |
+| `🔽` / `⏬` | `priority: low` |
+| `📅 YYYY-MM-DD` | `due` |
+| `⏳ YYYY-MM-DD` | `scheduled` |
+| `🛫 YYYY-MM-DD` | `start_date` |
+| `➕ YYYY-MM-DD` | `created_external` |
+| `✅ YYYY-MM-DD` | combined with `[x]` → `bucket: done` |
+| `❌ YYYY-MM-DD` | combined with `[!]` → skip |
+| `🔁 ...` | preserved on rewrite; unused in v1 |
+| `#tag` | appended to `tags` |
+
+Source: [Obsidian Tasks emoji format reference](https://publish.obsidian.md/tasks/Reference/Task+Formats/Tasks+Emoji+Format).
+
+Replaces the v0.4.1 parser (#21) which only handled `[ ]` / `[x]` / `[-]` / `[/]` and BUG:/HACK:/etc. prefixes. Prefix mapping is **kept** — both conventions coexist on the same line.
+
+---
+
+## D73 — `→ <provider>:<slug>` arrow convention
+
+**Date:** 2026-05-24
+**Request:** #22
+
+### Locked
+
+A checkbox line followed by `→ <provider>:<identifier>` means **"this item is now under that protocol's responsibility — exclude from import."**
+
+```
+- [x] wire obsidian bridge → octopus:wire-obsidian-bridge
+- [x] adapter framework → spectacular:06-adapter-framework
+- [x] track via linear → linear:ENG-123     (future)
+```
+
+**Behavior:**
+
+- **Parser skips items with arrows on pull** — already handed off, no double-import.
+- **Adapter writes arrows on successful pull** (D74) — rewrites `- [ ] foo` to `- [x] foo → octopus:<slug>` in place.
+- **Users can hand-write arrows** to exclude items from import without deleting them (e.g. "this is a note, not a task" or "I'm tracking this in another system").
+- **Arrow target format mirrors `promoted_to`** (D48): `<provider>:<identifier>`. v1 providers: `octopus`, `spectacular`. Unknown providers are accepted by the parser but no-op for Octopus dedup logic.
+
+Octopus's only invented syntax in the TODO.md format. Layered on top of GFM + Obsidian Tasks conventions.
+
+---
+
+## D74 — `MARK_PULLED` capability + adapter source rewrite
+
+**Date:** 2026-05-24
+**Request:** #22
+
+### Locked
+
+New capability flag:
+
+```python
+class Capability(Enum):
+    PULL = "pull"
+    PUSH = "push"
+    NOTIFY = "notify"
+    RECONCILE = "reconcile"
+    MARK_PULLED = "mark_pulled"   # NEW (D74)
+```
+
+Adapters declaring `MARK_PULLED` implement:
+
+```python
+def mark_pulled(self, mapping: dict[str, str]) -> None:
+    """Annotate the adapter's source with the task slugs for successfully
+    imported items.
+
+    Args:
+        mapping: external_id → octopus task slug for items that materialized
+                 in this pull run.
+    """
+```
+
+The framework's pipeline calls `adapter.mark_pulled(mapping)` after a successful materialize, but only if the adapter declares the capability.
+
+**v1 capability declarations:**
+
+| Adapter | `MARK_PULLED`? | Why |
+|---|---|---|
+| `todo-md` | yes | Rewrites `- [ ]` → `- [x] → octopus:<slug>` |
+| `reminders` | no | Source is Apple's database — write is two-way push (#14) |
+| `obsidian` | no | Viewer pattern; nothing to annotate |
+
+**Why this is a new flag, not just adapter-internal behavior:**
+
+The current protocol's `pull()` is read-only — adapters return data, framework writes tasks. `mark_pulled` is a side-effect write to the **external source**. Making it a declared capability keeps the protocol honest: agents (and the CLI) can tell which adapters annotate their source vs. which don't.
+
+It also forward-stabilizes the pattern for any future read-side adapter that wants similar behavior (e.g. an Obsidian dataview adapter could mark items in `.base` files).
+
+---
+
+## D75 — Limited mutation verbs on bridge
+
+**Date:** 2026-05-24
+**Request:** #22
+
+### Locked
+
+Three new sub-verbs under `octopus bridge`, dispatched per-adapter:
+
+```
+octopus bridge add <adapter> <title> [--priority X] [--due Y] [--tag T] [--section S] [--state <open|in-progress>]
+octopus bridge complete <adapter> <match> [--first]
+octopus bridge uncomplete <adapter> <match> [--first]
+```
+
+Adapters declaring `MARK_PULLED` MAY implement these protocol methods:
+
+```python
+def add_item(self, title: str, **opts) -> str: ...        # returns a description of where it landed
+def mark_complete(self, match: str, first: bool = False) -> str: ...
+def mark_open(self, match: str, first: bool = False) -> str: ...
+```
+
+**Scope discipline:** these are limited verbs by design. Full CRUD (`edit`, `move`, `reorder`, `remove`, `--all`/`--matching`) is **deferred to request #23**. Activation criterion for #23: 4–6 weeks of dogfooding #22 surfaces concrete friction. If `add` + `complete` cover 95% of real edits, #23 stays in backlog.
+
+**Why not `$EDITOR` shell-out?** Considered (option A in grilling). Decided against: an editor shell-out solves "edit the file" but doesn't help with the common case of capturing a single item without leaving the terminal. The `add` verb specifically supports the inline-flag pattern (`--priority high --due tomorrow`) which an editor can't.

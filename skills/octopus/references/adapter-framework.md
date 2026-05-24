@@ -21,7 +21,9 @@ v1 adapters: `obsidian` (viewer via symlinks), `reminders` (Apple Reminders pull
 
 ---
 
-## The seven commands
+## The commands
+
+Reading + lifecycle:
 
 ```
 octopus bridge list                  # show all registered adapters
@@ -32,6 +34,14 @@ octopus bridge status [<name>]       # health check
 octopus bridge peek <name>           # READ-ONLY view — no files created
 octopus bridge pull <name>           # import as Octopus tasks (deduped)
 octopus bridge search <name> <q>     # adapter-side search
+```
+
+Mutation (D75, MARK_PULLED-capable adapters only — currently just `todo-md`):
+
+```
+octopus bridge add <name> "title" --priority urgent --due 2026-06-30 --tag work --section friction
+octopus bridge complete <name> <match> [--first]
+octopus bridge uncomplete <name> <match> [--first]
 ```
 
 Hidden alias: `octopus adapter` ≡ `octopus bridge`.
@@ -157,6 +167,62 @@ Read by `adapter.status()` to populate health output. Written by the framework a
 Standard PRD §5 conventions.
 
 ---
+
+## TODO.md format (D72–D74)
+
+`todo-md` parses three layers, all standards-based except the arrow:
+
+### 1. GFM checklist (universal)
+
+| Mark | Meaning | Pull behavior |
+|---|---|---|
+| `- [ ]` | open | import to `backlog` |
+| `- [/]` or `- [-]` | in progress | import to `now` |
+| `- [x]` | checked | skip if has `→` arrow; else import to `done` (only if `include_checked=true`) |
+| `- [!]` | cancelled | skip |
+| `- [?]` | unclear | treat as unchecked |
+
+### 2. Obsidian Tasks emoji (inline metadata)
+
+| Emoji | Octopus field |
+|---|---|
+| `🔺` / `⏫` | `priority: urgent` |
+| `🔽` / `⏬` | `priority: low` |
+| `🔼` | dropped (no medium in Octopus) |
+| `📅 YYYY-MM-DD` | `due` |
+| `⏳ YYYY-MM-DD` | `scheduled` |
+| `🛫 YYYY-MM-DD` | `start_date` |
+| `#tag` | appended to `tags` |
+| `✅` / `❌` / `➕` / `🔁` | preserved, not surfaced |
+
+### 3. Octopus arrow (one convention we own)
+
+`→ <provider>:<slug>` after a checkbox means "this item is now under that protocol's responsibility — exclude from import":
+
+```
+- [x] wire bridge → octopus:wire-obsidian-bridge
+- [x] adapter spec → spectacular:06-adapter-framework
+- [ ] tracking elsewhere → linear:ENG-123
+```
+
+On successful pull, Octopus **writes the arrow itself**: every `- [ ] foo` that imports becomes `- [x] foo → octopus:<task-slug>`. The file becomes a living index.
+
+### 4. Carry-over prefixes
+
+| Prefix | Effect |
+|---|---|
+| `BUG:` | `kind: bug` |
+| `HACK:` | `kind: chore` |
+| `TODO:` / `FIXME:` | stripped, no kind |
+| `NOTE:` | item skipped (not a task) |
+
+Example with everything combined:
+
+```
+- [ ] BUG: fix marquee duplication ⏫ 📅 2026-06-15 #tui #regression
+```
+
+Parses to: `title="fix marquee duplication"`, `kind=bug`, `priority=urgent`, `due=2026-06-15`, `tags=["tui", "regression"]`, `bucket=backlog`.
 
 ## When to use this skill
 

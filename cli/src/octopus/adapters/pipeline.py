@@ -117,6 +117,8 @@ def materialize_pull_result(
 
     # Collect source_groups for the summary line.
     groups_seen: set[str] = set()
+    # D74: track external_id → task_slug for adapters that declare MARK_PULLED.
+    new_id_to_slug: dict[str, str] = {}
 
     conn = get_db()
     try:
@@ -141,6 +143,8 @@ def materialize_pull_result(
             except actions.ActionError as exc:
                 out.errors.append(f"{et.external_id}: capture failed — {exc}")
                 continue
+
+            new_id_to_slug[et.external_id] = created.slug
 
             # Re-open the task to add the provenance + classification fields
             # that capture_task doesn't accept directly.
@@ -173,6 +177,21 @@ def materialize_pull_result(
         conn.close()
 
     out.source_groups = sorted(groups_seen)
+
+    # D74: if the adapter declares MARK_PULLED, ask it to annotate its source.
+    # Best-effort — errors here don't undo the materialization that already
+    # happened, but they ARE surfaced so the user knows the file is stale.
+    if new_id_to_slug:
+        try:
+            from octopus.adapters.base import Capability
+            from octopus.adapters.registry import get_adapter_class
+            adapter_cls = get_adapter_class(adapter_name)
+            if adapter_cls is not None:
+                adapter = adapter_cls()
+                if Capability.MARK_PULLED in adapter.capabilities:
+                    adapter.mark_pulled(new_id_to_slug)
+        except Exception as exc:
+            out.errors.append(f"mark_pulled failed: {exc}")
 
     # Journal update — even on failure we record that a pull was attempted.
     update_journal(

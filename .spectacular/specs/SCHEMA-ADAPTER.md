@@ -16,17 +16,22 @@ This document defines the contract every external integration (Obsidian, Apple R
 from enum import Enum
 
 class Capability(Enum):
-    PULL = "pull"           # adapter.pull() works
-    PUSH = "push"           # adapter.push() works
-    NOTIFY = "notify"       # external change events (flag only in v1)
-    RECONCILE = "reconcile" # has a conflict-resolution policy (flag only in v1)
+    PULL = "pull"            # adapter.pull() works
+    PUSH = "push"            # adapter.push() works
+    NOTIFY = "notify"        # external change events (flag only in v1)
+    RECONCILE = "reconcile"  # has a conflict-resolution policy (flag only in v1)
+    MARK_PULLED = "mark_pulled"  # adapter annotates its source after a successful pull (D74)
 ```
 
-Four atomic verbs. No `TWO_WAY` meta-capability — "two-way" is a configuration (the user enables both PULL and PUSH and accepts the reconcile policy), not an adapter property.
+Five atomic verbs. No `TWO_WAY` meta-capability — "two-way" is a configuration (the user enables both PULL and PUSH and accepts the reconcile policy), not an adapter property.
 
-v1 adapters declare only `{PULL}`. `PUSH` and `RECONCILE` are forward-stable. `NOTIFY` is a flag-only declaration in v1; the listener machinery ships with #12 (watcher daemon).
+v1 adapters that ship as real (not stub):
+- `todo-md` → `{PULL, MARK_PULLED}` — rewrites `- [ ]` lines to `- [x] → octopus:<slug>` after pull.
+- `reminders` → `{PULL}` — Apple's database isn't a markdown file to annotate; round-trip is two-way push, deferred to #14.
 
-See `DECISIONS.md D56`.
+`PUSH` and `RECONCILE` are forward-stable. `NOTIFY` is a flag-only declaration in v1; the listener machinery ships with #12 (watcher daemon).
+
+See `DECISIONS.md D56, D74`.
 
 ---
 
@@ -46,6 +51,14 @@ class Adapter(Protocol):
     def pull(self, groups: list[str] | None = None) -> PullResult: ...
     def push(self, task) -> PushResult: ...
     def search(self, query: str, groups: list[str] | None = None) -> PullResult: ...
+
+    # Optional — required only for adapters declaring MARK_PULLED (D74)
+    def mark_pulled(self, mapping: dict[str, str]) -> None: ...
+
+    # Optional — mutation verbs (D75); adapters declaring MARK_PULLED SHOULD provide
+    def add_item(self, title: str, **opts) -> str: ...
+    def mark_complete(self, match: str, *, first: bool = False) -> str: ...
+    def mark_open(self, match: str, *, first: bool = False) -> str: ...
 ```
 
 ### Method reference
@@ -79,6 +92,39 @@ Write a single Octopus task to the external system. Returns the resulting `Exter
 #### `search(query, groups) -> PullResult`
 
 Adapter-side search. Same result shape as `pull` but no side effects. Adapters with native search APIs use them; adapters without may implement as `peek(groups) + filter` internally.
+
+#### `mark_pulled(mapping: dict[str, str]) -> None` *(MARK_PULLED capability only)*
+
+Annotate the adapter's source after a successful pull. `mapping` is `{external_id → octopus_task_slug}` for items the pipeline materialized in this run.
+
+For file-based sources (`todo-md`), this means rewriting `- [ ] thing` lines in place to `- [x] thing → octopus:<slug>`, so the file becomes an at-a-glance map of "what's in Octopus."
+
+Idempotent: running `mark_pulled` twice with the same mapping must produce identical file output. Items already annotated must be left alone.
+
+The framework's pipeline calls this method after `materialize_pull_result` if and only if `MARK_PULLED in adapter.capabilities`.
+
+See `DECISIONS.md D74`.
+
+#### `add_item(title, **opts) -> str` *(D75 mutation verb)*
+
+Append a new item to the adapter's source. No Octopus task is created — this is direct source mutation. Returns a human-readable description of where the item was placed.
+
+Standard `opts` accepted by all `MARK_PULLED` adapters:
+- `section: str | None` — heading to append under.
+- `priority: "urgent" | "low" | None` — encoded per the adapter's native syntax.
+- `due: str | None` — ISO date.
+- `tags: list[str]` — list of bare tag names.
+- `state: "open" | "in-progress"` — initial checkbox state.
+
+Adapter-specific options are allowed via `**opts`.
+
+#### `mark_complete(match, first=False) -> str` *(D75 mutation verb)*
+
+Find a matching open item by substring and toggle it to checked, in place. Raises `ValueError` if no match or if multiple matches and `first=False`.
+
+#### `mark_open(match, first=False) -> str` *(D75 mutation verb)*
+
+Reverse: toggle a checked item back to open. MUST strip any `→ <provider>:<slug>` arrow on the line — the item is no longer handed off.
 
 ### `link()` is NOT in the protocol
 

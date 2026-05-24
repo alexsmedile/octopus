@@ -5,6 +5,66 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.0] — 2026-05-24
+
+**TODO.md becomes a real protocol surface** (#22). Adopts GFM checklist + [Obsidian Tasks emoji format](https://publish.obsidian.md/tasks/Reference/Task+Formats/Tasks+Emoji+Format) as the parsing standard, adds the `→ provider:slug` arrow convention (Octopus's only new syntax), and makes the adapter **two-way for source annotation**: on successful pull, `TODO.md` is rewritten in place so each imported `- [ ] thing` line becomes `- [x] thing → octopus:<task-slug>`. The file is now a living at-a-glance index of "what's in Octopus."
+
+Plus three new mutation verbs (`add`/`complete`/`uncomplete`) for editing `TODO.md` without ever importing into the task tree.
+
+### Added
+
+- **`Capability.MARK_PULLED`** — new flag on the adapter protocol (D74). Declared by `todo-md`. Adapters declaring it implement `mark_pulled(mapping)` which is called by the pipeline after a successful materialize.
+- **`→ <provider>:<slug>` arrow** in TODO.md is now the canonical "this item is now elsewhere's responsibility" marker. Parsed items with arrows are skipped on import. v1 providers: `octopus`, `spectacular`. Future-stable for `linear:`, `github:`, etc.
+- **Obsidian Tasks emoji parsing** in `todo-md`:
+  - Priorities: `🔺`/`⏫` → `priority: urgent`; `🔽`/`⏬` → `priority: low`; `🔼` dropped (Octopus has no medium).
+  - Dates: `📅 YYYY-MM-DD` → `due`; `⏳` → `scheduled`; `🛫` → `start_date`.
+  - Tags: `#tag` collected and appended to `tags`.
+  - No-op emoji (`➕`/`✅`/`❌`/`🔁`) preserved on rewrite but not surfaced as Octopus fields v1.
+- **Extended GFM marker set** in `todo-md`:
+  - `- [/]` and `- [-]` → `bucket: now` (in-progress).
+  - `- [!]` → cancelled (skipped on import).
+  - `- [?]` → treated as unchecked (forgiving).
+- **`octopus bridge add <adapter> <title>`** — new verb. Appends a new checkbox to the adapter's source with optional `--priority urgent|low`, `--due YYYY-MM-DD`, `--tag X` (repeatable), `--section <slug>`, `--state open|in-progress`. No Octopus task is created — the source is the truth.
+- **`octopus bridge complete <adapter> <match>`** — substring-match an open checkbox, toggle to `[x]` in place. `--first` flag for ambiguous matches.
+- **`octopus bridge uncomplete <adapter> <match>`** — reverse. Strips any `→ ...` arrow from the line (item is no longer handed off).
+- **4 decisions locked** (D72–D75) in `.spectacular/DECISIONS.md`.
+- **40 new tests** in `tests/test_adapter_todo_md.py` covering: inline metadata parsing for every emoji + tag + arrow case, arrow-exclusion on pull, cancelled/in-progress markers, prefix-plus-emoji combined parsing, the annotation primitive (basic + with metadata + idempotent), section insertion helpers, end-to-end mark_pulled rewrite, mutation verbs (add + complete + uncomplete) happy + edge paths, capability declaration assertions. **Total suite: 404 passing** (was 364).
+
+### Changed
+
+- **`todo-md` adapter** declares `{PULL, MARK_PULLED}`. The new behavior is opt-in by capability — `reminders` and the still-stub `obsidian` do NOT declare it and are unchanged.
+- **`ExternalTask.source_group`** is now consistently populated by `todo-md` (set to the parsed heading slug). Was already in the schema; just used more reliably now.
+- **`adapters/pipeline.py`** calls `adapter.mark_pulled(mapping)` after a successful materialize if the adapter declares the capability. Errors from `mark_pulled` are surfaced but do NOT undo the materialization.
+- **Bridge mutation verbs are gated on `MARK_PULLED`** — calling `add`/`complete`/`uncomplete` on an adapter that doesn't declare it exits 1 with a clear message. Future-proofs the surface: if a `linear` adapter eventually declares `MARK_PULLED`, the same verbs work against it for free.
+
+### Migration
+
+- **No schema migration.** `Capability.MARK_PULLED` is a new enum value; existing adapter classes that don't declare it keep working unchanged.
+- **No CHANGELOG-worthy breaking changes.** Users with an existing `TODO.md` see their first pull annotate every imported line — visible by design, recoverable via git.
+
+### Deferred (request #23)
+
+Full TODO.md CRUD (`edit`, `move`, `reorder`, `remove`, `--all` / `--matching`) is captured as a separate request, to be activated only if 4–6 weeks of real use surface concrete friction beyond what `add` / `complete` cover.
+
+### Smoke
+
+In any activity with a `TODO.md`:
+
+```bash
+# Add an item from the CLI, no editor needed
+octopus bridge add todo-md "fix that thing" --priority urgent --due 2026-07-01 --tag work --section friction
+
+# Pull — items get materialized AND the source gets annotated
+octopus bridge pull todo-md
+
+# Look at TODO.md — every imported line now shows → octopus:<slug>
+
+# Complete in place without re-opening the editor
+octopus bridge complete todo-md "thing"
+```
+
+---
+
 ## [0.4.2] — 2026-05-24
 
 **Apple Reminders adapter ships** (#09). Second real adapter, hard-requires the [`remindctl`](https://github.com/steipete/remindctl) CLI for EventKit access. Pull-only — Reminders → Octopus backlog. Stable EventKit UUIDs make dedup trivial; native priority/due/notes mapping into Octopus fields.

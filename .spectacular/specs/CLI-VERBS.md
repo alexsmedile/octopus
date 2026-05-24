@@ -487,6 +487,28 @@ octopus bridge search <name> <query> [--list NAME] [--capture-all]
   side   : NO imports; same shape as peek
   notes  : adapters with native search APIs use them
            adapters without fall back to peek() + Python filter internally
+
+octopus bridge add <name> <title> [--priority X] [--due YYYY-MM-DD]
+                                  [--tag T...] [--section S] [--state STATE]
+  intent : append a new item to the adapter's source (D75)
+  delta  : NEW checkbox line in source file; NO Octopus task created
+  side   : adapter must declare MARK_PULLED capability
+  flags  : --priority urgent|low (encoded as Obsidian Tasks emoji)
+           --due (encoded as 📅)
+           --tag (repeatable; appended as #tag)
+           --section (heading slug; defaults to first section_filter entry)
+           --state open|in-progress (marker [ ] or [/])
+
+octopus bridge complete <name> <match> [--first]
+  intent : toggle a matching open item to checked, in place (D75)
+  delta  : `- [ ]` → `- [x]` in source file; NO Octopus task affected
+  notes  : substring match against open items; --first picks top hit
+           if multiple. Exit 1 if no match or ambiguous match.
+
+octopus bridge uncomplete <name> <match> [--first]
+  intent : reverse complete — `- [x]` → `- [ ]` (D75)
+  delta  : also strips any `→ <provider>:<slug>` arrow on the line
+  notes  : same matching semantics as complete
 ```
 
 ### Flag matrix for peek / pull / search
