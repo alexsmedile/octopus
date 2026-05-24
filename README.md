@@ -108,7 +108,7 @@ Every tracked folder gets a hidden `.octopus/` directory. That's where the brain
 
 <div align="center">
 
-<img src="docs/assets/scaffold.v3.svg" width="100%" alt="Folder scaffold — what an .octopus/ directory looks like on disk."/>
+<img src="docs/assets/scaffold.v4.svg" width="100%" alt="Folder scaffold — what an .octopus/ directory looks like on disk."/>
 
 </div>
 

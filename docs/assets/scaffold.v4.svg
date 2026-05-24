@@ -42,7 +42,7 @@
       .folder { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; fill: var(--accent); font-weight: 600; }
       .file   { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; fill: var(--fg); }
       .opt    { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; fill: var(--opt); }
-      .tag    { font-family: -apple-system, system-ui, sans-serif; font-size: 11px; fill: var(--tag); }
+      .tag    { font-family: -apple-system, system-ui, sans-serif; font-size: 10px; fill: var(--tag); }
       .head   { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; font-weight: 600; fill: var(--fg); }
       .note   { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; fill: var(--muted); }
       .guide  { stroke: var(--guide); stroke-width: 1; fill: none; }
@@ -62,7 +62,7 @@
   <rect class="panel" x="20" y="20" width="450" height="480" rx="12"/>
 
   <text x="40" y="56" class="folder">📁 ~/code/my-project/</text>
-  <text x="280" y="56" class="tag">— any folder on disk</text>
+  <text x="250" y="56" class="tag">— any folder on disk</text>
 
   <line class="guide" x1="60" y1="66" x2="60" y2="460"/>
 
@@ -74,15 +74,15 @@
 
   <line class="guide" x1="100" y1="124" x2="118" y2="124"/>
   <text x="124" y="128" class="file">📄 activity.md</text>
-  <text x="280" y="128" class="tag">required · identity card</text>
+  <text x="250" y="128" class="tag">required · identity card</text>
 
   <line class="guide" x1="100" y1="152" x2="118" y2="152"/>
-  <text x="124" y="156" class="opt">⚙️  config.toml</text>
-  <text x="280" y="156" class="tag">optional · per-activity overrides</text>
+  <text x="124" y="156" class="opt">⚙️ config.toml</text>
+  <text x="250" y="156" class="tag">optional · per-activity overrides</text>
 
   <line class="guide" x1="100" y1="184" x2="118" y2="184"/>
   <text x="124" y="188" class="folder">📁 tasks/</text>
-  <text x="280" y="188" class="tag">one .md per task, sorted by bucket</text>
+  <text x="250" y="188" class="tag">one .md per task, sorted by bucket</text>
 
   <line class="guide" x1="140" y1="194" x2="140" y2="332"/>
 
@@ -103,15 +103,15 @@
 
   <line class="guide" x1="100" y1="356" x2="118" y2="356"/>
   <text x="124" y="360" class="opt">📂 sessions/</text>
-  <text x="280" y="360" class="tag">optional · where work happened, dated</text>
+  <text x="250" y="360" class="tag">optional · where work happened, dated</text>
 
   <line class="guide" x1="100" y1="384" x2="118" y2="384"/>
   <text x="124" y="388" class="opt">📂 handoffs/</text>
-  <text x="280" y="388" class="tag">optional · notes for future-you / agents</text>
+  <text x="250" y="388" class="tag">optional · notes for future-you / agents</text>
 
   <line class="guide" x1="100" y1="412" x2="118" y2="412"/>
   <text x="124" y="416" class="opt">📄 memory.md</text>
-  <text x="280" y="416" class="tag">optional · accumulated context</text>
+  <text x="250" y="416" class="tag">optional · accumulated context</text>
 
   <line class="guide" x1="60" y1="450" x2="78" y2="450"/>
   <text x="84" y="454" class="opt">📁 …your code, your notes, anything else</text>
