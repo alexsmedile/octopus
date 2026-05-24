@@ -246,15 +246,76 @@ def _task_counts(activity_root: Path, storage_mode: str) -> dict[str, int]:
 # ── capture ──────────────────────────────────────────────────────────
 
 
+_EXPLICIT_DEFAULT_VALUES_BY_FIELD: dict[str, set[str]] = {
+    # D80: these values, passed explicitly, clear the field instead of rejecting.
+    "priority": {"", "normal", "none"},
+    "actor": {"", "human"},
+    "energy": {"", "normal", "none"},
+    "run_state": {"", "idle", "none"},
+    "issue": {"", "none"},
+    "kind": {"", "none"},
+    "stage": {""},
+    "owner": {""},
+    "blocked_by": {""},
+    "waiting_for": {""},
+    "due": {""},
+    "scheduled": {""},
+    "start_date": {""},
+    "end_date": {""},
+}
+
+
+def _is_explicit_default(field: str, value: str | None) -> bool:
+    """D80: did the user pass an explicit-default value that should clear the field?"""
+    if value is None:
+        return False
+    defaults = _EXPLICIT_DEFAULT_VALUES_BY_FIELD.get(field, set())
+    return value in defaults
+
+
+def _parse_iso_date(value: str, flag_name: str) -> date | None:
+    """Parse YYYY-MM-DD; return None on explicit-default; exit on bad input."""
+    if _is_explicit_default(flag_name.replace("-", "_"), value):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        err_console.print(f"[red]✗[/] --{flag_name}: {value!r} is not valid ISO date.")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+
+
 @app.command()
 def capture(
     title: str = typer.Argument(..., help="Task title."),
     to_next: bool = typer.Option(False, "--next", help="Create directly in `next`."),
-    to_now: bool = typer.Option(False, "--now", help="Create directly in `now`, pin it."),
-    priority: str | None = typer.Option(None, "--priority", help=f"One of {sorted(TASK_PRIORITIES)} (absent = normal)"),
+    to_now: bool = typer.Option(False, "--now", help="Create directly in `now` (does NOT auto-pin, per D81)."),
+    priority: str | None = typer.Option(
+        None, "--priority",
+        help=f"One of {sorted(TASK_PRIORITIES)} (or 'normal'/'none'/'' to clear)",
+    ),
     slug: str | None = typer.Option(None, "--slug", help="Override the auto-slugified filename."),
+    # Dates (D80: explicit-default clears)
+    due: str | None = typer.Option(None, "--due", help="ISO date YYYY-MM-DD."),
+    scheduled: str | None = typer.Option(None, "--scheduled", help="ISO date YYYY-MM-DD."),
+    start_date: str | None = typer.Option(None, "--start-date", help="ISO date YYYY-MM-DD."),
+    end_date: str | None = typer.Option(None, "--end-date", help="ISO date YYYY-MM-DD."),
+    # Actors / energy / owner / stage
+    actor: str | None = typer.Option(None, "--actor", help="human (default) | ai | automation"),
+    energy: str | None = typer.Option(None, "--energy", help="low | mid | high"),
+    owner: str | None = typer.Option(None, "--owner", help="Free-form name/username."),
+    stage: str | None = typer.Option(None, "--stage", help="Free-form per-activity workflow stage."),
+    # Tag flag matrix (D76) — all six accept comma/space/repeated input
+    tag: list[str] | None = typer.Option(None, "--tag", help="Replace the tag list (alias of --tags)."),
+    tags: list[str] | None = typer.Option(None, "--tags", help="Replace the tag list."),
+    add_tag: list[str] | None = typer.Option(None, "--add-tag", help="Append to the tag list."),
+    add_tags: list[str] | None = typer.Option(None, "--add-tags", help="Append to the tag list."),
+    remove_tag: list[str] | None = typer.Option(None, "--remove-tag", help="Remove from the tag list."),
+    remove_tags: list[str] | None = typer.Option(None, "--remove-tags", help="Remove from the tag list."),
+    clear_tags: bool = typer.Option(False, "--clear-tags", help="Empty the tag list."),
 ) -> None:
-    """Create a new task. Default bucket: backlog."""
+    """Create a new task. Default bucket: backlog. Empty body by default (D82)."""
+    from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
+
     if to_next and to_now:
         err_console.print("[red]✗[/] --next and --now are mutually exclusive")
         raise typer.Exit(EXIT_USER_ERROR)
@@ -264,9 +325,45 @@ def capture(
     cfg = load_config(octopus_dir)
     storage_mode = read_storage_mode(octopus_dir)
 
-    if priority is not None and priority not in TASK_PRIORITIES:
-        err_console.print(f"[red]✗[/] invalid priority {priority!r}; valid: {sorted(TASK_PRIORITIES)}")
-        raise typer.Exit(EXIT_USER_ERROR)
+    # D80: priority handling — explicit-default clears.
+    if priority is not None:
+        if _is_explicit_default("priority", priority):
+            priority = None
+        elif priority not in TASK_PRIORITIES:
+            err_console.print(
+                f"[red]✗[/] invalid priority {priority!r}; "
+                f"valid: {sorted(TASK_PRIORITIES)} (or 'normal' to clear)"
+            )
+            raise typer.Exit(EXIT_USER_ERROR)
+
+    # D80: actor handling — `human` clears.
+    if actor is not None:
+        if _is_explicit_default("actor", actor):
+            actor = None
+        elif actor not in {"ai", "automation"}:
+            err_console.print(
+                f"[red]✗[/] invalid actor {actor!r}; "
+                "valid: human (default) | ai | automation"
+            )
+            raise typer.Exit(EXIT_USER_ERROR)
+
+    # D80: energy handling.
+    if energy is not None:
+        if _is_explicit_default("energy", energy):
+            energy = None
+        elif energy not in {"low", "mid", "high"}:
+            err_console.print(f"[red]✗[/] invalid energy {energy!r}; valid: low | mid | high")
+            raise typer.Exit(EXIT_USER_ERROR)
+
+    # Dates — explicit-default clears via _parse_iso_date.
+    due_date = _parse_iso_date(due, "due") if due is not None else None
+    scheduled_date = _parse_iso_date(scheduled, "scheduled") if scheduled is not None else None
+    start_date_val = _parse_iso_date(start_date, "start-date") if start_date is not None else None
+    end_date_val = _parse_iso_date(end_date, "end-date") if end_date is not None else None
+
+    # Stage / owner — empty string clears.
+    stage_val = None if (stage is None or _is_explicit_default("stage", stage)) else stage
+    owner_val = None if (owner is None or _is_explicit_default("owner", owner)) else owner
 
     bucket = "now" if to_now else ("next" if to_next else DEFAULT_BUCKET)
 
@@ -288,12 +385,35 @@ def capture(
     final_slug = _resolve_slug_collision(target_dir, base_slug, cfg.max_length)
     task_path = target_dir / f"{final_slug}.md"
 
+    # D76: build the tag list from the flag matrix.
+    tag_inputs = TagFlagInputs(
+        replace=(tag or []) + (tags or []) if (tag or tags) else None,
+        add=(add_tag or []) + (add_tags or []) if (add_tag or add_tags) else None,
+        remove=(remove_tag or []) + (remove_tags or []) if (remove_tag or remove_tags) else None,
+        clear=clear_tags,
+    )
+    try:
+        final_tags = apply_tag_mutations([], tag_inputs)
+    except TagFlagConflict as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+
     task = Task(
         title=title,
         created=date.today(),
         bucket=bucket,
         priority=priority,
-        pinned=(True if to_now else None),
+        # D81: no auto-pin on --now. pinned stays orthogonal to bucket.
+        pinned=None,
+        due=due_date,
+        scheduled=scheduled_date,
+        start_date=start_date_val,
+        end_date=end_date_val,
+        actor=actor,
+        energy=energy,
+        owner=owner_val,
+        stage=stage_val,
+        tags=final_tags,
     )
     task.slug = final_slug
     task.path = task_path
@@ -305,7 +425,8 @@ def capture(
             err_console.print(f"  - {e}")
         raise typer.Exit(EXIT_USER_ERROR)
 
-    body = "\n## References\n"
+    # D82: empty body by default. No more hardcoded `## References`.
+    body = ""
     write_task(task_path, task, body)
     err = sync_task_after_write(root, task)
     if err:
@@ -531,7 +652,12 @@ def _move_bucket(slug: str, new_bucket: str, *, set_pinned: bool | None = None) 
 def _save_task(
     task: Task, body: str, current_path: Path, octopus_dir: Path, storage_mode: str,
 ) -> Path:
-    """Write task; in folder-mode and bucket changed, move file. Then upsert index."""
+    """Write task; in folder-mode and bucket changed, move file. Then upsert index.
+
+    Used by lifecycle verbs (start/finish/drop) that DO want the file to move
+    to match the new bucket. For frontmatter-only edits (D77), use
+    `_save_task_in_place` instead.
+    """
     if storage_mode == "folders":
         expected_dir = octopus_dir / "tasks" / task.bucket
         expected_dir.mkdir(parents=True, exist_ok=True)
@@ -549,6 +675,22 @@ def _save_task(
     if err:
         err_console.print(f"[yellow]⚠[/] {err} (run `octopus reindex` to reconcile)")
     return new_path
+
+
+def _save_task_in_place(
+    task: Task, body: str, current_path: Path, activity_root: Path,
+) -> Path:
+    """D77: write task in place — never move the file, even if bucket changed.
+
+    The caller is responsible for emitting any soft warning about a
+    bucket/folder mismatch.
+    """
+    write_task(current_path, task, body)
+    task.path = current_path
+    err = sync_task_after_write(activity_root, task)
+    if err:
+        err_console.print(f"[yellow]⚠[/] {err} (run `octopus reindex` to reconcile)")
+    return current_path
 
 
 @app.command()
@@ -769,6 +911,68 @@ def restore(slug: str = typer.Argument(..., help="Task slug.")) -> None:
     task.archived = None
     _save_task(task, body, path, octopus_dir, storage_mode)
     console.print(f"[green]✓[/] {slug} restored")
+
+
+# ── move / mv (D77) ───────────────────────────────────────────────────
+
+
+def _move_impl(slug: str, bucket: str) -> None:
+    """Shared body for `move` and `mv`. Pure file-move + frontmatter update.
+
+    No date stamps, no lifecycle side effects (D77).
+    """
+    if bucket not in TASK_BUCKETS:
+        err_console.print(f"[red]✗[/] invalid bucket {bucket!r}; valid: {sorted(TASK_BUCKETS)}")
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    path, task, body, octopus_dir, storage_mode = _load_task(slug)
+    old_bucket = task.bucket
+    task.bucket = bucket
+
+    # Run validate() — if the user tries to mv to `done` without end_date,
+    # the rule "bucket=done requires end_date" fires. Direct user there to
+    # `finish` or `set --end-date` first.
+    errors = task.validate()
+    if errors:
+        err_console.print(
+            f"[red]✗[/] cannot mv {slug} to {bucket!r}:"
+        )
+        for e in errors:
+            err_console.print(f"  - {e}")
+        if bucket in {"done", "dropped"}:
+            err_console.print(
+                f"  [dim]tip: use `octopus finish {slug}` or `octopus drop {slug}` "
+                "for the lifecycle path that sets dates automatically.[/]"
+            )
+        raise typer.Exit(EXIT_USER_ERROR)
+
+    # _save_task already moves the file in folder mode (that's its old behavior).
+    # Now that set uses _save_task_in_place, _save_task is dedicated to verbs
+    # that DO want the file move — exactly what mv needs.
+    _save_task(task, body, path, octopus_dir, storage_mode)
+    console.print(f"[green]✓[/] {slug} moved {old_bucket} → {bucket}")
+
+
+@app.command()
+def move(
+    slug: str = typer.Argument(..., help="Task slug."),
+    bucket: str = typer.Argument(..., help=f"Target bucket: {sorted(TASK_BUCKETS)}"),
+) -> None:
+    """Move a task to a different bucket: updates frontmatter AND moves the file (folder mode).
+
+    No date stamps, no lifecycle side effects. Use `start`/`finish`/`drop` for those.
+    For frontmatter-only edits without moving the file, use `octopus set --bucket`.
+    """
+    _move_impl(slug, bucket)
+
+
+@app.command()
+def mv(
+    slug: str = typer.Argument(..., help="Task slug."),
+    bucket: str = typer.Argument(..., help=f"Target bucket: {sorted(TASK_BUCKETS)}"),
+) -> None:
+    """Alias of `octopus move`."""
+    _move_impl(slug, bucket)
 
 
 # ── promotion verb ────────────────────────────────────────────────────
@@ -1366,19 +1570,28 @@ def set_(
         None, "--kind",
         help="Work classification: feat | bug | spec | polish | test | chore. Use '' to clear.",
     ),
-    tags: str | None = typer.Option(None, "--tags", help="Comma-separated."),
     title: str | None = typer.Option(None, "--title"),
+    # Tag flag matrix (D76)
+    tag: list[str] | None = typer.Option(None, "--tag", help="Replace the tag list (alias of --tags)."),
+    tags: list[str] | None = typer.Option(None, "--tags", help="Replace the tag list."),
+    add_tag: list[str] | None = typer.Option(None, "--add-tag", help="Append to the tag list."),
+    add_tags: list[str] | None = typer.Option(None, "--add-tags", help="Append to the tag list."),
+    remove_tag: list[str] | None = typer.Option(None, "--remove-tag", help="Remove from the tag list."),
+    remove_tags: list[str] | None = typer.Option(None, "--remove-tags", help="Remove from the tag list."),
+    clear_tags: bool = typer.Option(False, "--clear-tags", help="Empty the tag list."),
 ) -> None:
-    """Set frontmatter fields directly. Strict types; warns on verb-overlap."""
+    """Set frontmatter fields directly. Strict types; warns on verb-overlap.
+
+    D77: this is the frontmatter-only escape hatch. `--bucket` changes the
+    frontmatter field but does NOT move the file. Use `octopus mv` for that.
+    D80: explicit-default values (normal/none/human/idle/"") clear fields.
+    D76: tag flag matrix — see --tag/--tags/--add-tag/--remove-tag/--clear-tags.
+    """
+    from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
+
     path, task, body, octopus_dir, storage_mode = _load_task(slug)
     overlaps_used: list[str] = []
-
-    def _iso(value: str, name: str) -> date:
-        try:
-            return date.fromisoformat(value)
-        except ValueError as e:
-            err_console.print(f"[red]✗[/] --{name.replace('_', '-')}: {value!r} is not valid ISO date.")
-            raise typer.Exit(EXIT_USER_ERROR) from e
+    bucket_changed_to: str | None = None
 
     if title is not None:
         if not title.strip():
@@ -1390,11 +1603,14 @@ def set_(
         if bucket not in TASK_BUCKETS:
             err_console.print(f"[red]✗[/] --bucket: {bucket!r} not in {sorted(TASK_BUCKETS)}")
             raise typer.Exit(EXIT_USER_ERROR)
+        # D77: track that bucket changed for the post-save warning.
+        if task.bucket != bucket:
+            bucket_changed_to = bucket
         task.bucket = bucket
     if stage is not None:
-        task.stage = stage or None
+        task.stage = None if _is_explicit_default("stage", stage) else stage
     if run_state is not None:
-        if run_state in ("", "none", "idle"):
+        if _is_explicit_default("run_state", run_state):
             task.run_state = None
         elif run_state not in TASK_RUN_STATES:
             err_console.print(f"[red]✗[/] --run-state: {run_state!r} not in {sorted(TASK_RUN_STATES)} or 'idle'")
@@ -1406,7 +1622,7 @@ def set_(
         task.pinned = True if pinned else None
     if issue is not None:
         overlaps_used.append("issue")
-        if issue in ("", "none"):
+        if _is_explicit_default("issue", issue):
             task.issue = None
         elif issue not in {"blocked", "waiting"}:
             err_console.print(f"[red]✗[/] --issue: {issue!r} not in [blocked, waiting]")
@@ -1414,48 +1630,62 @@ def set_(
         else:
             task.issue = issue
     if blocked_by is not None:
-        task.blocked_by = blocked_by or None
+        task.blocked_by = None if _is_explicit_default("blocked_by", blocked_by) else blocked_by
     if waiting_for is not None:
-        task.waiting_for = waiting_for or None
+        task.waiting_for = None if _is_explicit_default("waiting_for", waiting_for) else waiting_for
     if archived is not None:
         overlaps_used.append("archived")
         task.archived = True if archived else None
     if due is not None:
-        task.due = _iso(due, "due") if due else None
+        task.due = _parse_iso_date(due, "due")
     if scheduled is not None:
-        task.scheduled = _iso(scheduled, "scheduled") if scheduled else None
+        task.scheduled = _parse_iso_date(scheduled, "scheduled")
     if start_date is not None:
-        task.start_date = _iso(start_date, "start_date") if start_date else None
+        task.start_date = _parse_iso_date(start_date, "start-date")
     if end_date is not None:
-        task.end_date = _iso(end_date, "end_date") if end_date else None
+        task.end_date = _parse_iso_date(end_date, "end-date")
     if priority is not None:
-        if priority in ("", "normal", "none"):
+        if _is_explicit_default("priority", priority):
             task.priority = None
         elif priority not in TASK_PRIORITIES:
-            err_console.print(f"[red]✗[/] --priority: {priority!r} not in {sorted(TASK_PRIORITIES)} or 'normal'")
+            err_console.print(f"[red]✗[/] --priority: {priority!r} not in {sorted(TASK_PRIORITIES)} (or 'normal' to clear)")
             raise typer.Exit(EXIT_USER_ERROR)
         else:
             task.priority = priority
     if energy is not None:
-        if energy in ("", "none"):
+        if _is_explicit_default("energy", energy):
             task.energy = None
         elif energy not in {"low", "mid", "high"}:
-            err_console.print(f"[red]✗[/] --energy: {energy!r} not in [low, mid, high]")
+            err_console.print(f"[red]✗[/] --energy: {energy!r} not in [low, mid, high] (or 'normal' to clear)")
             raise typer.Exit(EXIT_USER_ERROR)
         else:
             task.energy = energy
     if actor is not None:
-        if actor not in {"human", "ai", "automation"}:
-            err_console.print(f"[red]✗[/] --actor: {actor!r} not in [human, ai, automation]")
+        if _is_explicit_default("actor", actor):
+            task.actor = None
+        elif actor not in {"ai", "automation"}:
+            err_console.print(f"[red]✗[/] --actor: {actor!r} not in [human (default), ai, automation]")
             raise typer.Exit(EXIT_USER_ERROR)
-        task.actor = None if actor == "human" else actor
+        else:
+            task.actor = actor
     if owner is not None:
-        task.owner = owner or None
+        task.owner = None if _is_explicit_default("owner", owner) else owner
     if kind is not None:
-        # Empty string clears. Soft enum — unknown values warn via smells().
-        task.kind = kind or None
-    if tags is not None:
-        task.tags = [t.strip() for t in tags.split(",") if t.strip()]
+        task.kind = None if _is_explicit_default("kind", kind) else kind
+
+    # D76: tag flag matrix
+    tag_inputs = TagFlagInputs(
+        replace=(tag or []) + (tags or []) if (tag or tags) else None,
+        add=(add_tag or []) + (add_tags or []) if (add_tag or add_tags) else None,
+        remove=(remove_tag or []) + (remove_tags or []) if (remove_tag or remove_tags) else None,
+        clear=clear_tags,
+    )
+    if any([tag_inputs.replace, tag_inputs.add, tag_inputs.remove, tag_inputs.clear]):
+        try:
+            task.tags = apply_tag_mutations(task.tags, tag_inputs)
+        except TagFlagConflict as exc:
+            err_console.print(f"[red]✗[/] {exc}")
+            raise typer.Exit(EXIT_USER_ERROR) from exc
 
     errors = task.validate()
     if errors:
@@ -1467,7 +1697,21 @@ def set_(
     for smell in task.smells():
         err_console.print(f"[yellow]⚠[/] {smell}")
 
-    _save_task(task, body, path, octopus_dir, storage_mode)
+    # D77: set is frontmatter-only — write in place, do NOT move the file.
+    _save_task_in_place(task, body, path, octopus_dir.parent)
+
+    # D77 soft warning: if --bucket changed in folder mode and the file's
+    # parent directory no longer matches, point at `octopus mv`.
+    if (
+        bucket_changed_to is not None
+        and storage_mode == "folders"
+        and path.parent.name != bucket_changed_to
+    ):
+        err_console.print(
+            f"[yellow]⚠[/] task at {path.relative_to(octopus_dir.parent)} now has "
+            f"bucket: {bucket_changed_to}.\n"
+            f"  Run `octopus mv {slug} {bucket_changed_to}` to move the file to match."
+        )
 
     for field_name in overlaps_used:
         tip = VERB_OVERLAP_FIELDS.get(field_name)
