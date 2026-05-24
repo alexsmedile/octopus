@@ -176,6 +176,17 @@ def upsert_task(conn: sqlite3.Connection, activity_id: str, task: Task) -> None:
             _now(),
         ),
     )
+    # D63: keep task_external_refs in sync. Delete all rows for this task,
+    # then re-insert from the current frontmatter (handles add/remove/update).
+    conn.execute("DELETE FROM task_external_refs WHERE task_id = ?", (task_id,))
+    for adapter_name, external_id in (task.external_refs or {}).items():
+        if not adapter_name or not external_id:
+            continue
+        conn.execute(
+            "INSERT OR IGNORE INTO task_external_refs "
+            "(task_id, adapter, external_id) VALUES (?, ?, ?)",
+            (task_id, str(adapter_name), str(external_id)),
+        )
 
 
 def upsert_session(

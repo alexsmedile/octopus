@@ -215,3 +215,18 @@ def total_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "tasks": conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0],
         "sessions": conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0],
     }
+
+
+def find_by_external_ref(
+    conn: sqlite3.Connection, adapter: str, external_id: str
+) -> str | None:
+    """Look up a task by (adapter, external_id) via task_external_refs (D63).
+
+    Returns the task_id or None. Fast indexed lookup — backs the pull
+    pipeline's dedup check.
+    """
+    row = conn.execute(
+        "SELECT task_id FROM task_external_refs WHERE adapter = ? AND external_id = ?",
+        (adapter, external_id),
+    ).fetchone()
+    return row["task_id"] if row else None

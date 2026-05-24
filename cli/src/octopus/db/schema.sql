@@ -60,6 +60,15 @@ CREATE INDEX IF NOT EXISTS idx_tasks_due          ON tasks(due);
 CREATE INDEX IF NOT EXISTS idx_tasks_activity     ON tasks(activity_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_kind         ON tasks(kind);
 CREATE INDEX IF NOT EXISTS idx_tasks_promoted_to  ON tasks(promoted_to);
+
+-- External refs dedup index (schema v3, D63)
+CREATE TABLE IF NOT EXISTS task_external_refs (
+  task_id     TEXT     NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  adapter     TEXT     NOT NULL,
+  external_id TEXT     NOT NULL,
+  PRIMARY KEY (adapter, external_id)
+);
+CREATE INDEX IF NOT EXISTS idx_task_external_refs_task ON task_external_refs(task_id);
 CREATE INDEX IF NOT EXISTS idx_activities_status  ON activities(status);
 CREATE INDEX IF NOT EXISTS idx_sessions_activity  ON sessions(activity_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_ended     ON sessions(ended);

@@ -213,3 +213,115 @@ def remove_root(path: str) -> tuple[bool, str]:
     data["roots"]["paths"] = paths
     _write_system_config(data)
     return True, f"removed: {path}"
+
+
+# ── Adapter config (D58, hybrid layout) ─────────────────────────────
+
+
+def bridges_dir() -> Path:
+    """`~/.config/octopus/bridges/` — per-adapter content files."""
+    return SYSTEM_CONFIG_DIR / "bridges"
+
+
+def adapter_config_path(name: str) -> Path:
+    """Per-adapter TOML path: `bridges/<name>.toml`."""
+    return bridges_dir() / f"{name}.toml"
+
+
+def load_adapter_config(name: str) -> dict:
+    """Read `bridges/<name>.toml`. Missing file → empty dict."""
+    return _load_toml(adapter_config_path(name))
+
+
+def write_adapter_config(name: str, data: dict) -> None:
+    """Persist `bridges/<name>.toml` as TOML.
+
+    Hand-rolled writer (no `tomli-w` dep). Supports: strings, ints, bools,
+    lists-of-strings. Adapter validators are expected to enforce key types,
+    so we don't need general-purpose serialization.
+    """
+    bridges_dir().mkdir(parents=True, exist_ok=True)
+    lines: list[str] = []
+    for k, v in data.items():
+        if isinstance(v, bool):
+            lines.append(f"{k} = {'true' if v else 'false'}")
+        elif isinstance(v, int):
+            lines.append(f"{k} = {v}")
+        elif isinstance(v, list):
+            items = ", ".join(f'"{x}"' for x in v)
+            lines.append(f"{k} = [{items}]")
+        else:
+            lines.append(f'{k} = "{v}"')
+    adapter_config_path(name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def is_adapter_enabled(name: str) -> bool:
+    """Read `[adapters.<name>] enabled` from the main config. Missing = False."""
+    data = _load_toml(SYSTEM_CONFIG_PATH)
+    return bool(data.get("adapters", {}).get(name, {}).get("enabled", False))
+
+
+def set_adapter_enabled(name: str, enabled: bool) -> None:
+    """Flip `[adapters.<name>] enabled` in the main config."""
+    data = _read_system_config_raw()
+    adapters = data.setdefault("adapters", {})
+    adapters.setdefault(name, {})["enabled"] = bool(enabled)
+    _write_full_system_config(data)
+
+
+def list_enabled_adapters() -> list[str]:
+    """Sorted list of adapter names with `enabled = true` in main config."""
+    data = _load_toml(SYSTEM_CONFIG_PATH)
+    adapters = data.get("adapters", {}) or {}
+    return sorted(
+        name for name, cfg in adapters.items()
+        if isinstance(cfg, dict) and cfg.get("enabled") is True
+    )
+
+
+def list_all_configured_adapters() -> list[str]:
+    """Every adapter that appears in either main config OR has a bridges file."""
+    names = set()
+    data = _load_toml(SYSTEM_CONFIG_PATH)
+    for n in (data.get("adapters", {}) or {}):
+        names.add(n)
+    bd = bridges_dir()
+    if bd.is_dir():
+        for f in bd.glob("*.toml"):
+            names.add(f.stem)
+    return sorted(names)
+
+
+def _write_full_system_config(data: dict) -> None:
+    """Extended writer that handles [adapters.*] sections in addition to
+    what `_write_system_config` covers.
+
+    Existing sections (storage, slug, roots, sessions, providers) are still
+    handled by `_write_system_config`; we delegate to it and append adapter
+    sections at the end.
+    """
+    # Reuse the existing writer for the canonical sections.
+    _write_system_config(data)
+    # Then append [adapters.*] sections that the original writer doesn't know about.
+    adapters = data.get("adapters") or {}
+    if not adapters:
+        return
+    existing = SYSTEM_CONFIG_PATH.read_text(encoding="utf-8") if SYSTEM_CONFIG_PATH.exists() else ""
+    extra_lines: list[str] = []
+    for name, cfg in adapters.items():
+        if not isinstance(cfg, dict):
+            continue
+        extra_lines.append(f"[adapters.{name}]")
+        for k, v in cfg.items():
+            if isinstance(v, bool):
+                extra_lines.append(f"{k} = {'true' if v else 'false'}")
+            elif isinstance(v, int):
+                extra_lines.append(f"{k} = {v}")
+            elif isinstance(v, list):
+                items = ", ".join(f'"{x}"' for x in v)
+                extra_lines.append(f"{k} = [{items}]")
+            else:
+                extra_lines.append(f'{k} = "{v}"')
+        extra_lines.append("")
+    if extra_lines:
+        SYSTEM_CONFIG_PATH.write_text(existing.rstrip() + "\n\n" + "\n".join(extra_lines), encoding="utf-8")

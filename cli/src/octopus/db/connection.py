@@ -1,7 +1,8 @@
 """SQLite connection management.
 
-Schema v2 (D46/D48): adds `kind` and `promoted_to` columns + their indexes.
-Migration runs in-place via ALTER TABLE when an existing v1 DB is opened.
+Schema v3 (D63): adds `task_external_refs` join table for adapter dedup.
+v2 (D46/D48): adds `kind` and `promoted_to` columns + their indexes.
+Migrations run in-place via ALTER TABLE / CREATE TABLE on connection open.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 SCHEMA_SQL = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -48,15 +49,15 @@ def get_db(path: Path | None = None) -> sqlite3.Connection:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create tables / indexes; migrate v1 → v2 in-place if needed."""
+    """Create tables / indexes; migrate forward to SCHEMA_VERSION as needed."""
     current = conn.execute("PRAGMA user_version").fetchone()[0]
     if current == 0:
         conn.executescript(SCHEMA_SQL)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         return
+    # Forward-chained migrations: each block bumps user_version by one.
     if current == 1:
-        # Migrate to v2: add kind + promoted_to columns and their indexes.
-        # ALTER TABLE ADD COLUMN is the only safe in-place option in SQLite.
+        # v1 → v2 (D46/D48): kind + promoted_to columns on tasks.
         conn.executescript(
             """
             ALTER TABLE tasks ADD COLUMN kind TEXT;
@@ -65,14 +66,62 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             CREATE INDEX IF NOT EXISTS idx_tasks_promoted_to ON tasks(promoted_to);
             """
         )
-        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-        return
+        conn.execute("PRAGMA user_version = 2")
+        current = 2
+    if current == 2:
+        # v2 → v3 (D63): task_external_refs join table for adapter dedup.
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS task_external_refs (
+              task_id     TEXT     NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+              adapter     TEXT     NOT NULL,
+              external_id TEXT     NOT NULL,
+              PRIMARY KEY (adapter, external_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_task_external_refs_task
+              ON task_external_refs(task_id);
+            """
+        )
+        # Backfill from existing tasks' raw_frontmatter.external_refs.
+        _backfill_external_refs(conn)
+        conn.execute("PRAGMA user_version = 3")
+        current = 3
     if current > SCHEMA_VERSION:
         raise RuntimeError(
             f"index.db schema version {current} > supported {SCHEMA_VERSION}; "
             "upgrade octopus-cli"
         )
     # current == SCHEMA_VERSION: no-op
+
+
+def _backfill_external_refs(conn: sqlite3.Connection) -> None:
+    """v2 → v3 migration: scan existing tasks and populate task_external_refs.
+
+    Reads `raw_frontmatter` JSON, looks for `external_refs` dict, inserts
+    one row per (adapter, external_id) pair. Idempotent (uses INSERT OR IGNORE).
+    """
+    import json
+
+    rows = conn.execute("SELECT id, raw_frontmatter FROM tasks").fetchall()
+    for row in rows:
+        raw = row["raw_frontmatter"]
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        refs = data.get("external_refs") if isinstance(data, dict) else None
+        if not isinstance(refs, dict):
+            continue
+        for adapter, external_id in refs.items():
+            if not adapter or not external_id:
+                continue
+            conn.execute(
+                "INSERT OR IGNORE INTO task_external_refs "
+                "(task_id, adapter, external_id) VALUES (?, ?, ?)",
+                (row["id"], str(adapter), str(external_id)),
+            )
 
 
 @contextmanager

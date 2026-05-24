@@ -52,46 +52,29 @@ Top-to-bottom; commit per group (or small cluster) so the migration is reviewabl
   - "Bridges (v1 scope)" section rewritten — peek vs pull, three v1 adapters, Claude plugin as client not adapter
   - Version bump 0.3.0 → 0.4.0
 
-## Group 4 — Code: protocol + data types
+## Group 4 — Code: protocol + data types ✅
 
-- [ ] `cli/src/octopus/adapters/base.py`
-  - `Capability` enum
-  - `Adapter` Protocol
-  - `ExternalRef = str`
-  - `ExternalTask`, `PullResult`, `PushResult`, `AdapterStatus` dataclasses
-- [ ] `cli/src/octopus/adapters/__init__.py` — exports
+- [x] `adapters/base.py` — `Capability` enum, `Adapter` Protocol, all dataclasses
+- [x] `adapters/__init__.py` — public exports
 
-## Group 5 — Code: registry + journal
+## Group 5 — Code: registry + journal ✅
 
-- [ ] `cli/src/octopus/adapters/registry.py`
-  - Built-in REGISTRY dict
-  - `load_registry()` with entry-point overlay
-  - Built-in-wins conflict resolution
-- [ ] `cli/src/octopus/adapters/journal.py`
-  - JSON read/write at `~/.local/share/octopus/sync/<name>.json`
-  - `read_journal(name)`, `update_journal(name, **changes)`
-  - Auto-create on first write
+- [x] `adapters/registry.py` — hardcoded builtins + entry-point overlay; built-in wins on conflict
+- [x] `adapters/journal.py` — JSON r/w at `~/.local/share/octopus/sync/<name>.json`; `read_journal`, `update_journal`, sentinel cursor handling
 
-## Group 6 — Code: dedup index (schema v3)
+## Group 6 — Code: dedup index (schema v3) ✅
 
-- [ ] `cli/src/octopus/db/schema.sql` — add `task_external_refs` table + index
-- [ ] `cli/src/octopus/db/connection.py` — v2 → v3 migration
-  - CREATE TABLE + populate from existing tasks (scan `external_refs` column)
-- [ ] `cli/src/octopus/db/upsert.py`
-  - `upsert_task` also writes `task_external_refs` rows
-  - On UPDATE: delete + re-insert refs for that task
-- [ ] `cli/src/octopus/db/queries.py`
-  - `find_by_external_ref(adapter, external_id)` helper
+- [x] `db/schema.sql` — `task_external_refs` table + `idx_task_external_refs_task`
+- [x] `db/connection.py` — `SCHEMA_VERSION = 3`; forward-chained v1→v2→v3 migrator with `_backfill_external_refs()`
+- [x] `db/upsert.py` — `upsert_task` clears + repopulates `task_external_refs` from frontmatter
+- [x] `db/queries.py` — `find_by_external_ref(adapter, external_id)` helper
 
-## Group 7 — Code: config layer
+## Group 7 — Code: config layer ✅
 
-- [ ] `cli/src/octopus/config.py`
-  - `load_adapter_config(name) -> dict` — reads `bridges/<name>.toml`
-  - `write_adapter_config(name, data: dict) -> None` — hand-rolled TOML writer
-  - `set_adapter_enabled(name, enabled: bool)` — flips main `config.toml`
-  - `is_adapter_enabled(name) -> bool`
-  - `list_enabled_adapters() -> list[str]`
-- [ ] Default `lists = []` for adapters that support multi-list
+- [x] `config.py` adapter helpers: `bridges_dir`, `adapter_config_path`, `load_adapter_config`, `write_adapter_config`
+- [x] `is_adapter_enabled`, `set_adapter_enabled`, `list_enabled_adapters`, `list_all_configured_adapters`
+- [x] `_write_full_system_config` extends the canonical writer with `[adapters.*]` sections
+- [x] Hand-rolled TOML writer for bridges files (supports str/int/bool/list)
 
 ## Group 8 — Code: pipeline
 
@@ -117,16 +100,12 @@ Top-to-bottom; commit per group (or small cluster) so the migration is reviewabl
 - [ ] Verbose mode (`-v`) for traceback on adapter exceptions
 - [ ] Output discipline: summary line + per-task lines on success; clear error on failure
 
-## Group 10 — Code: stub adapters
+## Group 10 — Code: stub adapters ✅ (landed alongside Group 5)
 
-- [ ] `cli/src/octopus/adapters/obsidian.py`
-  - `name = "obsidian"`, `capabilities = {PULL}`
-  - All methods return clear NotImplementedError result pointing to #07
-- [ ] `cli/src/octopus/adapters/reminders.py`
-  - Same pattern; points to #09
-- [ ] `cli/src/octopus/adapters/todo_md.py`
-  - Same pattern; points to #21
-- [ ] Each registered in `REGISTRY` dict
+- [x] `adapters/obsidian.py` — STUB pointing to #07; declares `{PULL}`; all methods return clear "not implemented" errors
+- [x] `adapters/reminders.py` — STUB pointing to #09; same shape
+- [x] `adapters/todo_md.py` — STUB pointing to #21; same shape (`list_groups() == []` by design — single file)
+- [x] All three registered in `REGISTRY` (built-ins)
 
 ## Group 11 — Tests
 
