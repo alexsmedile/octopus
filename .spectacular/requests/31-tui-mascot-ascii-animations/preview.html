@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Octopus mascot animation preview — request #31</title>
+<style>
+  :root {
+    --bg: #0F1014;
+    --fg: #F5F5F7;
+    --dim: #8A8D9A;
+    --accent: #CBA6F7;
+    --mascot: #CBA6F7;
+    --eye: #1A1A1A;
+    --panel: #16171E;
+    --border: #2A2D38;
+    --pixel-size: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 24px;
+    line-height: 1.4;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 4px;
+    color: var(--accent);
+  }
+  h2 {
+    font-size: 16px;
+    margin: 32px 0 12px;
+    color: var(--fg);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+  }
+  h3 {
+    font-size: 13px;
+    margin: 16px 0 8px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  p.sub {
+    color: var(--dim);
+    font-size: 13px;
+    margin: 0 0 16px;
+  }
+  .controls {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--dim);
+  }
+  .controls input[type="range"] {
+    width: 120px;
+  }
+  .controls input[type="color"] {
+    width: 32px;
+    height: 24px;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+  }
+  .controls button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .controls button:hover { opacity: 0.85; }
+  .speed-label { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 32px; }
+
+  .loop-section {
+    margin-bottom: 40px;
+  }
+  .proposals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .proposal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .proposal-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0 0 4px;
+  }
+  .proposal-desc {
+    font-size: 12px;
+    color: var(--dim);
+    margin: 0 0 12px;
+    min-height: 32px;
+  }
+  .stage {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(var(--pixel-size) * 14 + 24px);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-w, 16), var(--pixel-size));
+    grid-auto-rows: var(--pixel-size);
+    gap: 0;
+    background: var(--bg);
+  }
+  .grid.w18 { --grid-w: 18; }
+  .pixel {
+    width: var(--pixel-size);
+    height: var(--pixel-size);
+  }
+  .pixel.bg { background: var(--bg); }
+  .pixel.body { background: var(--mascot); }
+  .pixel.eye { background: var(--eye); }
+  .pixel.half-eye {
+    background: linear-gradient(to bottom, var(--mascot) 50%, var(--eye) 50%);
+  }
+  .pixel.closed-eye {
+    background: linear-gradient(to bottom, var(--mascot) 80%, var(--eye) 80%);
+  }
+  .filmstrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .film-frame {
+    --pixel-size: 6px;
+    cursor: pointer;
+    position: relative;
+    padding-bottom: 12px;
+  }
+  .film-frame.active { outline: 2px solid var(--accent); }
+  .film-frame::after {
+    content: attr(data-idx);
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .frame-info {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .actions button {
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .actions button:hover { color: var(--fg); border-color: var(--accent); }
+
+  /* Header-bar mockup — shows how it looks in the TUI */
+  .header-mockup {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0;
+    display: flex;
+    align-items: stretch;
+    height: 84px;          /* 7 rows × 12px-cell-equivalent ≈ */
+    margin: 16px 0 24px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .header-mockup .stage {
+    width: 18ch;
+    border: none;
+    border-right: 1px solid var(--border);
+    padding: 6px;
+    min-height: 0;
+    --pixel-size: 6px;
+  }
+  .header-mockup .text-side {
+    flex: 1;
+    padding: 8px 14px;
+    font-size: 12px;
+    line-height: 14px;
+    color: var(--dim);
+  }
+  .header-mockup .text-side .title { color: var(--accent); font-weight: 600; font-size: 13px; }
+  .header-mockup .text-side .row { display: flex; gap: 16px; }
+
+  details {
+    margin-top: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+  }
+  details summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  details pre {
+    margin: 12px 0 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-size: 11px;
+    line-height: 1.3;
+    overflow-x: auto;
+    color: var(--fg);
+  }
+  .legend {
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .legend span code {
+    color: var(--fg);
+    background: var(--bg);
+    padding: 0 4px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Octopus mascot animation preview</h1>
+<p class="sub">
+  Request <strong>#31 — TUI mascot ASCII animations</strong>. Each loop has 2–3 proposals.
+  Frames are 16×14 pixel grids — exactly what the TUI half-block renderer reads.
+  The header-bar mockup at the bottom of each section shows the chosen variant at terminal scale.
+</p>
+
+<div class="controls">
+  <label>Speed
+    <input type="range" id="speed" min="0.1" max="2" step="0.1" value="1">
+    <span class="speed-label" id="speed-label">1.0×</span>
+  </label>
+  <label>Body color
+    <input type="color" id="body-color" value="#CBA6F7">
+  </label>
+  <label>Background
+    <input type="color" id="bg-color" value="#0F1014">
+  </label>
+  <button id="play-pause">⏸ Pause</button>
+  <button id="reset">↺ Reset</button>
+  <span class="sub" style="margin-left: auto;">Spacebar = pause/play · click a film frame to scrub</span>
+</div>
+
+<div class="legend">
+  <span>Palette: <code>.</code> bg · <code>L</code> body · <code>E</code> eye · <code>e</code> half-eye (blink) · <code>c</code> closed eye</span>
+</div>
+
+<!-- ───────────────────────── BASE IDLE ──────────────────────────── -->
+<section class="loop-section" data-loop="base">
+  <h2>Base idle — ✅ Calm-A (even breathing + decoupled blink)</h2>
+  <p class="sub">
+    The always-on idle state. Body cycles rest → up → rest → down at 1200ms per frame.
+    Independent blink channel: random 2-4s intervals, ~20% doubles.
+  </p>
+
+  <div class="proposals">
+    <div class="proposal" data-proposal="base-pool-A" data-body-seq="A" data-blink-style="A" style="grid-column: 1 / -1;">
+      <p class="proposal-title">Calm-A · Even breathing ✅</p>
+      <p class="proposal-desc">rest → up → rest → down. Even 1200ms each frame. Decoupled blink channel (style A).</p>
+      <div class="stage"></div>
+      <div class="frame-info"></div>
+      <div class="filmstrip"></div>
+      <div class="actions"><button class="copy-grid">Copy grids</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── CAPOVOLTA ──────────────────────────── -->
+<section class="loop-section" data-loop="capovolta">
+  <h2>Capovolta — ✅ B · Squish + flip</h2>
+  <p class="sub">~900 ms total. 6 frames at 150 ms each. Plays once on `octopus finish`, then returns to base.</p>
+  <div class="proposals">
+
+    <div class="proposal" data-proposal="capovolta-B" style="grid-column: 1 / -1;">
+      <p class="proposal-title">B · Squish + flip ✅</p>
+      <p class="proposal-desc">Anticipation: squashes flat first, then springs up and inverts. Cartoonish bounce.</p>
+      <div class="stage"></div>
+      <div class="frame-info"></div>
+      <div class="filmstrip"></div>
+      <div class="actions">
+        <button class="copy-grid">Copy grids</button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ───────────────────────── MOONWALK ──────────────────────────── -->
+<section class="loop-section" data-loop="moonwalk">
+  <h2>Moonwalk — ✅ D6 (primary) + E (variant)</h2>
+  <p class="sub">
+    D6: 16-col canvas, body ±1 col, legs ratchet ±2 cols, blink at apex.
+    E: body still, leg pairs take turns going up.
+    Both end at the centered base frame for clean handoff.
+  </p>
+  <div class="proposals">
+
+    <div class="proposal" data-proposal="moonwalk-D6">
+      <p class="proposal-title">D6 · Subtle body + ratcheting legs + blink at apex ✅</p>
+      <p class="proposal-desc">15 frames. Body shifts ±1 col only. Legs ratchet ±2 (independent of body). At each direction change: blink (drooping → closed → drooping → open with tilt + look).</p>
+      <div class="stage"></div>
+      <div class="frame-info"></div>
+      <div class="filmstrip"></div>
+      <div class="actions">
+        <button class="copy-grid">Copy grids</button>
+      </div>
+    </div>
+
+    <div class="proposal" data-proposal="moonwalk-E">
+      <p class="proposal-title">E · Wave of legs ✅</p>
+      <p class="proposal-desc">Body dead still. Each of 4 leg pairs takes a turn going up. Pure leg motion, no body glide. Second moonwalk variant — could trigger on a different verb than D6.</p>
+      <div class="stage"></div>
+      <div class="frame-info"></div>
+      <div class="filmstrip"></div>
+      <div class="actions">
+        <button class="copy-grid">Copy grids</button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<section class="loop-section" data-loop="interpolation">
+  <h2>Live sequence — all confirmed animations end-to-end</h2>
+  <p class="sub">
+    Cycles through the confirmed animations to test handoffs.
+    Sequence: <strong>Calm-A (3.5s, real breathing + blinks) → Capovolta-B → Calm-A → Moonwalk-D6 → Calm-A → Moonwalk-E → Calm-A</strong> → loop.
+    Each non-calm animation ends at the centered base frame for clean handoff.
+  </p>
+  <div class="proposals">
+    <div class="proposal" data-proposal="interp-demo" style="grid-column: 1 / -1;">
+      <p class="proposal-title">Live sequence ✅</p>
+      <p class="proposal-desc">Calm segments run the full Calm-A controller (breathing + decoupled blink channel). Capovolta-B, D6, and E play their full sequences.</p>
+      <div class="stage"></div>
+      <div class="frame-info"></div>
+      <div class="filmstrip" style="display:none"></div>
+      <div class="actions"></div>
+    </div>
+  </div>
+</section>
+
+<details>
+  <summary>Header-bar mockup — how the picked variant looks at terminal scale</summary>
+  <div class="header-mockup">
+    <div class="stage" id="header-stage"></div>
+    <div class="text-side">
+      <div class="title">OCTOPUS</div>
+      <div>octopus · type: code · status: active</div>
+      <div class="row">
+        <span>now: 2</span><span>next: 4</span><span>blocked: 1</span>
+      </div>
+      <div>1 focus · 2 board</div>
+    </div>
+  </div>
+  <p class="sub">The chosen base-idle variant renders here. Pick a proposal title above to change it.</p>
+</details>
+
+<details>
+  <summary>How to read the grid format</summary>
+  <p class="sub">
+    Each frame is a 16×14 character grid. <code>.</code> = background, <code>L</code> = body (lavender),
+    <code>E</code> = eye (black), <code>e</code> = half-closed eye (mid-blink), <code>c</code> = closed eye (full blink).
+    The Python TUI reads the same format. Click "Copy grids" on any proposal to grab all its frames
+    as Python-ready string literals.
+  </p>
+</details>
+
+<script>
+// ──────────────────────────────────────────────────────────────────
+// FRAME LIBRARY — all proposals defined here, one source of truth
+// Each frame is exactly 16 cols × 14 rows of grid characters.
+// ──────────────────────────────────────────────────────────────────
+
+const W = 16, H = 14;
+
+// Base static frame (eyes are 2px wide × 2px tall = one rendered terminal cell each).
+const BASE_REF = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+
+// Helper to shift a grid vertically (positive = down)
+function shiftV(grid, dy) {
+  const rows = [];
+  for (let y = 0; y < H; y++) rows.push(grid.slice(y * W, (y + 1) * W));
+  const out = [];
+  for (let y = 0; y < H; y++) {
+    const src = y - dy;
+    out.push(src >= 0 && src < H ? rows[src] : ".".repeat(W));
+  }
+  return out.join("");
+}
+
+// Vertical mirror — for the mid-flip frame
+function mirrorV(grid) {
+  const rows = [];
+  for (let y = 0; y < H; y++) rows.push(grid.slice(y * W, (y + 1) * W));
+  return rows.reverse().join("");
+}
+
+// Replace eye chars with another (for blinks)
+function withEye(grid, repl) {
+  return grid.replaceAll("E", repl);
+}
+
+// ─── BASE IDLE — A: calm bob ───
+const BASE_A = [
+  { grid: BASE_REF, ms: 600 },                            // 0: rest
+  { grid: shiftV(BASE_REF, -1), ms: 600 },                 // 1: up 1
+  { grid: withEye(shiftV(BASE_REF, -1), "e"), ms: 600 },    // 2: up + blink
+  { grid: BASE_REF, ms: 600 },                              // 3: back to rest
+];
+
+// ─── BASE IDLE — B: sway + bob ───
+// Lean legs alternately by shifting their pixels
+const BASE_B_LEAN_R = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "...LL.LL.LL.LL.." +    // shifted right
+  "...LL.LL.LL.LL.." +
+  "...LL.LL.LL.LL.." +
+  "................" +
+  "................"
+);
+const BASE_B_LEAN_L = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  ".LL.LL.LL.LL...." +    // shifted left
+  ".LL.LL.LL.LL...." +
+  ".LL.LL.LL.LL...." +
+  "................" +
+  "................"
+);
+const BASE_B = [
+  { grid: BASE_REF, ms: 600 },
+  { grid: shiftV(BASE_B_LEAN_R, -1), ms: 600 },             // up + lean R
+  { grid: withEye(BASE_REF, "e"), ms: 600 },                // blink
+  { grid: shiftV(BASE_B_LEAN_L, -1), ms: 600 },             // up + lean L
+];
+
+// ─── BASE IDLE — C: breathing only ───
+// The "top of the head" squeezes — top row of body shrinks
+const BASE_C_SQUEEZE = (
+  "................" +
+  "................" +
+  "................" +      // top-row body drops away
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const BASE_C = [
+  { grid: BASE_REF, ms: 600 },
+  { grid: BASE_C_SQUEEZE, ms: 600 },
+  { grid: withEye(BASE_C_SQUEEZE, "e"), ms: 600 },
+  { grid: BASE_REF, ms: 600 },
+];
+
+// ─── CAPOVOLTA — A: fast somersault ───
+const CAPO_A_CROUCH = (
+  "................" +
+  "................" +
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const CAPO_A_TILT = (
+  "................" +
+  "................" +
+  "....LLLLLLLLLL.." +     // shift right + slight rise
+  "....LLLLLLLLLL.." +
+  "...LLLLLLLLLLLL." +
+  "...LLLEELLLEELL." +
+  "...LLLEELLLEELL." +
+  "...LLLLLLLLLLLL." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................" +
+  "................"
+);
+const CAPO_A_MIDFLIP = (
+  "................" +
+  "................" +
+  "....LLLLLLLLLL.." +
+  "....LLLLLLLLLL.." +
+  "...LLLLLLLLLLLL." +
+  "...LLLLLLLLLLLL." +    // no eyes during the flip
+  "...LLLLLLLLLLLL." +
+  "...LLLLLLLLLLLL." +
+  "....LLLLLLLLLL.." +
+  "....LL.LL.LL.LL." +
+  "................" +
+  "................" +
+  "................" +
+  "................"
+);
+// Fully inverted = vertical mirror of BASE
+const CAPO_A_INVERTED = mirrorV(BASE_REF);
+// Untwist = mirror but slightly tilted
+const CAPO_A_UNTWIST = (
+  "................" +
+  "................" +
+  "................" +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "...LLLLLLLLLL..." +
+  "................" +
+  "................" +
+  "................"
+);
+const CAPO_A = [
+  { grid: CAPO_A_CROUCH, ms: 150 },
+  { grid: CAPO_A_TILT, ms: 150 },
+  { grid: CAPO_A_MIDFLIP, ms: 150 },
+  { grid: CAPO_A_INVERTED, ms: 150 },
+  { grid: CAPO_A_UNTWIST, ms: 150 },
+  { grid: BASE_REF, ms: 150 },
+];
+
+// ─── CAPOVOLTA — B: squish + flip (more cartoonish) ───
+const CAPO_B_SQUISH = (
+  "................" +
+  "................" +
+  "................" +
+  "................" +
+  "................" +
+  "................" +
+  "..LLLLLLLLLLLL.." +
+  "..LLEELLLEELLL.." +
+  "..LLEELLLEELLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const CAPO_B_SPRING = (
+  "................" +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................" +
+  "................"
+);
+const CAPO_B_FLIP_TOP = (
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "...LLLLLLLLLL..." +
+  "................" +
+  "................" +
+  "................" +
+  "................" +
+  "................" +
+  "................" +
+  "................"
+);
+const CAPO_B = [
+  { grid: CAPO_B_SQUISH, ms: 150 },
+  { grid: CAPO_B_SPRING, ms: 150 },
+  { grid: CAPO_B_FLIP_TOP, ms: 150 },
+  { grid: mirrorV(BASE_REF), ms: 200 },
+  { grid: CAPO_A_UNTWIST, ms: 150 },
+  { grid: BASE_REF, ms: 100 },
+];
+
+// ─── MOONWALK — A: leg shift ───
+const MOON_A_CENTER = BASE_REF;
+const MOON_A_LEFT = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  ".LL.LL.LL.LL...." +     // legs shifted left
+  ".LL.LL.LL.LL...." +
+  ".LL.LL.LL.LL...." +
+  "................" +
+  "................"
+);
+const MOON_A_RIGHT = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "....LL.LL.LL.LL." +     // legs shifted right
+  "....LL.LL.LL.LL." +
+  "....LL.LL.LL.LL." +
+  "................" +
+  "................"
+);
+const MOON_A = [
+  { grid: MOON_A_CENTER, ms: 200 },
+  { grid: MOON_A_LEFT, ms: 200 },
+  { grid: MOON_A_CENTER, ms: 200 },
+  { grid: MOON_A_RIGHT, ms: 200 },
+];
+
+// ─── MOONWALK — B: leg lift + slide ───
+const MOON_B_LIFT_R = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL......" +    // right legs lifted
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const MOON_B_LIFT_L = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "......LL.LL.LL.." +    // left legs lifted
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const MOON_B = [
+  { grid: MOON_A_CENTER, ms: 200 },
+  { grid: MOON_B_LIFT_R, ms: 200 },
+  { grid: MOON_A_LEFT, ms: 200 },
+  { grid: MOON_B_LIFT_L, ms: 200 },
+];
+
+// ─── MOONWALK — C: slide + tilt ───
+const MOON_C_TILT_L = (
+  "................" +
+  "................" +
+  "..LLLLLLLLLL...." +     // body shifted left
+  "..LLLLLLLLLL...." +
+  ".LLLLLLLLLLLL..." +
+  ".LLLEELLLEELL..." +
+  ".LLLEELLLEELL..." +
+  ".LLLLLLLLLLLL..." +
+  ".LLLLLLLLLLLL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const MOON_C_TILT_R = (
+  "................" +
+  "................" +
+  "....LLLLLLLLLL.." +     // body shifted right
+  "....LLLLLLLLLL.." +
+  "...LLLLLLLLLLLL." +
+  "...LLLEELLLEELL." +
+  "...LLLEELLLEELL." +
+  "...LLLLLLLLLLLL." +
+  "...LLLLLLLLLLLL." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const MOON_C = [
+  { grid: MOON_A_CENTER, ms: 200 },
+  { grid: MOON_C_TILT_L, ms: 200 },
+  { grid: MOON_A_CENTER, ms: 200 },
+  { grid: MOON_C_TILT_R, ms: 200 },
+];
+
+// ──────────────────────────────────────────────────────────────────
+// MOONWALK v2 — D, E, F
+// ──────────────────────────────────────────────────────────────────
+
+// ─── D · Glide + heel-slide ───
+// Body glides 1 px L→R each frame (4 frames = full slide cycle).
+// Legs alternate planted (3 rows: LL/LL/LL) and trailing (2 rows: LL/LL/.. — foot up).
+// Leg pairs: legs 1+3 share state, legs 2+4 share state. They swap every frame.
+//
+// Layout reminder: legs at cols 2-3 (1), 5-6 (2), 8-9 (3), 11-12 (4).
+// Body at cols 2-13 normally; shifts 1 col right each frame.
+
+// Frame 0: body centered. Legs 1,3 planted (full). Legs 2,4 trailing (foot up).
+const MOON_D_F0 = (
+  "................" +
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +     // all leg tops present
+  "..LL.LL.LL.LL..." +     // all leg mids present
+  "..LL....LL......" +     // only planted (1,3) have feet — 2,4 dragging (no foot)
+  "................" +
+  "................"
+);
+
+// Frame 1: body shifts right 1. Now legs 2,4 plant, legs 1,3 trail.
+const MOON_D_F1 = (
+  "................" +
+  "................" +
+  "....LLLLLLLLLL.." +     // body +1 col
+  "....LLLLLLLLLL.." +
+  "...LLLLLLLLLLLL." +
+  "...LLLEELLLEELL." +
+  "...LLLEELLLEELL." +
+  "...LLLLLLLLLLLL." +
+  "...LLLLLLLLLLLL." +
+  "...LL.LL.LL.LL.." +     // leg tops follow body
+  "...LL.LL.LL.LL.." +
+  ".....LL....LL..." +     // legs 2,4 planted (feet); 1,3 trailing
+  "................" +
+  "................"
+);
+
+// Frame 2: body shifts right 2. Legs swap again — 1,3 plant.
+const MOON_D_F2 = (
+  "................" +
+  "................" +
+  ".....LLLLLLLLLL." +
+  ".....LLLLLLLLLL." +
+  "....LLLLLLLLLLLL" +
+  "....LLLEELLLEELL" +
+  "....LLLEELLLEELL" +
+  "....LLLLLLLLLLLL" +
+  "....LLLLLLLLLLLL" +
+  "....LL.LL.LL.LL." +
+  "....LL.LL.LL.LL." +
+  "....LL....LL...." +     // legs 1,3 planted
+  "................" +
+  "................"
+);
+
+// Frame 3: body shifts right 3. Legs swap — 2,4 plant. Then wraps back.
+const MOON_D_F3 = (
+  "................" +
+  "................" +
+  "......LLLLLLLLLL" +
+  "......LLLLLLLLLL" +
+  ".....LLLLLLLLLLL" +
+  ".....LLLEELLLEEL" +
+  ".....LLLEELLLEEL" +
+  ".....LLLLLLLLLLL" +
+  ".....LLLLLLLLLLL" +
+  ".....LL.LL.LL.LL" +
+  ".....LL.LL.LL.LL" +
+  ".......LL....LL." +     // legs 2,4 planted
+  "................" +
+  "................"
+);
+
+const MOON_D = [
+  { grid: MOON_D_F0, ms: 200 },
+  { grid: MOON_D_F1, ms: 200 },
+  { grid: MOON_D_F2, ms: 200 },
+  { grid: MOON_D_F3, ms: 200 },
+];
+
+// ─── E · Wave of legs ───
+// Body holds dead still. Each frame, one leg pair is "up" (shortened to 1 row,
+// the top of the leg). Cycles 1→2→3→4 (cols 2-3 → 5-6 → 8-9 → 11-12).
+
+// Helper: body that's exactly BASE_REF's first 9 rows + custom legs.
+function withLegs(legRows) {
+  // legRows is a 3-line array (rows 9, 10, 11)
+  return (
+    "................" +
+    "................" +
+    "...LLLLLLLLLL..." +
+    "...LLLLLLLLLL..." +
+    "..LLLLLLLLLLLL.." +
+    "..LLLEELLLEELL.." +
+    "..LLLEELLLEELL.." +
+    "..LLLLLLLLLLLL.." +
+    "..LLLLLLLLLLLL.." +
+    legRows[0] +
+    legRows[1] +
+    legRows[2] +
+    "................" +
+    "................"
+  );
+}
+
+// All-legs-down (reference)
+const ALL_LEGS = ["..LL.LL.LL.LL...", "..LL.LL.LL.LL...", "..LL.LL.LL.LL..."];
+
+// Leg 1 up: cols 2-3 reduced to just top row
+const LEG1_UP = ["..LL.LL.LL.LL...", "..LL.LL.LL.LL...", ".....LL.LL.LL..."];
+// Leg 2 up: cols 5-6
+const LEG2_UP = ["..LL.LL.LL.LL...", "..LL.LL.LL.LL...", "..LL....LL.LL..."];
+// Leg 3 up: cols 8-9
+const LEG3_UP = ["..LL.LL.LL.LL...", "..LL.LL.LL.LL...", "..LL.LL....LL..."];
+// Leg 4 up: cols 11-12
+const LEG4_UP = ["..LL.LL.LL.LL...", "..LL.LL.LL.LL...", "..LL.LL.LL......"];
+
+const MOON_E = [
+  { grid: withLegs(LEG1_UP), ms: 200 },
+  { grid: withLegs(LEG2_UP), ms: 200 },
+  { grid: withLegs(LEG3_UP), ms: 200 },
+  { grid: withLegs(LEG4_UP), ms: 200 },
+  { grid: withLegs(LEG1_UP), ms: 200 },
+  { grid: withLegs(LEG2_UP), ms: 200 },
+  { grid: withLegs(LEG3_UP), ms: 200 },
+  { grid: withLegs(LEG4_UP), ms: 200 },
+  // Settle: all legs back down, back to BASE_REF for clean handoff.
+  { grid: BASE_REF, ms: 150 },
+];
+
+// ─── F · Hover + drag ───
+// Body lifts 1 row (shift entire mascot up 1). Slides L→R 1 px per frame.
+// One leg always trails behind: it extends 1 cell in the opposite direction
+// of travel and sits on the bottom row.
+
+// Frame 0: body up 1 row, centered, leg 1 (leftmost) trails left
+const MOON_F_F0 = (
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  ".LLL.LL.LL.LL..." +     // leg 1 trails left (1 cell extension)
+  "................" +
+  "................" +
+  "................"
+);
+
+// Frame 1: body shifts right 1
+const MOON_F_F1 = (
+  "................" +
+  "....LLLLLLLLLL.." +
+  "....LLLLLLLLLL.." +
+  "...LLLLLLLLLLLL." +
+  "...LLLEELLLEELL." +
+  "...LLLEELLLEELL." +
+  "...LLLLLLLLLLLL." +
+  "...LLLLLLLLLLLL." +
+  "...LL.LL.LL.LL.." +
+  "...LL.LL.LL.LL.." +
+  "..LLL.LL.LL.LL.." +     // leg 1 still trails left (1 cell behind)
+  "................" +
+  "................" +
+  "................"
+);
+
+// Frame 2: body shifts right 2, trail extends more (2 cells back from body)
+const MOON_F_F2 = (
+  "................" +
+  ".....LLLLLLLLLL." +
+  ".....LLLLLLLLLL." +
+  "....LLLLLLLLLLLL" +
+  "....LLLEELLLEELL" +
+  "....LLLEELLLEELL" +
+  "....LLLLLLLLLLLL" +
+  "....LLLLLLLLLLLL" +
+  "....LL.LL.LL.LL." +
+  "....LL.LL.LL.LL." +
+  "..LLLL.LL.LL.LL." +     // trail leg now 2 cells extended back
+  "................" +
+  "................" +
+  "................"
+);
+
+// Frame 3: body shifts back, trail collapses, reset
+const MOON_F_F3 = (
+  "................" +
+  "...LLLLLLLLLL..." +
+  "...LLLLLLLLLL..." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +     // trail collapsed (snap back)
+  "................" +
+  "................" +
+  "................"
+);
+
+const MOON_F = [
+  { grid: MOON_F_F0, ms: 200 },
+  { grid: MOON_F_F1, ms: 200 },
+  { grid: MOON_F_F2, ms: 250 },
+  { grid: MOON_F_F3, ms: 150 },
+];
+
+// ──────────────────────────────────────────────────────────────────
+// MOONWALK D6 — 16-col, subtle body shift, ratcheting legs, blink at apex
+// ──────────────────────────────────────────────────────────────────
+//
+// Constraints from v7 feedback:
+//   - back to 16-col canvas
+//   - body moves less (±1 col) — was ±3 in D3, ±4 in D5
+//   - legs keep gliding via the ratchet trick (legs at body_dx ± 1)
+//   - at apex: instead of head squash (which made eyes vanish), a BLINK —
+//     eyes close briefly, then open in the new "look" direction
+//
+// 16-col anatomy (centered):
+//   - head crown (10 cols): margin 3, cols 3-12 normally
+//   - body widest (12 cols): margin 2, cols 2-13 normally
+//   - eyes (2 cells each, 4-cell bridge): cols 4-5 and 10-11 normally
+//     (matches the v6 D5 wide spacing, scaled for 16-col)
+//   - legs (4 pairs at body-local cols 0, 3, 6, 9): cols 2-3, 5-6, 8-9, 11-12
+
+function buildD6Frame(bodyDx, legsDx, legUpIdx, eyeShift, opts) {
+  opts = opts || {};
+  const W = 16, H = 14;
+
+  let bodyTemplate = [
+    { content: "LLLLLLLLLL",   margin: 3 },   // row 2 head crown
+    { content: "LLLLLLLLLL",   margin: 3 },   // row 3 head crown
+    { content: "LLLLLLLLLLLL", margin: 2 },   // row 4 shoulders
+    { content: "LLLLLLLLLLLL", margin: 2 },   // row 5 eye band (overlay below)
+    { content: "LLLLLLLLLLLL", margin: 2 },   // row 6 eye band (overlay below)
+    { content: "LLLLLLLLLLLL", margin: 2 },   // row 7 mid body
+    { content: "LLLLLLLLLLLL", margin: 2 },   // row 8 mid body
+  ];
+
+  // TILT applies to head crown only
+  if (opts.tilt) {
+    bodyTemplate[0] = { ...bodyTemplate[0], margin: bodyTemplate[0].margin + opts.tilt };
+    bodyTemplate[1] = { ...bodyTemplate[1], margin: bodyTemplate[1].margin + opts.tilt };
+  }
+
+  function pad(content, leftMargin) {
+    let row = ".".repeat(W).split("");
+    for (let i = 0; i < content.length; i++) {
+      const col = leftMargin + i;
+      if (col >= 0 && col < W) row[col] = content[i];
+    }
+    return row.join("");
+  }
+
+  const out = [".".repeat(W), ".".repeat(W)];
+  for (let i = 0; i < bodyTemplate.length; i++) {
+    out.push(pad(bodyTemplate[i].content, bodyTemplate[i].margin + bodyDx));
+  }
+
+  // Eyes at body-local cols 2-3 and 8-9. Apply bodyDx + eyeShift.
+  // World eye positions: leftEye at margin(2) + 2 + bodyDx + eyeShift = 4+bodyDx+eyeShift
+  //                      rightEye at 2 + 8 + bodyDx + eyeShift = 10+bodyDx+eyeShift
+  // opts.blink controls the blink level (0=open, 1=drooping, 2=closed).
+  if (!opts.blink || opts.blink === 0) {
+    const leftEyeCol = 4 + bodyDx + eyeShift;
+    const rightEyeCol = 10 + bodyDx + eyeShift;
+    function setEye(rowIdx, col) {
+      if (col < 0 || col + 1 >= W) return;
+      const rowChars = out[rowIdx].split("");
+      rowChars[col] = "E";
+      rowChars[col + 1] = "E";
+      out[rowIdx] = rowChars.join("");
+    }
+    setEye(5, leftEyeCol);
+    setEye(5, rightEyeCol);
+    setEye(6, leftEyeCol);
+    setEye(6, rightEyeCol);
+  } else if (opts.blink === 1) {
+    // Drooping: eye only on row 6 (thin line at bottom).
+    const leftEyeCol = 4 + bodyDx + eyeShift;
+    const rightEyeCol = 10 + bodyDx + eyeShift;
+    function setEye(col) {
+      if (col < 0 || col + 1 >= W) return;
+      const rowChars = out[6].split("");
+      rowChars[col] = "E";
+      rowChars[col + 1] = "E";
+      out[6] = rowChars.join("");
+    }
+    setEye(leftEyeCol);
+    setEye(rightEyeCol);
+  }
+  // blink === 2: no eyes drawn (fully closed → eye disappears into body)
+
+  // Legs: pairs at body-local cols 0, 3, 6, 9 → world cols 2, 5, 8, 11 normally.
+  // legsDx is independent of bodyDx (the ratchet trick).
+  const legPairCols = [2, 5, 8, 11];
+  function buildLegRow() {
+    let row = ".".repeat(W).split("");
+    for (let p = 0; p < 4; p++) {
+      const c = legPairCols[p] + legsDx;
+      if (c >= 0 && c < W) row[c] = "L";
+      if (c + 1 >= 0 && c + 1 < W) row[c + 1] = "L";
+    }
+    return row.join("");
+  }
+  function buildLegBottom(skipPair) {
+    let row = ".".repeat(W).split("");
+    for (let p = 0; p < 4; p++) {
+      if (p === skipPair) continue;
+      const c = legPairCols[p] + legsDx;
+      if (c >= 0 && c < W) row[c] = "L";
+      if (c + 1 >= 0 && c + 1 < W) row[c + 1] = "L";
+    }
+    return row.join("");
+  }
+  out.push(buildLegRow());
+  out.push(buildLegRow());
+  out.push(buildLegBottom(legUpIdx));
+  out.push(".".repeat(W));
+  out.push(".".repeat(W));
+  return out.join("");
+}
+
+// Legs ratchet at ±2 cols (was ±1 in D5). Wider leg swing relative to subtle
+// body shift makes the speed difference very visible.
+function legsForD6(bodyDx, frameIdx) {
+  return frameIdx % 2 === 0 ? bodyDx - 2 : bodyDx + 2;
+}
+
+// 16-frame cycle with body travel ±1, legs sliding ±2 around it.
+// At apex: blink frames replace squash. Eyes close on the "turn the head"
+// moment, then open with eyeShift in the new look direction.
+const MOON_D6 = [
+  // Right glide: body 0 → +1
+  { grid: buildD6Frame(0,  legsForD6(0, 0), 3, 0), ms: 200 },   // 0
+  { grid: buildD6Frame(1,  legsForD6(1, 1), 2, 0), ms: 200 },   // 1
+  // Right apex: blink shut, then open looking right (with tilt)
+  { grid: buildD6Frame(1,  legsForD6(1, 1), 2, 1, { tilt: 1, blink: 1 }), ms: 150 }, // 2 drooping
+  { grid: buildD6Frame(1,  legsForD6(1, 1), 2, 1, { tilt: 1, blink: 2 }), ms: 150 }, // 3 closed
+  { grid: buildD6Frame(1,  legsForD6(1, 1), 2, 1, { tilt: 1, blink: 1 }), ms: 150 }, // 4 drooping (reopen)
+  { grid: buildD6Frame(1,  legsForD6(1, 1), 2, 1, { tilt: 1 }),           ms: 200 }, // 5 open + looking right
+  // Left glide: body +1 → -1 (wave reverses)
+  { grid: buildD6Frame(0,  legsForD6(0, 6), 0, 0), ms: 200 },   // 6
+  { grid: buildD6Frame(-1, legsForD6(-1, 7), 1, 0), ms: 200 },  // 7
+  // Left apex: blink shut, then open looking left
+  { grid: buildD6Frame(-1, legsForD6(-1, 7), 1, -1, { tilt: -1, blink: 1 }), ms: 150 }, // 8
+  { grid: buildD6Frame(-1, legsForD6(-1, 7), 1, -1, { tilt: -1, blink: 2 }), ms: 150 }, // 9
+  { grid: buildD6Frame(-1, legsForD6(-1, 7), 1, -1, { tilt: -1, blink: 1 }), ms: 150 }, // 10
+  { grid: buildD6Frame(-1, legsForD6(-1, 7), 1, -1, { tilt: -1 }),           ms: 200 }, // 11 open + looking left
+  // Return to center
+  { grid: buildD6Frame(0,  legsForD6(0, 12), 2, 0), ms: 200 },  // 12
+  { grid: buildD6Frame(0,  legsForD6(0, 13), 3, 0), ms: 200 },  // 13
+  // Final settle: body and legs both at center, all 4 leg-pairs present.
+  // This is BASE_REF — guaranteed loop-back point.
+  { grid: BASE_REF, ms: 150 },                                  // 14
+];
+
+// ──────────────────────────────────────────────────────────────────
+// BASE IDLE v2 — random-walk pool + decoupled blink channel
+// ──────────────────────────────────────────────────────────────────
+
+// Pool: 3 clean breathing frames sampled in random order
+//   P0 — rest (baseline)
+//   P1 — bob up (whole body up 1px)
+//   P2 — bob down (whole body down 1px)
+//
+// Removed v3's "sigh" and "settle" frames — single-pixel leg-tip details
+// read as noise at 16×14 scale, not motion.
+
+const POOL_P0 = BASE_REF;
+const POOL_P1 = shiftV(BASE_REF, -1);   // up 1 px
+const POOL_P2 = shiftV(BASE_REF, 1);    // down 1 px
+
+// Lean frames for the "drifting" calm variant — head crown shifted ±1 col.
+// Only used in Calm-D (sway variant). Indices 3 = lean right, 4 = lean left.
+const POOL_P3_LEAN_R = (
+  "................" +
+  "................" +
+  "....LLLLLLLLLL.." +     // head crown +1 col right
+  "....LLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+const POOL_P4_LEAN_L = (
+  "................" +
+  "................" +
+  "..LLLLLLLLLL...." +     // head crown -1 col left
+  "..LLLLLLLLLL...." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLEELLLEELL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LLLLLLLLLLLL.." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "..LL.LL.LL.LL..." +
+  "................" +
+  "................"
+);
+
+const POOL_FRAMES = [POOL_P0, POOL_P1, POOL_P2, POOL_P3_LEAN_R, POOL_P4_LEAN_L];
+
+// Calm-bob sequences (named) — each is an array of { poolIdx, ms } steps.
+// The controller cycles through the steps in order and loops.
+const CALM_SEQUENCES = {
+  "A": {
+    label: "Calm-A · Even breathing (current)",
+    desc: "rest → up → rest → down → repeat. Even 1200ms per frame.",
+    steps: [
+      { idx: 0, ms: 1200 },   // rest
+      { idx: 1, ms: 1200 },   // up
+      { idx: 0, ms: 1200 },   // rest
+      { idx: 2, ms: 1200 },   // down
+    ],
+  },
+  "B": {
+    label: "Calm-B · Asymmetric breathing",
+    desc: "rest → up → up-hold → down → rest. Slow inhale + hold, quick exhale, settle.",
+    steps: [
+      { idx: 0, ms: 800 },    // rest (settle from prev cycle)
+      { idx: 1, ms: 1400 },   // up (slow inhale)
+      { idx: 1, ms: 600 },    // up-hold (held breath)
+      { idx: 2, ms: 800 },    // down (exhale fast)
+      { idx: 0, ms: 1000 },   // rest (settled)
+    ],
+  },
+  "D": {
+    label: "Calm-D · Drifting (vertical + horizontal sway)",
+    desc: "rest → up → lean-right → rest → down → lean-left. Adds gentle horizontal drift.",
+    steps: [
+      { idx: 0, ms: 900 },    // rest
+      { idx: 1, ms: 900 },    // up
+      { idx: 3, ms: 900 },    // lean right
+      { idx: 0, ms: 900 },    // rest
+      { idx: 2, ms: 900 },    // down
+      { idx: 4, ms: 900 },    // lean left
+    ],
+  },
+};
+
+// Blink overlays — v7: detects eye rows dynamically so blink direction stays
+// consistent regardless of body shift (up/down). The lid always drops from
+// above, leaving a thin dark line at the bottom of the eye cell at level 1.
+//
+//   level 0 (open):     both eye rows have E → full 2×2 eye block
+//   level 1 (drooping): top eye row → body, bottom row keeps E → thin line at bottom
+//   level 2 (closed):   both rows → body → eye fully gone
+//
+// Why dynamic detection: when body=up the eye rows shift to 4-5, when body=down
+// they shift to 6-7. Hardcoding rows 5-6 made the half-blink show the dark
+// sliver at the WRONG vertical position (top instead of bottom of the cell).
+function applyBlink(grid, level) {
+  if (level === 0) return grid;
+  const w = Math.round(grid.length / 14);
+  const H = 14;
+  const rows = [];
+  for (let y = 0; y < H; y++) rows.push(grid.slice(y * w, (y + 1) * w));
+  const eyeRows = [];
+  for (let y = 0; y < H; y++) if (rows[y].includes("E")) eyeRows.push(y);
+  if (eyeRows.length === 0) return grid;
+  const topRow = eyeRows[0];
+  const bottomRow = eyeRows[eyeRows.length - 1];
+  const newRows = rows.slice();
+  newRows[topRow] = rows[topRow].replaceAll("E", "L");
+  if (level >= 2) {
+    newRows[bottomRow] = rows[bottomRow].replaceAll("E", "L");
+  }
+  return newRows.join("");
+}
+
+// The base-pool "frames" used by the standard player are dummy — the
+// real rendering happens in the custom controller below. We expose a
+// representative filmstrip so the Copy-grid button has something to copy.
+const BASE_POOL = [
+  { grid: POOL_P0, ms: 600 },
+  { grid: POOL_P1, ms: 600 },
+  { grid: POOL_P2, ms: 600 },
+  { grid: withEye(POOL_P0, "e"), ms: 100 },
+  { grid: withEye(POOL_P0, "c"), ms: 100 },
+];
+
+// ──────────────────────────────────────────────────────────────────
+// MOONWALK D2 — extended back-and-forth glide
+// ──────────────────────────────────────────────────────────────────
+//
+// 12 frames. Center → glide right 3 cols → pause → glide back left through
+// center → glide left 3 cols → pause → glide back right to center.
+// Legs alternate: legs (1,3) planted + legs (2,4) trailing on even body
+// positions; reverse on odd. Bottom cell of trailing legs is removed.
+//
+// To keep this readable we build each frame from helpers.
+
+// Build a frame: body shifted by `dx` cols (positive = right), legs with
+// "anchors" at positions [a, b] (which leg-pair indices are planted).
+function buildMoonD2Frame(dx, plantedPairs) {
+  // Body rows 2-8 (7 rows of body), shifted by dx.
+  const bodyRows = [
+    "LLLLLLLLLL",       // row 2 — head crown
+    "LLLLLLLLLL",       // row 3
+    "LLLLLLLLLLLL",     // row 4 — widest
+    "LLLEELLLEELL",     // row 5 — eyes
+    "LLLEELLLEELL",     // row 6 — eyes
+    "LLLLLLLLLLLL",     // row 7
+    "LLLLLLLLLLLL",     // row 8 — widest bottom
+  ];
+  // Pad each row to exactly 16 cols, clipping content if it overflows.
+  function pad(content, leftMargin) {
+    // Build a 16-cell row with content placed at leftMargin, clipping anything
+    // that falls outside [0, 16). leftMargin can be negative (clip left).
+    let row = ".".repeat(16).split("");
+    for (let i = 0; i < content.length; i++) {
+      const col = leftMargin + i;
+      if (col >= 0 && col < 16) row[col] = content[i];
+    }
+    return row.join("");
+  }
+  // Body's natural left margin per row (centered).
+  // row 2-3 has 10 cols → margin 3; rows 4-8 have 12 cols → margin 2.
+  const bodyMargins = [3, 3, 2, 2, 2, 2, 2];
+  const out = ["................", "................"];
+  for (let i = 0; i < bodyRows.length; i++) {
+    out.push(pad(bodyRows[i], bodyMargins[i] + dx));
+  }
+  // Legs: 4 pairs at cols 2,5,8,11 (relative to centered body), shifted by dx.
+  // Each leg pair is "LL" 2 cols wide. Gaps of 1 col between pairs.
+  // legs_top, legs_mid: always present (all 4 pairs).
+  // legs_bot: only "plantedPairs" pairs present.
+  const legPairs = [2, 5, 8, 11]; // base column for each leg-pair (centered)
+  function legRow(includePairs) {
+    let row = ".".repeat(16).split("");
+    for (let p = 0; p < legPairs.length; p++) {
+      if (!includePairs.includes(p)) continue;
+      const c = legPairs[p] + dx;
+      if (c >= 0 && c + 1 < 16) {
+        row[c] = "L";
+        row[c + 1] = "L";
+      } else if (c >= 0 && c < 16) {
+        row[c] = "L";
+      }
+    }
+    return row.join("");
+  }
+  const allPairs = [0, 1, 2, 3];
+  out.push(legRow(allPairs));        // row 9 — leg tops always present
+  out.push(legRow(allPairs));        // row 10 — leg mids always present
+  out.push(legRow(plantedPairs));    // row 11 — only planted pairs have feet
+  out.push("................");
+  out.push("................");
+  return out.join("");
+}
+
+// 12-frame cycle. Body positions go -3 -2 -1 0 +1 +2 +3 (centered) back...
+// Simplified: center → +1 → +2 → +3 → +3 (hold) → +2 → +1 → 0 → -1 → -2 → -3 → -3 (hold) → -2 → -1 → 0
+// To keep it tight at 12 frames: +0 → +1 → +2 → +3 → +2 → +1 → +0 → -1 → -2 → -3 → -2 → -1
+//
+// Legs alternate planted pairs each frame: [0,2] vs [1,3]
+const MOON_D2 = [
+  { grid: buildMoonD2Frame(0,  [0, 2]), ms: 200 },   // 0  center, legs 1,3 planted
+  { grid: buildMoonD2Frame(1,  [1, 3]), ms: 200 },   // 1  +1
+  { grid: buildMoonD2Frame(2,  [0, 2]), ms: 200 },   // 2  +2
+  { grid: buildMoonD2Frame(3,  [1, 3]), ms: 220 },   // 3  +3 (right peak; slight pause)
+  { grid: buildMoonD2Frame(2,  [0, 2]), ms: 200 },   // 4  +2 (heading back)
+  { grid: buildMoonD2Frame(1,  [1, 3]), ms: 200 },   // 5  +1
+  { grid: buildMoonD2Frame(0,  [0, 2]), ms: 200 },   // 6  center
+  { grid: buildMoonD2Frame(-1, [1, 3]), ms: 200 },   // 7  -1
+  { grid: buildMoonD2Frame(-2, [0, 2]), ms: 200 },   // 8  -2
+  { grid: buildMoonD2Frame(-3, [1, 3]), ms: 220 },   // 9  -3 (left peak; slight pause)
+  { grid: buildMoonD2Frame(-2, [0, 2]), ms: 200 },   // 10 -2
+  { grid: buildMoonD2Frame(-1, [1, 3]), ms: 200 },   // 11 -1 (returns to center via frame 0 wrap)
+];
+
+// ──────────────────────────────────────────────────────────────────
+// MOONWALK D3 & D4 — true gliding (body shifts smoothly, legs teleport)
+// ──────────────────────────────────────────────────────────────────
+//
+// The "glide" effect: body moves +1 col every frame. Legs sit still for one
+// frame (anchored, looking like they have weight), then jump +2 cols the next
+// frame to catch up. So legs and body have visibly different speeds.
+//
+// Direction-change variants:
+//   D3 — body TILTS at the apex (2 frames of tilt before reversing)
+//   D4 — body SQUISHES (1 frame of vertical squash before reversing)
+//
+// Both go through the same body trajectory: center → +3 → tilt/squish →
+// back through center → -3 → tilt/squish → back to center.
+
+// Helper that takes independent body_dx and legs_dx. Optionally a
+// `bodyMod` to mutate the body rows (e.g. tilt = shift different rows differently).
+function buildGlideFrame(bodyDx, legsDx, opts) {
+  opts = opts || {};
+  // Body rows (rows 2-8). Default left margins.
+  let bodyRows = [
+    "LLLLLLLLLL",       // 0: head crown row 2
+    "LLLLLLLLLL",       // 1: head crown row 3
+    "LLLLLLLLLLLL",     // 2: shoulders row 4
+    "LLLEELLLEELL",     // 3: eyes row 5
+    "LLLEELLLEELL",     // 4: eyes row 6
+    "LLLLLLLLLLLL",     // 5: midbody row 7
+    "LLLLLLLLLLLL",     // 6: bottom row 8
+  ];
+  let bodyMargins = [3, 3, 2, 2, 2, 2, 2];
+
+  // Body modifications
+  if (opts.squish) {
+    // Vertical squish: drop the top 2 rows entirely (head crown disappears),
+    // body becomes shorter. Legs stay where they are.
+    bodyRows = ["", "", ...bodyRows.slice(2)];
+    bodyMargins = [3, 3, 2, 2, 2, 2, 2];
+  }
+  if (opts.tiltLeft) {
+    // Tilt left: top rows shifted 1 col left relative to bottom.
+    bodyMargins = [bodyMargins[0] - 1, bodyMargins[1] - 1, bodyMargins[2], bodyMargins[3], bodyMargins[4], bodyMargins[5], bodyMargins[6]];
+  }
+  if (opts.tiltRight) {
+    bodyMargins = [bodyMargins[0] + 1, bodyMargins[1] + 1, bodyMargins[2], bodyMargins[3], bodyMargins[4], bodyMargins[5], bodyMargins[6]];
+  }
+  if (opts.verticalShift) {
+    // Used to slide the body up/down by N rows (squish springback can rise 1 row).
+    // Implemented at the row-assembly step below.
+  }
+
+  function pad(content, leftMargin) {
+    let row = ".".repeat(16).split("");
+    for (let i = 0; i < content.length; i++) {
+      const col = leftMargin + i;
+      if (col >= 0 && col < 16) row[col] = content[i];
+    }
+    return row.join("");
+  }
+
+  const out = ["................", "................"];
+  for (let i = 0; i < bodyRows.length; i++) {
+    out.push(pad(bodyRows[i], bodyMargins[i] + bodyDx));
+  }
+  // Legs always full-3-row in gliding (no planted/trailing distinction needed —
+  // the speed difference between body and legs IS the glide signature).
+  const legPairs = [2, 5, 8, 11];
+  function legRow() {
+    let row = ".".repeat(16).split("");
+    for (let p = 0; p < legPairs.length; p++) {
+      const c = legPairs[p] + legsDx;
+      if (c >= 0 && c < 16) row[c] = "L";
+      if (c + 1 >= 0 && c + 1 < 16) row[c + 1] = "L";
+    }
+    return row.join("");
+  }
+  out.push(legRow());
+  out.push(legRow());
+  out.push(legRow());
+  out.push("................");
+  out.push("................");
+  return out.join("");
+}
+
+// ─── D3 — Glide with body TILT at direction change ───
+// Body positions (right→left round trip): 0, 1, 2, 3, 3*tilt, 3*tilt, 2, 1, 0, -1, -2, -3, -3*tilt, -3*tilt, -2, -1
+// Legs: stay still on even body advances, jump to body+1 on odd advances
+// (mod 2 on body_dx parity).
+//
+// Body shifts smoothly +1/frame. Legs alternate "lag by 1" / "lead by 1"
+// (relative to body) — so legs_dx alternates body_dx-1 (anchor) / body_dx+1 (jump).
+
+function legsForBody(bodyDx, frameIdx) {
+  // Even frames: legs anchored 1 behind body. Odd frames: legs leading 1 ahead.
+  return frameIdx % 2 === 0 ? bodyDx - 1 : bodyDx + 1;
+}
+
+const MOON_D3 = [
+  // Right glide
+  { grid: buildGlideFrame(0,  legsForBody(0, 0)), ms: 200 },   // 0  center
+  { grid: buildGlideFrame(1,  legsForBody(1, 1)), ms: 200 },   // 1
+  { grid: buildGlideFrame(2,  legsForBody(2, 2)), ms: 200 },   // 2
+  { grid: buildGlideFrame(3,  legsForBody(3, 3)), ms: 200 },   // 3  rightmost
+  // Right tilt (apex hold, 2 frames)
+  { grid: buildGlideFrame(3,  legsForBody(3, 3), { tiltRight: true }), ms: 180 },  // 4  tilt right
+  { grid: buildGlideFrame(3,  legsForBody(3, 3), { tiltRight: true }), ms: 180 },  // 5  tilt right (hold)
+  // Left glide
+  { grid: buildGlideFrame(2,  legsForBody(2, 6)), ms: 200 },   // 6
+  { grid: buildGlideFrame(1,  legsForBody(1, 7)), ms: 200 },   // 7
+  { grid: buildGlideFrame(0,  legsForBody(0, 8)), ms: 200 },   // 8  center
+  { grid: buildGlideFrame(-1, legsForBody(-1, 9)), ms: 200 },  // 9
+  { grid: buildGlideFrame(-2, legsForBody(-2, 10)), ms: 200 }, // 10
+  { grid: buildGlideFrame(-3, legsForBody(-3, 11)), ms: 200 }, // 11 leftmost
+  // Left tilt
+  { grid: buildGlideFrame(-3, legsForBody(-3, 11), { tiltLeft: true }), ms: 180 },  // 12 tilt left
+  { grid: buildGlideFrame(-3, legsForBody(-3, 11), { tiltLeft: true }), ms: 180 },  // 13 tilt left (hold)
+  // Return to center
+  { grid: buildGlideFrame(-2, legsForBody(-2, 14)), ms: 200 }, // 14
+  { grid: buildGlideFrame(-1, legsForBody(-1, 15)), ms: 200 }, // 15
+];
+
+// ──────────────────────────────────────────────────────────────────
+// MOONWALK D5 v2 — three mechanics layered: glide + wave + ratchet
+// ──────────────────────────────────────────────────────────────────
+//
+// (1) Body glides smoothly ±3 cols (1 col/frame). Doesn't touch the walls.
+// (2) Legs ratchet: even frames legs anchor 1 col behind body; odd frames legs
+//     leap 1 col ahead. Body and legs have visibly different speeds — true glide.
+// (3) Wave-of-legs: one leg pair has bottom cell removed per frame, cycling
+//     leg4 → leg3 → leg2 → leg1 (opposite to body direction = wake pattern).
+// (4) Direction-change punctuation: a 1-frame body SQUASH before each apex tilt.
+//     Squash = body vertically compresses (head crown disappears).
+// (5) Apex: 1 frame of squash, then 1 frame of tilt+eye-shift (the look beat).
+//
+// Eye anatomy (wider than v5 to address the "too close together" feedback):
+//   left eye at body-local cols 2-3, right eye at body-local cols 8-9.
+//   On centered 18-col canvas: left eye world cols 5-6, right eye 11-12.
+//   Bridge between eyes: 4 cells of body. Much more breathing room.
+
+const W18 = 18, H14 = 14;
+
+function buildD5Frame(bodyDx, legsDx, legUpIdx, eyeShift, opts) {
+  opts = opts || {};
+  // Body rows (eye band is solid; eyes overlaid as a separate pass).
+  // Local body grid origin at col 3 (body is 12 cells wide → cols 3-14 when centered).
+  let bodyTemplate = [
+    { content: "LLLLLLLLLL",   margin: 4 },   // row 2 head crown
+    { content: "LLLLLLLLLL",   margin: 4 },   // row 3 head crown
+    { content: "LLLLLLLLLLLL", margin: 3 },   // row 4 shoulders
+    { content: "LLLLLLLLLLLL", margin: 3 },   // row 5 eye band (overlaid below)
+    { content: "LLLLLLLLLLLL", margin: 3 },   // row 6 eye band (overlaid below)
+    { content: "LLLLLLLLLLLL", margin: 3 },   // row 7 mid body
+    { content: "LLLLLLLLLLLL", margin: 3 },   // row 8 mid body
+  ];
+
+  // SQUASH: body vertically compresses — head crown rows blank, eye band drops
+  // to row 7-8 position (1 row down), legs unchanged.
+  if (opts.squash) {
+    bodyTemplate = [
+      { content: "", margin: 0 },   // row 2 blank
+      { content: "", margin: 0 },   // row 3 blank
+      { content: "LLLLLLLLLLLL", margin: 3 },   // row 4 (was the top); now it's the visible crown of a squashed body
+      { content: "LLLLLLLLLLLL", margin: 3 },   // row 5
+      { content: "LLLLLLLLLLLL", margin: 3 },   // row 6
+      { content: "LLLLLLLLLLLL", margin: 3 },   // row 7
+      { content: "LLLLLLLLLLLL", margin: 3 },   // row 8 (legs attach here)
+    ];
+  }
+
+  // TILT: head crown shifts in the tilt direction.
+  if (opts.tilt && !opts.squash) {
+    bodyTemplate[0] = { ...bodyTemplate[0], margin: bodyTemplate[0].margin + opts.tilt };
+    bodyTemplate[1] = { ...bodyTemplate[1], margin: bodyTemplate[1].margin + opts.tilt };
+  }
+
+  function pad18(content, leftMargin) {
+    let row = ".".repeat(W18).split("");
+    for (let i = 0; i < content.length; i++) {
+      const col = leftMargin + i;
+      if (col >= 0 && col < W18) row[col] = content[i];
+    }
+    return row.join("");
+  }
+
+  const out = [".".repeat(W18), ".".repeat(W18)];
+
+  for (let i = 0; i < bodyTemplate.length; i++) {
+    out.push(pad18(bodyTemplate[i].content, bodyTemplate[i].margin + bodyDx));
+  }
+
+  // Overlay eyes onto rows 5 and 6 (out indices 5 and 6). Skip when squashed.
+  if (!opts.squash) {
+    // Eye positions: body-local cols 2-3 and 8-9 (4-cell bridge between them).
+    // World cols = body-local + margin (3) + bodyDx + eyeShift.
+    const leftEyeCol = 3 + 2 + bodyDx + eyeShift;
+    const rightEyeCol = 3 + 8 + bodyDx + eyeShift;
+    function setEye(rowIdx, col) {
+      if (col < 0 || col + 1 >= W18) return;
+      const rowChars = out[rowIdx].split("");
+      rowChars[col] = "E";
+      rowChars[col + 1] = "E";
+      out[rowIdx] = rowChars.join("");
+    }
+    setEye(5, leftEyeCol);
+    setEye(5, rightEyeCol);
+    setEye(6, leftEyeCol);
+    setEye(6, rightEyeCol);
+  }
+
+  // Legs: 4 pairs at body-local cols 0, 3, 6, 9 (each pair 2 cells wide, 1-col gap).
+  // legsDx is the leg-group offset (independent of bodyDx for the ratchet).
+  const legPairCols = [3, 6, 9, 12];   // already include 3-col margin
+  function buildLegRow() {
+    let row = ".".repeat(W18).split("");
+    for (let p = 0; p < 4; p++) {
+      const c = legPairCols[p] + legsDx;
+      if (c >= 0 && c < W18) row[c] = "L";
+      if (c + 1 >= 0 && c + 1 < W18) row[c + 1] = "L";
+    }
+    return row.join("");
+  }
+  function buildLegBottom(skipPair) {
+    let row = ".".repeat(W18).split("");
+    for (let p = 0; p < 4; p++) {
+      if (p === skipPair) continue;
+      const c = legPairCols[p] + legsDx;
+      if (c >= 0 && c < W18) row[c] = "L";
+      if (c + 1 >= 0 && c + 1 < W18) row[c + 1] = "L";
+    }
+    return row.join("");
+  }
+
+  out.push(buildLegRow());                   // row 9 leg tops (all 4 pairs)
+  out.push(buildLegRow());                   // row 10 leg mids
+  out.push(buildLegBottom(legUpIdx));        // row 11 leg bottoms (one pair "up")
+  out.push(".".repeat(W18));
+  out.push(".".repeat(W18));
+
+  return out.join("");
+}
+
+// Legs ratchet: even frames anchor (legs at body_dx - 1), odd frames leap
+// (legs at body_dx + 1). Same trick as D3 — makes legs and body have visibly
+// different speeds.
+function legsForD5(bodyDx, frameIdx) {
+  return frameIdx % 2 === 0 ? bodyDx - 1 : bodyDx + 1;
+}
+
+// Frame sequence:
+//   - Glide right 0 → +3 (4 frames)
+//   - Squash + tilt-right look (2 frames apex punctuation)
+//   - Glide back through center to -3 (7 frames)
+//   - Squash + tilt-left look (2 frames apex punctuation)
+//   - Return to center (3 frames)
+//   = 18 frames total
+const MOON_D5 = [
+  // Right glide (body 0 → +3)
+  { grid: buildD5Frame(0,  legsForD5(0, 0), 3, 0), ms: 180 },   // 0  center, leg4 up
+  { grid: buildD5Frame(1,  legsForD5(1, 1), 2, 0), ms: 180 },   // 1  +1, leg3 up
+  { grid: buildD5Frame(2,  legsForD5(2, 2), 1, 0), ms: 180 },   // 2  +2, leg2 up
+  { grid: buildD5Frame(3,  legsForD5(3, 3), 0, 0), ms: 180 },   // 3  +3, leg1 up
+  // Right apex: squash then tilt+look
+  { grid: buildD5Frame(3,  legsForD5(3, 3), 0, 0, { squash: true }), ms: 140 },   // 4 squash
+  { grid: buildD5Frame(3,  legsForD5(3, 3), 3, 1, { tilt: 1 }), ms: 220 },        // 5 tilt+look right
+  // Left glide (body +3 → -3, wave reverses)
+  { grid: buildD5Frame(2,  legsForD5(2, 6), 0, 0), ms: 180 },   // 6  +2, leg1 up
+  { grid: buildD5Frame(1,  legsForD5(1, 7), 1, 0), ms: 180 },   // 7  +1, leg2 up
+  { grid: buildD5Frame(0,  legsForD5(0, 8), 2, 0), ms: 180 },   // 8  center, leg3 up
+  { grid: buildD5Frame(-1, legsForD5(-1, 9), 3, 0), ms: 180 },  // 9  -1, leg4 up
+  { grid: buildD5Frame(-2, legsForD5(-2, 10), 0, 0), ms: 180 }, // 10 -2, leg1 up
+  { grid: buildD5Frame(-3, legsForD5(-3, 11), 1, 0), ms: 180 }, // 11 -3, leg2 up
+  // Left apex: squash then tilt+look
+  { grid: buildD5Frame(-3, legsForD5(-3, 11), 1, 0, { squash: true }), ms: 140 },  // 12 squash
+  { grid: buildD5Frame(-3, legsForD5(-3, 11), 0, -1, { tilt: -1 }), ms: 220 },     // 13 tilt+look left
+  // Return to center (wave reverses again)
+  { grid: buildD5Frame(-2, legsForD5(-2, 14), 1, 0), ms: 180 }, // 14 -2
+  { grid: buildD5Frame(-1, legsForD5(-1, 15), 2, 0), ms: 180 }, // 15 -1
+  { grid: buildD5Frame(0,  legsForD5(0, 16), 3, 0), ms: 180 },  // 16 center
+  { grid: buildD5Frame(0,  legsForD5(0, 17), 0, 0), ms: 180 },  // 17 still center (loop wrap)
+];
+
+// ─── D4 — Glide with body SQUISH at direction change ───
+const MOON_D4 = [
+  // Right glide
+  { grid: buildGlideFrame(0,  legsForBody(0, 0)), ms: 200 },
+  { grid: buildGlideFrame(1,  legsForBody(1, 1)), ms: 200 },
+  { grid: buildGlideFrame(2,  legsForBody(2, 2)), ms: 200 },
+  { grid: buildGlideFrame(3,  legsForBody(3, 3)), ms: 200 },
+  // Right squish (1 frame)
+  { grid: buildGlideFrame(3,  legsForBody(3, 3), { squish: true }), ms: 150 },
+  // Left glide
+  { grid: buildGlideFrame(2,  legsForBody(2, 5)), ms: 200 },
+  { grid: buildGlideFrame(1,  legsForBody(1, 6)), ms: 200 },
+  { grid: buildGlideFrame(0,  legsForBody(0, 7)), ms: 200 },
+  { grid: buildGlideFrame(-1, legsForBody(-1, 8)), ms: 200 },
+  { grid: buildGlideFrame(-2, legsForBody(-2, 9)), ms: 200 },
+  { grid: buildGlideFrame(-3, legsForBody(-3, 10)), ms: 200 },
+  // Left squish (1 frame)
+  { grid: buildGlideFrame(-3, legsForBody(-3, 10), { squish: true }), ms: 150 },
+  // Return to center
+  { grid: buildGlideFrame(-2, legsForBody(-2, 12)), ms: 200 },
+  { grid: buildGlideFrame(-1, legsForBody(-1, 13)), ms: 200 },
+];
+
+const PROPOSALS = {
+  "base-pool-A": BASE_POOL,
+  "capovolta-B": CAPO_B,
+  "moonwalk-D6": MOON_D6,
+  "moonwalk-E": MOON_E,
+  "interp-demo": BASE_POOL,   // placeholder for copy-grid (demo doesn't expose grids directly)
+};
+
+// ──────────────────────────────────────────────────────────────────
+// RENDERING
+// ──────────────────────────────────────────────────────────────────
+
+function renderGrid(stage, gridStr) {
+  // Infer width from grid length (H is fixed at 14).
+  const inferredW = Math.round(gridStr.length / H);
+  const w = (inferredW === 18) ? 18 : 16;
+  const cellCount = w * H;
+  // (Re)build grid div if needed (width changes are rare).
+  let grid = stage.querySelector(".grid");
+  const needsRebuild = !grid || grid.children.length !== cellCount;
+  if (needsRebuild) {
+    grid = document.createElement("div");
+    grid.className = "grid" + (w === 18 ? " w18" : "");
+    for (let i = 0; i < cellCount; i++) {
+      const px = document.createElement("div");
+      px.className = "pixel";
+      grid.appendChild(px);
+    }
+    stage.innerHTML = "";
+    stage.appendChild(grid);
+  }
+  const pixels = grid.children;
+  for (let i = 0; i < gridStr.length && i < pixels.length; i++) {
+    const ch = gridStr[i];
+    let cls = "pixel ";
+    if (ch === "L") cls += "body";
+    else if (ch === "E") cls += "eye";
+    else if (ch === "e") cls += "half-eye";
+    else if (ch === "c") cls += "closed-eye";
+    else cls += "bg";
+    pixels[i].className = cls;
+  }
+}
+
+function renderFilmstrip(strip, frames, currentIdx, onClick) {
+  strip.innerHTML = "";
+  frames.forEach((f, idx) => {
+    const wrap = document.createElement("div");
+    wrap.className = "film-frame stage" + (idx === currentIdx ? " active" : "");
+    wrap.dataset.idx = idx;
+    renderGrid(wrap, f.grid);
+    wrap.addEventListener("click", () => onClick(idx));
+    strip.appendChild(wrap);
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────
+// PLAYBACK
+// ──────────────────────────────────────────────────────────────────
+
+const players = [];   // [{ stage, info, strip, frames, idx, elapsed, manualPause }]
+let speed = 1.0;
+let globalPaused = false;
+let lastTick = performance.now();
+
+function initProposal(propEl) {
+  const key = propEl.dataset.proposal;
+  const frames = PROPOSALS[key];
+  if (!frames) return;
+  const stage = propEl.querySelector(".stage");
+  const info = propEl.querySelector(".frame-info");
+  const strip = propEl.querySelector(".filmstrip");
+
+  // Special-case: base-pool uses the custom controller below. Variants of the
+  // pool (different body sequences or blink styles) pass options via data-*.
+  if (key === "base-pool" || key.startsWith("base-pool-")) {
+    const opts = {
+      bodySeq: propEl.dataset.bodySeq || "A",
+      blinkStyle: propEl.dataset.blinkStyle || "A",
+    };
+    const player = makeBasePoolPlayer(stage, info, strip, opts);
+    players.push(player);
+  } else if (key === "interp-demo") {
+    players.push(makeInterpDemoPlayer(stage, info));
+  } else {
+    const player = {
+      stage, info, strip, frames,
+      idx: 0, elapsed: 0, manualPause: false,
+      update() {
+        renderGrid(this.stage, this.frames[this.idx].grid);
+        this.info.textContent = `frame ${this.idx + 1}/${this.frames.length} · ${this.frames[this.idx].ms}ms`;
+        renderFilmstrip(this.strip, this.frames, this.idx, (i) => {
+          this.idx = i;
+          this.elapsed = 0;
+          this.manualPause = true;
+          this.update();
+        });
+      }
+    };
+    player.update();
+    players.push(player);
+  }
+
+  const copyBtn = propEl.querySelector(".copy-grid");
+  if (!copyBtn) return;
+  copyBtn.addEventListener("click", () => {
+    const py = frames.map((f, i) => {
+      const fw = Math.round(f.grid.length / H);
+      const rows = [];
+      for (let y = 0; y < H; y++) rows.push('    "' + f.grid.slice(y * fw, (y + 1) * fw) + '"');
+      return `# frame ${i} (${f.ms}ms, ${fw}×${H})\n_FRAME = (\n${rows.join("\n")}\n)`;
+    }).join("\n\n");
+    navigator.clipboard.writeText(py).then(() => {
+      const btn = propEl.querySelector(".copy-grid");
+      const orig = btn.textContent;
+      btn.textContent = "✓ Copied";
+      setTimeout(() => btn.textContent = orig, 1200);
+    });
+  });
+}
+
+// ── BASE POOL CONTROLLER ──────────────────────────────────────────
+// Random-walk over POOL_FRAMES + decoupled blink channel.
+// - Each "tick" of 600ms picks the next pool frame at random
+//   (with a soft rule: don't repeat the same frame twice in a row).
+// - Blinks fire on an independent timer with random 3-7s intervals.
+// - ~20% of blinks are doubles (close→open→close→open).
+
+function makeBasePoolPlayer(stage, info, strip, opts) {
+  // v7: TWO INDEPENDENT CHANNELS — body and eyes.
+  //
+  // BODY channel: named sequence (CALM_SEQUENCES.A/B/D), deterministic cycling.
+  // EYE channel:  named blink-style (A=current, B=quick, E=micro-flutter mixin).
+  opts = opts || {};
+  const bodySeqId = opts.bodySeq || "A";
+  const blinkStyleId = opts.blinkStyle || "A";
+  const DOUBLE_BLINK_PROB = 0.2;
+  const MICRO_FLUTTER_PROB = 0.03;   // only used when blinkStyle includes "E" mixin
+
+  const bodySeq = CALM_SEQUENCES[bodySeqId] || CALM_SEQUENCES.A;
+  let bodySeqIdx = 0;
+  let bodyElapsed = 0;
+
+  let blinkQueue = [];
+  let blinkOp = null;
+  let blinkCooldown = randBetween(...blinkCooldownRange(blinkStyleId));
+
+  function randBetween(a, b) { return a + Math.random() * (b - a); }
+
+  // Blink style definitions. Each has a cooldown range and a primary/double
+  // blink phase sequence.
+  function blinkCooldownRange(styleId) {
+    if (styleId === "B") return [1000, 2500];   // quick natural
+    return [2000, 4000];                         // A or anything else
+  }
+
+  function buildBlink(styleId, kind) {
+    // kind: "single" | "double" | "flutter"
+    if (styleId === "B") {
+      // Quick natural
+      if (kind === "double") return [
+        { level: 1, ms: 50 }, { level: 2, ms: 80 }, { level: 0, ms: 80 },
+        { level: 1, ms: 50 }, { level: 2, ms: 80 }, { level: 1, ms: 50 },
+      ];
+      if (kind === "flutter") return [
+        { level: 1, ms: 40 }, { level: 0, ms: 40 }, { level: 1, ms: 40 },
+      ];
+      return [
+        { level: 1, ms: 50 }, { level: 2, ms: 80 }, { level: 1, ms: 50 },
+      ];
+    }
+    // Style A (current/default)
+    if (kind === "double") return [
+      { level: 1, ms: 100 }, { level: 2, ms: 140 }, { level: 0, ms: 100 },
+      { level: 1, ms: 100 }, { level: 2, ms: 140 }, { level: 1, ms: 100 },
+    ];
+    if (kind === "flutter") return [
+      { level: 1, ms: 40 }, { level: 0, ms: 40 }, { level: 1, ms: 40 },
+    ];
+    return [
+      { level: 1, ms: 100 }, { level: 2, ms: 180 }, { level: 1, ms: 100 },
+    ];
+  }
+
+  function startBlink() {
+    const r = Math.random();
+    // If blinkStyle includes "E" mixin, allow micro-flutter as a rare event.
+    if (blinkStyleId.includes("E") && r < MICRO_FLUTTER_PROB) {
+      blinkQueue = buildBlink(blinkStyleId.replace("E", "") || "A", "flutter");
+      return;
+    }
+    if (r < DOUBLE_BLINK_PROB) {
+      blinkQueue = buildBlink(blinkStyleId.replace("E", "") || "A", "double");
+    } else {
+      blinkQueue = buildBlink(blinkStyleId.replace("E", "") || "A", "single");
+    }
+  }
+
+  function currentBlinkLevel() {
+    return blinkOp ? blinkOp.level : 0;
+  }
+
+  function currentBodyStep() {
+    return bodySeq.steps[bodySeqIdx];
+  }
+
+  // Static filmstrip (informational catalog).
+  const stripFrames = [
+    { grid: POOL_P0, label: "rest" },
+    { grid: POOL_P1, label: "up" },
+    { grid: POOL_P2, label: "down" },
+    { grid: applyBlink(POOL_P0, 1), label: "blink½" },
+    { grid: applyBlink(POOL_P0, 2), label: "blink●" },
+  ];
+  if (bodySeqId === "D") {
+    stripFrames.splice(3, 0, { grid: POOL_P3_LEAN_R, label: "lean R" });
+    stripFrames.splice(4, 0, { grid: POOL_P4_LEAN_L, label: "lean L" });
+  }
+
+  function render() {
+    const step = currentBodyStep();
+    const baseFrame = POOL_FRAMES[step.idx];
+    const lvl = currentBlinkLevel();
+    renderGrid(stage, applyBlink(baseFrame, lvl));
+    const bodyLabel = ["rest", "up", "down", "lean R", "lean L"][step.idx] || `f${step.idx}`;
+    const eyeLabel = lvl === 0 ? "open" : lvl === 1 ? "half" : "closed";
+    info.textContent = `[${bodySeqId}] body=${bodyLabel} · eyes=${eyeLabel} · blink-style=${blinkStyleId} · next ~${Math.max(0, blinkCooldown / 1000).toFixed(1)}s`;
+  }
+
+  // Static filmstrip — informational catalog of pool + blink frames.
+  strip.innerHTML = "";
+  stripFrames.forEach((f, idx) => {
+    const wrap = document.createElement("div");
+    wrap.className = "film-frame stage";
+    wrap.dataset.idx = f.label;
+    renderGrid(wrap, f.grid);
+    strip.appendChild(wrap);
+  });
+
+  render();
+
+  return {
+    stage, info, strip,
+    frames: BASE_POOL,   // for the Copy-grid button only
+    idx: 0,
+    elapsed: 0,
+    manualPause: false,
+    isPool: true,
+    update() { render(); },
+    tick(deltaMs) {
+      // BODY channel: per-step ms from CALM_SEQUENCES.
+      bodyElapsed += deltaMs;
+      const stepMs = currentBodyStep().ms;
+      if (bodyElapsed >= stepMs) {
+        bodyElapsed = 0;
+        bodySeqIdx = (bodySeqIdx + 1) % bodySeq.steps.length;
+      }
+      // EYE channel: independent blink timer.
+      if (blinkOp) {
+        blinkOp.msLeft -= deltaMs;
+        if (blinkOp.msLeft <= 0) {
+          if (blinkQueue.length > 0) {
+            const next = blinkQueue.shift();
+            blinkOp = { level: next.level, msLeft: next.ms };
+          } else {
+            blinkOp = null;
+            blinkCooldown = randBetween(...blinkCooldownRange(blinkStyleId));
+          }
+        }
+      } else if (blinkQueue.length > 0) {
+        const next = blinkQueue.shift();
+        blinkOp = { level: next.level, msLeft: next.ms };
+      } else {
+        blinkCooldown -= deltaMs;
+        if (blinkCooldown <= 0) {
+          startBlink();
+        }
+      }
+      render();
+    }
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────
+// INTERPOLATION DEMO — sequences confirmed animations back-to-back
+// ──────────────────────────────────────────────────────────────────
+//
+// Cycle: calm → capovolta-B → calm → moonwalk-D6 → calm → moonwalk-E → calm → loop
+//
+// Calm segments run the REAL breathing controller (Calm-A) with decoupled
+// blinks, so transitions show the actual idle behavior — not a frozen frame.
+// Each calm segment lasts ~3.5s before handing off to the next animation.
+
+function makeInterpDemoPlayer(stage, info) {
+  // Segment types:
+  //   { type: "calm", durationMs: 3500 }      — runs calm-A controller
+  //   { type: "frames", label, frames }       — plays a fixed frame list
+  const segments = [
+    { type: "calm",   label: "calm-A",      durationMs: 3500 },
+    { type: "frames", label: "capovolta-B", frames: CAPO_B },
+    { type: "calm",   label: "calm-A",      durationMs: 3500 },
+    { type: "frames", label: "moonwalk-D6", frames: MOON_D6 },
+    { type: "calm",   label: "calm-A",      durationMs: 3500 },
+    { type: "frames", label: "moonwalk-E",  frames: MOON_E },
+    { type: "calm",   label: "calm-A",      durationMs: 3500 },
+  ];
+
+  let segIdx = 0;
+  let segElapsed = 0;             // wall time spent in current segment
+  let frameIdx = 0;               // for "frames"-type segments
+  let frameElapsed = 0;
+
+  // Calm sub-state (mirrors makeBasePoolPlayer but minimal — we own the timing here)
+  const calmSeq = CALM_SEQUENCES.A;
+  let calmBodyIdx = 0;
+  let calmBodyElapsed = 0;
+  let calmBlinkQueue = [];
+  let calmBlinkOp = null;
+  let calmBlinkCooldown = 2500;
+  function randBetween(a, b) { return a + Math.random() * (b - a); }
+  function startCalmBlink() {
+    const double = Math.random() < 0.2;
+    if (double) {
+      calmBlinkQueue = [
+        { level: 1, ms: 100 }, { level: 2, ms: 140 }, { level: 0, ms: 100 },
+        { level: 1, ms: 100 }, { level: 2, ms: 140 }, { level: 1, ms: 100 },
+      ];
+    } else {
+      calmBlinkQueue = [
+        { level: 1, ms: 100 }, { level: 2, ms: 180 }, { level: 1, ms: 100 },
+      ];
+    }
+  }
+  function calmCurrentLevel() { return calmBlinkOp ? calmBlinkOp.level : 0; }
+
+  function render() {
+    const seg = segments[segIdx];
+    let grid;
+    let frameLabel;
+    if (seg.type === "calm") {
+      const baseFrame = POOL_FRAMES[calmSeq.steps[calmBodyIdx].idx];
+      grid = applyBlink(baseFrame, calmCurrentLevel());
+      const bodyLabel = ["rest", "up", "down"][calmSeq.steps[calmBodyIdx].idx] || "?";
+      const eyeLabel = calmCurrentLevel() === 0 ? "open" : calmCurrentLevel() === 1 ? "½" : "●";
+      frameLabel = `body=${bodyLabel} eyes=${eyeLabel}`;
+    } else {
+      grid = seg.frames[frameIdx].grid;
+      frameLabel = `frame ${frameIdx + 1}/${seg.frames.length}`;
+    }
+    renderGrid(stage, grid);
+    const segNum = `${segIdx + 1}/${segments.length}`;
+    info.textContent = `[${seg.label}] ${frameLabel} · segment ${segNum}`;
+  }
+
+  function advanceCalm(deltaMs) {
+    // Body channel
+    calmBodyElapsed += deltaMs;
+    const stepMs = calmSeq.steps[calmBodyIdx].ms;
+    if (calmBodyElapsed >= stepMs) {
+      calmBodyElapsed = 0;
+      calmBodyIdx = (calmBodyIdx + 1) % calmSeq.steps.length;
+    }
+    // Blink channel
+    if (calmBlinkOp) {
+      calmBlinkOp.msLeft -= deltaMs;
+      if (calmBlinkOp.msLeft <= 0) {
+        if (calmBlinkQueue.length > 0) {
+          const next = calmBlinkQueue.shift();
+          calmBlinkOp = { level: next.level, msLeft: next.ms };
+        } else {
+          calmBlinkOp = null;
+          calmBlinkCooldown = randBetween(2000, 4000);
+        }
+      }
+    } else if (calmBlinkQueue.length > 0) {
+      const next = calmBlinkQueue.shift();
+      calmBlinkOp = { level: next.level, msLeft: next.ms };
+    } else {
+      calmBlinkCooldown -= deltaMs;
+      if (calmBlinkCooldown <= 0) startCalmBlink();
+    }
+  }
+
+  function advanceFrames(deltaMs) {
+    const seg = segments[segIdx];
+    frameElapsed += deltaMs;
+    if (frameElapsed >= seg.frames[frameIdx].ms) {
+      frameElapsed = 0;
+      frameIdx++;
+      // Note: don't wrap — let the segment end naturally when frameIdx >= frames.length
+    }
+  }
+
+  function isSegmentDone() {
+    const seg = segments[segIdx];
+    if (seg.type === "calm") return segElapsed >= seg.durationMs;
+    return frameIdx >= seg.frames.length;
+  }
+
+  function nextSegment() {
+    segIdx = (segIdx + 1) % segments.length;
+    segElapsed = 0;
+    frameIdx = 0;
+    frameElapsed = 0;
+    // Reset calm state at the start of each calm segment so it always starts at rest.
+    // (We don't reset blink cooldown — that would be artificial.)
+    if (segments[segIdx].type === "calm") {
+      calmBodyIdx = 0;
+      calmBodyElapsed = 0;
+    }
+  }
+
+  render();
+
+  return {
+    stage, info,
+    frames: [],   // no frames exposed
+    idx: 0,
+    elapsed: 0,
+    manualPause: false,
+    isInterp: true,
+    update() { render(); },
+    tick(deltaMs) {
+      segElapsed += deltaMs;
+      const seg = segments[segIdx];
+      if (seg.type === "calm") {
+        advanceCalm(deltaMs);
+      } else {
+        advanceFrames(deltaMs);
+      }
+      if (isSegmentDone()) {
+        nextSegment();
+      }
+      render();
+    },
+  };
+}
+
+function tick(now) {
+  const delta = (now - lastTick) * speed;
+  lastTick = now;
+  if (!globalPaused) {
+    players.forEach(p => {
+      if (p.manualPause) return;
+      if (p.isPool || p.isInterp) {
+        p.tick(delta);
+        return;
+      }
+      p.elapsed += delta;
+      const frameMs = p.frames[p.idx].ms;
+      if (p.elapsed >= frameMs) {
+        p.elapsed -= frameMs;
+        p.idx = (p.idx + 1) % p.frames.length;
+        p.update();
+      }
+    });
+  }
+  syncHeaderMockup();
+  requestAnimationFrame(tick);
+}
+
+function syncHeaderMockup() {
+  const stage = document.getElementById("header-stage");
+  if (!stage) return;
+  const pool = players.find(p => p.isPool);
+  if (pool) {
+    const src = pool.stage.querySelector(".grid");
+    if (!src) return;
+    const cellCount = src.children.length;
+    let target = stage.querySelector(".grid");
+    if (!target || target.children.length !== cellCount) {
+      stage.innerHTML = "";
+      target = document.createElement("div");
+      target.className = src.className;
+      for (let i = 0; i < cellCount; i++) {
+        const px = document.createElement("div");
+        px.className = "pixel";
+        target.appendChild(px);
+      }
+      stage.appendChild(target);
+    }
+    for (let i = 0; i < cellCount; i++) {
+      target.children[i].className = src.children[i].className;
+    }
+    return;
+  }
+  const baseA = players.find(p => p.frames === BASE_A);
+  if (baseA) renderGrid(stage, baseA.frames[baseA.idx].grid);
+}
+
+// ──────────────────────────────────────────────────────────────────
+// CONTROLS
+// ──────────────────────────────────────────────────────────────────
+
+document.querySelectorAll(".proposal").forEach(initProposal);
+
+const speedInput = document.getElementById("speed");
+const speedLabel = document.getElementById("speed-label");
+speedInput.addEventListener("input", () => {
+  speed = parseFloat(speedInput.value);
+  speedLabel.textContent = `${speed.toFixed(1)}×`;
+});
+
+const bodyColor = document.getElementById("body-color");
+const bgColor = document.getElementById("bg-color");
+bodyColor.addEventListener("input", () => {
+  document.documentElement.style.setProperty("--mascot", bodyColor.value);
+});
+bgColor.addEventListener("input", () => {
+  document.documentElement.style.setProperty("--bg", bgColor.value);
+});
+
+const playBtn = document.getElementById("play-pause");
+playBtn.addEventListener("click", () => {
+  globalPaused = !globalPaused;
+  playBtn.textContent = globalPaused ? "▶ Play" : "⏸ Pause";
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+  players.forEach(p => { p.idx = 0; p.elapsed = 0; p.manualPause = false; p.update(); });
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && e.target.tagName !== "INPUT") {
+    e.preventDefault();
+    playBtn.click();
+  }
+});
+
+requestAnimationFrame(tick);
+</script>
+
+</body>
+</html>

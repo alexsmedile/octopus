@@ -5,6 +5,48 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.2] — 2026-05-24
+
+**Animated TUI mascot** (#31 done). The static octo in the TUI header is now alive: a continuously-breathing idle state with decoupled blink channel, plus two event-triggered animations that play on top of user actions.
+
+The design was iterated through ~9 rounds in a self-contained HTML preview before any Python landed — preview.html and calm-debug.html in `.spectacular/requests/31-tui-mascot-ascii-animations/` document the journey.
+
+### Added
+
+- **`cli/src/octopus/tui/mascot_frames.py`** — frame library with all confirmed grids:
+  - `BASE_REF` + `POOL_FRAMES` for Calm-A (rest / up / down body bob)
+  - `CAPOVOLTA_B_FRAMES` (6-frame squish + flip, ~900ms)
+  - `MOONWALK_D6_FRAMES` (15-frame glide with ratcheting legs + blink at apex, ~2.7s)
+  - `MOONWALK_E_FRAMES` (9-frame wave-of-legs variant, ~1.75s)
+- **`apply_blink(grid, level)`** — dynamic eye-row detection so the blink direction stays consistent regardless of body shift. The lid always drops from above, leaving a thin dark line at the bottom of the eye cell.
+- **`MascotController`** — pure-Python state machine. Default state runs Calm-A (independent body + blink channels with random timing). `trigger(name)` plays a one-shot animation, then returns to idle. Triggers during animations are ignored (no queueing).
+- **Event wiring** — `octopus finish` (from focus or board) triggers capovolta; `octopus pin` triggers moonwalk-D6. Silent on lookup miss; verbs never fail because of the mascot.
+- **25 new tests** in `test_mascot_animation.py`: frame integrity, apply_blink across body shifts (the v9 bug), state machine transitions, animation completion (601 total, was 576).
+
+### Changed
+
+- **`cli/src/octopus/tui/mascot.py`** refactored to a generic frame renderer + state machine wrapper. The old single-frame `render_mascot()` still works (backwards compat). New `render_grid(grid)` accepts any 16×14 grid string.
+- **`_Mascot` widget** (in `header_bar.py`) is now stateful. Owns a `MascotController`, drives it via a 50ms Textual interval, re-renders only when the grid changes (cheap diff).
+
+### Locked design
+
+| Component | Choice | Why |
+|---|---|---|
+| Canvas | 16×14 pixels (existing) | Fits the TUI header slot. |
+| Body bob | rest → up → rest → down, 1200ms each | Deterministic (random caused visible "jumps"). |
+| Blink | half 100ms → closed 180ms → half 100ms; cooldown 2-4s; ~20% doubles | Decoupled from body so blinks happen mid-cycle naturally. |
+| Capovolta | 6-frame squish + flip | Smaller motion than the rejected somersault. |
+| Moonwalk D6 | Body ±1, legs ratchet ±2, blink at apex | Legs visibly glide faster than body. Blink replaces head-squash (kept eyes visible). |
+| Moonwalk E | Wave-of-legs, body still | Variant for a different verb hook (TBD). |
+
+### Notes
+
+- Triggering during a running animation is a no-op. We deliberately don't queue — keeping the mascot reactive but not overloaded.
+- The 50ms tick granularity is the GCD-ish of all our animation timings (100/150/180/200ms). Cheap enough that visual lag is imperceptible.
+- `apply_blink` dynamically detects eye-row positions instead of hardcoding rows 5-6 — fixes a class of bugs where blinks looked inverted when the body was bobbed up or down.
+
+---
+
 ## [0.9.1] — 2026-05-24
 
 **Skill upgrade — proactive agent behaviors** (#29 done). `skills/octopus/SKILL.md` now teaches agents *when* to use the verbs that shipped in 0.8.0/0.9.0. Pure documentation; no CLI changes. The skill version bumps to 0.9.1 to track.

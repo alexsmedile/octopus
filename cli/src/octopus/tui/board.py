@@ -424,7 +424,14 @@ class BoardScreen(Screen):
             return
         self.app.push_screen(TaskDetailOverlay(self._activity_root, slug))
 
-    def _run(self, fn, *, success_msg: str, refresh: bool = True) -> None:
+    def _run(
+        self,
+        fn,
+        *,
+        success_msg: str,
+        refresh: bool = True,
+        mascot_anim: str | None = None,
+    ) -> None:
         try:
             result = fn()
         except ActionError as exc:
@@ -435,8 +442,19 @@ class BoardScreen(Screen):
             return
         msg = getattr(result, "message", None) or success_msg
         self._toast.flash(f"✓ {msg}")
+        if mascot_anim is not None:
+            self._trigger_mascot(mascot_anim)
         if refresh:
             self._refresh_data()
+
+    def _trigger_mascot(self, animation_name: str) -> None:
+        """Send a trigger to the header mascot. Silent on lookup miss."""
+        try:
+            from octopus.tui.header_bar import _Mascot
+            mascot = self.app.query_one("#header-mascot", _Mascot)
+            mascot.trigger(animation_name)
+        except Exception:
+            pass
 
     def action_finish(self) -> None:
         slug = self._current_slug()
@@ -446,6 +464,7 @@ class BoardScreen(Screen):
         self._run(
             lambda: actions.finish_task(self._activity_root, slug),
             success_msg=f"{slug} finished",
+            mascot_anim="capovolta",
         )
 
     def action_drop(self) -> None:
@@ -473,6 +492,7 @@ class BoardScreen(Screen):
         self._run(
             lambda: actions.toggle_pin(self._activity_root, slug),
             success_msg="pin toggled",
+            mascot_anim="moonwalk-d6",
         )
 
     def action_move_next(self) -> None:

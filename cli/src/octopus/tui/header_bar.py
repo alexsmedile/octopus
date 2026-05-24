@@ -24,7 +24,12 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from octopus.tui.icons import HOME, SESSION, SPINNER
-from octopus.tui.mascot import render_mascot
+from octopus.tui.mascot import (
+    TICK_INTERVAL_MS,
+    TICK_INTERVAL_S,
+    MascotController,
+    render_grid,
+)
 
 
 @dataclass(frozen=True)
@@ -35,10 +40,41 @@ class HeaderCounts:
 
 
 class _Mascot(Static):
-    """Static wrapper that renders the rich-pixels mascot."""
+    """Animated mascot — runs Calm-A by default, plays one-shot animations
+    when `trigger()` is called.
+
+    See #31 PLAN.md for the spec. The controller logic is in
+    `mascot.MascotController`; this widget just owns the Textual interval
+    and re-renders on each tick.
+    """
 
     def __init__(self) -> None:
-        super().__init__(render_mascot(), id="header-mascot")
+        super().__init__(id="header-mascot")
+        self._controller = MascotController()
+        # First render — set initial frame so the widget isn't empty before
+        # the first tick.
+        self.update(render_grid(self._controller.current_grid()))
+
+    def on_mount(self) -> None:
+        # Drive the controller at 50ms granularity. Each tick advances the
+        # body / blink / animation state and re-renders if the grid changed.
+        self._last_grid = self._controller.current_grid()
+        self.set_interval(TICK_INTERVAL_S, self._tick)
+
+    def _tick(self) -> None:
+        self._controller.tick(TICK_INTERVAL_MS)
+        grid = self._controller.current_grid()
+        # Only re-render when the grid actually changes — cheap diff to
+        # avoid burning cycles repainting identical frames.
+        if grid != self._last_grid:
+            self._last_grid = grid
+            self.update(render_grid(grid))
+
+    def trigger(self, animation_name: str) -> bool:
+        """Public API for verbs to trigger an animation. Returns True if the
+        trigger was accepted (state was idle), False otherwise.
+        """
+        return self._controller.trigger(animation_name)
 
 
 class _HeaderText(Static):
