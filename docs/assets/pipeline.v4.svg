@@ -61,6 +61,7 @@
 
   <text x="380" y="30" class="head" text-anchor="middle">a task flows left → right, with one side exit</text>
 
+  <g transform="translate(50,0)">
   <rect class="b-blue" x="20" y="60" width="125" height="110" rx="12" stroke-width="2"/>
   <text x="82.5" y="100" class="b-title" text-anchor="middle">backlog</text>
   <text x="82.5" y="125" class="b-desc" text-anchor="middle">ideas, intents,</text>
@@ -103,6 +104,7 @@
 
   <path class="ln-faint" d="M 350 170 Q 250 220 145 175" marker-end="url(#arrow)"/>
   <text x="248" y="215" class="arrow-l" text-anchor="middle">park (any → backlog)</text>
+  </g>
 
   <text x="380" y="275" class="head" text-anchor="middle">resume? `octopus start` on done/dropped → back to now</text>
 </svg>

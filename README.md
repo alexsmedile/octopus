@@ -122,7 +122,7 @@ Octopus has one big idea about workflow: **five piles**, and tasks move between 
 
 <div align="center">
 
-<img src="docs/assets/pipeline.v3.svg" width="100%" alt="Five-bucket pipeline — backlog → next → now → done, with dropped as a side exit."/>
+<img src="docs/assets/pipeline.v4.svg" width="100%" alt="Five-bucket pipeline — backlog → next → now → done, with dropped as a side exit."/>
 
 </div>
 
