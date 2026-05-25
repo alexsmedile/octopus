@@ -50,19 +50,35 @@ Header {
     height: 1fr;
     background: #0F1014;
     padding: 0 1 0 0;
+    content-align: left middle;
 }
 
-#header-text {
+#header-mascot-small {
+    width: 14;
+    height: 1fr;
+    background: #0F1014;
+    padding: 0 1 0 0;
+    content-align: left middle;
+}
+
+#header-left {
     width: 1fr;
     height: 1fr;
     background: #0F1014;
     padding: 0 0 0 1;
+    content-align: left middle;
 }
 
-Footer {
-    background: #16171E;
-    color: #8A8D9A;
+#header-right {
+    width: auto;
+    min-width: 24;
+    height: 1fr;
+    background: #0F1014;
+    padding: 0 1 0 1;
+    content-align: right middle;
+    text-align: right;
 }
+
 
 /* ── Panels ─────────────────────────────────────────────────────────── */
 
@@ -264,33 +280,15 @@ ListView > ListItem.--highlight {
     text-style: bold;
 }
 
-/* ── Footer / keymap bar — teal (override Textual's default blue) ──── */
+/* ── Keymap bar — custom per-key chips (replaces Textual's Footer) ──
+   Per-key colors live in keymap_bar.py (sourced from TUI-KEYS.md). */
 
-Footer {
-    background: #16171E;
+#keymap-bar {
+    dock: bottom;
+    height: 1;
+    background: #0F1014;
     color: #8A8D9A;
-}
-
-Footer > .footer--key {
-    background: #1E3A3D;
-    color: #89DCEB;
-    text-style: bold;
-}
-
-Footer > .footer--description {
-    background: #16171E;
-    color: #8A8D9A;
-}
-
-Footer > .footer--highlight {
-    background: #1E3A3D;
-    color: #89DCEB;
-}
-
-Footer > .footer--highlight-key {
-    background: #265053;
-    color: #89DCEB;
-    text-style: bold;
+    padding: 0 1;
 }
 
 /* ── Focus three-quadrant layout ────────────────────────────────────── */
@@ -301,30 +299,75 @@ Footer > .footer--highlight-key {
     layout: horizontal;
 }
 
+/* ── Per-panel bucket colors ────────────────────────────────────────────
+   Resting state: neutral grey border + title (inherited from .panel).
+   Focused state: border + title flip to the pane's bucket color, replacing
+   the universal pink focus highlight. */
+
 #backlog-panel {
     width: 2fr;
     height: 1fr;
 }
-
-#right-column {
-    width: 3fr;
-    height: 1fr;
-    layout: vertical;
+#backlog-panel.panel--focused {
+    border: heavy #8A8D9A;
+    border-title-color: #8A8D9A;
 }
 
 #now-panel {
     width: 1fr;
     height: 1fr;
 }
+#now-panel.panel--focused {
+    border: heavy #F38BA8;
+    border-title-color: #F38BA8;
+}
 
 #next-panel {
     width: 1fr;
     height: 1fr;
 }
+#next-panel.panel--focused {
+    border: heavy #89DCEB;
+    border-title-color: #89DCEB;
+}
 
 #detail-panel {
     width: 2fr;
     height: 1fr;
+}
+#detail-panel.panel--focused {
+    border: heavy #CBA6F7;
+    border-title-color: #CBA6F7;
+}
+
+/* Board-mode columns share the same color vocabulary. */
+#board-backlog-panel.panel--focused {
+    border: heavy #8A8D9A;
+    border-title-color: #8A8D9A;
+}
+#board-next-panel.panel--focused {
+    border: heavy #89DCEB;
+    border-title-color: #89DCEB;
+}
+#board-now-panel.panel--focused {
+    border: heavy #F38BA8;
+    border-title-color: #F38BA8;
+}
+#board-done-panel.panel--focused {
+    border: heavy #A6E3A1;
+    border-title-color: #A6E3A1;
+}
+
+/* When the detail pane is hidden, give backlog more breathing room.
+   Toggled by FocusScreen.action_toggle_detail. */
+#quadrants.detail-hidden #backlog-panel {
+    width: 3fr;
+}
+
+#right-column {
+    width: 3fr;
+    height: 1fr;
+    layout: vertical;
 }
 
 #detail-scroll {

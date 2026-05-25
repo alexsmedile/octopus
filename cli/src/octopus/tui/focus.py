@@ -35,7 +35,9 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.containers import VerticalScroll
-from textual.widgets import Footer, ListItem, ListView, Static
+from textual.widgets import ListItem, ListView, Static
+
+from octopus.tui.keymap_bar import KeymapBar
 
 from octopus import actions
 from octopus.actions import ActionError
@@ -97,6 +99,24 @@ def _filter_rows(rows, needle: str):
         if n in title.lower():
             out.append(r)
     return out
+
+
+def _git_repo_name(start: Path) -> str:
+    """Walk up from `start` looking for a directory containing `.git/`.
+    Returns the basename of the git toplevel, or "" if none found.
+    Stops at filesystem root or $HOME — whichever comes first.
+    """
+    try:
+        cur = start.resolve()
+    except Exception:
+        return ""
+    home = Path.home().resolve()
+    while True:
+        if (cur / ".git").exists():
+            return cur.name
+        if cur == cur.parent or cur == home:
+            return ""
+        cur = cur.parent
 
 
 def _short_path(p: Path) -> str:
@@ -394,15 +414,21 @@ class FocusScreen(Screen):
         detail_panel.styles.display = "none"
         self._detail_panel = detail_panel
 
-        yield Horizontal(backlog_panel, right_column, detail_panel, id="quadrants")
+        # `detail-hidden` class controls backlog width — wider when the
+        # detail pane is collapsed. Toggled by action_toggle_detail.
+        yield Horizontal(
+            backlog_panel, right_column, detail_panel,
+            id="quadrants", classes="detail-hidden",
+        )
         yield self._toast
         yield self._status_bar
-        yield Footer()
+        yield KeymapBar()
 
     def on_mount(self) -> None:
         self._header.title_text = "OCTOPUS"
         self._header.set_activity(self._activity_title)
         self._header.set_cwd(_short_path(self._activity_root))
+        self._header.set_repo_name(_git_repo_name(self._activity_root))
         self._header.set_mode("focus")
         self._header.set_state("ready")
         self._status_bar.set_activity_id(self._activity_id)
@@ -776,6 +802,15 @@ class FocusScreen(Screen):
         self._detail_visible = not self._detail_visible
         if self._detail_panel is not None:
             self._detail_panel.styles.display = "block" if self._detail_visible else "none"
+        # Flip the wrapper class so backlog reclaims the freed width.
+        try:
+            quadrants = self.query_one("#quadrants")
+            if self._detail_visible:
+                quadrants.remove_class("detail-hidden")
+            else:
+                quadrants.add_class("detail-hidden")
+        except Exception:
+            pass
         if self._detail_visible:
             self._refresh_detail()
 

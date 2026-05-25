@@ -72,6 +72,44 @@ Independent boolean flags. Rendered after the title, before the meta suffix. Cap
 
 `!` appears in both slot 1 (blocked) and slot 2 (priority high). This is intentional and unambiguous because the slots sit in different columns. Renderers must never collapse the slots into one cell.
 
+## Slot 3 — Header glyphs
+
+Glyphs that decorate rows in the top header bar. These are not status glyphs (they don't change per task); they label the kind of line you're looking at.
+
+| Glyph | Code point | Color | Slot | Status | Meaning |
+|---|---|---|---|---|---|
+| `⌂` | U+2302 | dim `#8A8D9A` | Path row | active | Working directory / scope path |
+| `◇` | U+25C7 | lavender `#CBA6F7` | Activity row | **active** | Activity-name prefix |
+| `⬡` | U+2B21 | lavender `#CBA6F7` | Activity row | **active** | Repo-name prefix (shown when activity root is inside a git repo) |
+| `◆` | U+25C6 | — | Activity row (variant) | **reserved** | Filled-diamond variant — future activity-state encoding |
+| `⬢` | U+2B22 | — | Activity row (variant) | **reserved** | Filled-hexagon variant — future repo-state encoding |
+| `▶` | U+25B6 | cyan `#89DCEB` | State row | active | Human session running in this activity |
+| `»` | U+00BB | cyan `#89DCEB` | State row | **reserved** | Agent run indicator — future "an agent is acting on this activity / task" |
+| `⟳` | U+27F3 | dim or `#F5C76E` busy | State row | active | Tui state (ready / refreshing…) |
+
+### Activity row layout
+
+Single-line form: `◇ <activity-name>   ⬡ <repo-name>` — both glyphs lavender, activity name in default-foreground white, repo name in dim grey. The repo segment is omitted when the activity root is not inside a git repo.
+
+**Detection.** Walk up from the activity root looking for a directory containing `.git/`. Stop at filesystem root or `$HOME`, whichever comes first. The repo name is the basename of the git toplevel. Detected once on TUI mount; not reactive.
+
+**Why walk up.** Activity folders are commonly subfolders of a larger repo (e.g. `~/repo/projects/foo/`) — walking up catches this without the user having to flag it. The `$HOME` ceiling prevents accidentally surfacing a parent repo when the activity actually lives in a non-git location.
+
+**Reserved filled variants.** `◆` (filled diamond) and `⬢` (filled hexagon) are defined but not rendered. They are slot-reserved for future state encodings on the same row (e.g. "activity has unread alerts," "repo has uncommitted changes"). Color stays lavender for any future variant — only the fill changes.
+
+### Session vs agent (active + reserved)
+
+Two complementary "something is running" indicators, in the same color family but distinct silhouettes:
+
+- `▶` — **active**. Human session running. Used in both header state row and task-row override (Slot 1).
+- `»` — **reserved**. Agent run indicator. Reserved for when an autonomous agent is acting on the activity or a specific task. Will use the same color as `▶` (cyan) so both read as "live activity," but the chevron silhouette distinguishes "human at the wheel" from "agent at the wheel."
+
+Emoji fast-forward (`⏩`) was rejected: renders inconsistently across terminals, breaks the plain-glyph vocabulary, and color-emoji rendering clashes with the rest of the palette.
+
+### Session glyph hygiene
+
+The session-active glyph is `▶` in **both** scopes (header state row + task row override). The previous `◆` allocation for "session" in the header has been retired — see D91. Each glyph carries one meaning.
+
 ## Detail pane — KV value glyphs
 
 In the Detail pane's frontmatter key/value grid, the value is prefixed with the slot-1 glyph for the relevant field:

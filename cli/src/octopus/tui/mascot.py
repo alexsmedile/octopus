@@ -75,6 +75,41 @@ def render_mascot() -> Pixels:
     return render_grid(BASE_REF)
 
 
+def _crop_grid(grid: str, src_w: int, src_h: int,
+               x0: int, y0: int, w: int, h: int) -> str:
+    """Crop a flat-string pixel grid to a (w × h) window at (x0, y0)."""
+    out = []
+    for y in range(y0, y0 + h):
+        row = grid[y * src_w : (y + 1) * src_w]
+        out.append(row[x0 : x0 + w])
+    return "".join(out)
+
+
+@lru_cache(maxsize=1)
+def render_mascot_small() -> Pixels:
+    """Smaller static mascot for Mid header mode.
+
+    The source 16×14 grid has 2 px top/bottom padding and 2-3 px side padding
+    around a 12×10 figure. Resizing the whole grid drags the asymmetric
+    padding into the result and looks crooked.
+
+    Instead we crop to the content bounding box (cols 2-13, rows 2-11) which
+    yields a pixel-exact 12×10 figure — no rescale, no blur, no aspect skew.
+    Renders as 12 cells wide × 5 half-block rows tall, a clean fit for Mid
+    mode's 5-row band.
+    """
+    from octopus.tui.mascot_frames import H as SRC_H
+    from octopus.tui.mascot_frames import W as SRC_W
+
+    cropped = _crop_grid(BASE_REF, SRC_W, SRC_H, x0=2, y0=2, w=12, h=10)
+    # Build an image at the cropped dimensions, then render as half-blocks.
+    img = Image.new("RGB", (12, 10), BG_COLOR)
+    pixels = img.load()
+    for i, ch in enumerate(cropped):
+        pixels[i % 12, i // 12] = _PALETTE[ch]
+    return Pixels.from_image(img)
+
+
 # ─── State machine ────────────────────────────────────────────────────
 
 

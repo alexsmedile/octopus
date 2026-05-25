@@ -1659,6 +1659,49 @@ single-line. `--format pretty|compact` to override. Noun-explicit form
 
 ---
 
+## D91 — Header glyph vocabulary (Slot 3)
+
+The TUI header bar gets a dedicated glyph slot, distinct from the row-level status (Slot 1) and flag (Slot 2) glyphs.
+
+**Active glyphs (in use):**
+
+- **`◇` (lavender)** — Activity row, activity-name prefix.
+- **`⬡` (lavender)** — Activity row, repo-name prefix. Shown when the activity root is inside a git repo (walk-up `.git/` detection).
+- **`▶` (cyan)** — Human session running. Reused from the existing row-level session glyph (Slot 1 override). One glyph, one meaning across both scopes.
+- **`⌂` (dim)** — Path row. Unchanged.
+- **`⟳` (dim / yellow when busy)** — Tui state. Unchanged.
+
+Activity row layout: `◇ <activity-name>   ⬡ <repo-name>`. The repo segment is omitted when no git toplevel is found above the activity root.
+
+**Reserved glyphs (defined, not yet rendered):**
+
+- **`◆` (filled diamond)** — Activity row variant. Reserved for a future activity-state encoding (e.g. "activity has unread alerts").
+- **`⬢` (filled hexagon)** — Activity row variant. Reserved for a future repo-state encoding (e.g. "repo has uncommitted changes").
+- **`»` (chevron)** — State row. Reserved for an "agent is acting on this activity / task" indicator. Pairs with `▶` (human session) — same cyan, distinct silhouette.
+
+The previous `SESSION = "◆"` constant in `tui/icons.py` is retired — `◆` is now an activity-row variant, not a session glyph. `SESSION_RUN = "▶"` is the single canonical session glyph.
+
+**Rationale — hollow over filled.** Both the activity-name and repo-name segments carry permanent context (which activity, which repo), not a transient state. Hollow shapes (`◇`, `⬡`) read as labels / markers; filled shapes (`◆`, `⬢`) read as active states. Reserving the filled variants for future state encodings keeps the hollow/filled contrast available as a typed-state vocabulary when we need it.
+
+**Rationale — `»` for agent, not `⏩`.** The fast-forward emoji renders as a color emoji on most terminals, breaking the plain-glyph palette. `»` (U+00BB right double angle) reads as "fast-forward / auto-advancing," is ASCII-grade, and renders consistently. Will use the same cyan color as `▶` to signal "live activity," with shape distinguishing "human at the wheel" from "agent at the wheel."
+
+**Rationale — walk-up git detection.** Activity folders commonly live inside a larger repo (e.g. `~/repo/projects/foo/`). Walking up from the activity root surfaces the enclosing repo without the user having to flag it. Stop at filesystem root or `$HOME` (whichever comes first) so we don't accidentally surface a remote-mounted parent. `.git/config` parsing for "is this actually a GitHub remote" is deliberately not done — `⬡` means "git-tracked," not "GitHub-hosted." Hexagon was picked because the platform popularized the motif, but the trigger is generic git.
+
+**Implementation pointer.** `tui/icons.py` defines:
+
+- `ACTIVITY = "◇"` (in use)
+- `REPO = "⬡"` (in use)
+- `ACTIVITY_FILLED = "◆"` (reserved)
+- `REPO_FILLED = "⬢"` (reserved)
+- `AGENT_RUN = "»"` (reserved)
+- `SESSION_RUN = "▶"` (in use)
+
+`HeaderBar.set_repo_name(name)` shows the `⬡ <name>` segment. Empty string hides it. `set_git_detected(False)` is a back-compat shim that clears the repo name. Detection helper `_git_repo_name(path)` lives in `tui/focus.py` and is called from both `focus.py` and `board.py` on mount.
+
+See `.spectacular/specs/TUI-GLYPHS.md` Slot 3 for the full spec.
+
+---
+
 ## 2026-05-25 — TUI key schema + glyph vocabulary (request 34)
 
 ### G1 — Glyph variant: collapsed (1 cell, color = bucket)

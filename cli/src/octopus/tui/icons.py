@@ -31,9 +31,24 @@ DONE = "✓"
 PINNED = "*"      # was "⚐" — see spec D7 (flag glyphs)
 BLOCKED = "!"     # was "⏸"
 CURSOR = "▸"
-SESSION = "◆"
 SPINNER = "⟳"
 HOME = "⌂"
+
+# Activity row glyphs — sit before the activity name (and repo name when
+# the activity root is a git repo) in the header.
+#   ◇ activity-name   ⬡ repo-name
+# The filled diamond and filled hexagon variants are reserved for future
+# state encodings (see D91).
+ACTIVITY = "◇"               # active: hollow diamond — activity-name prefix
+REPO = "⬡"                   # active: hollow hexagon — repo-name prefix (git)
+ACTIVITY_FILLED = "◆"        # reserved (future variant — do not use yet)
+REPO_FILLED = "⬢"            # reserved (future variant — do not use yet)
+
+# Agent run indicator — reserved for future "an agent is acting on this
+# activity / task" status. Pairs with SESSION_RUN (▶ = human session).
+# Chevron rather than the emoji fast-forward (⏩) — emoji renders inconsistent
+# in terminals and breaks the plain-glyph vocabulary.
+AGENT_RUN = "»"              # reserved (future status glyph)
 
 # ── Flag glyphs (post-title meta) ──────────────────────────────────────
 

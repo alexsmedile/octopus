@@ -28,7 +28,9 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Footer, ListItem, ListView, Static
+from textual.widgets import ListItem, ListView, Static
+
+from octopus.tui.keymap_bar import KeymapBar
 
 from octopus import actions
 from octopus.actions import ActionError
@@ -145,13 +147,15 @@ class BoardScreen(Screen):
         yield Horizontal(*cols, id="board-columns")
         yield self._toast
         yield self._status_bar
-        yield Footer()
+        yield KeymapBar()
 
     def on_mount(self) -> None:
         from octopus.tui.focus import _short_path
         self._header.title_text = "OCTOPUS"
         self._header.set_activity(self._activity_title)
         self._header.set_cwd(_short_path(self._activity_root))
+        from octopus.tui.focus import _git_repo_name
+        self._header.set_repo_name(_git_repo_name(self._activity_root))
         self._header.set_mode("board")
         self._header.set_state("ready")
         try:

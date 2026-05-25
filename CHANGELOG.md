@@ -5,6 +5,43 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.7-rc1] — 2026-05-25
+
+**TUI visual redesign — release candidate.** Header restructured into a real 3-column layout (mascot · left meta · right counts+tabs) with four height modes (Slim 1 · Compact 3 · Mid 5 · Full 7), an ASCII OCTOPUS wordmark in Full mode, and a smaller content-cropped mascot for Mid. Activity rows now carry `◇ <activity>   ⬡ <repo>` glyphs (lavender) with walk-up git detection bounded at `$HOME`. Panel borders + titles flip to the pane's bucket color on focus instead of universal pink. Replaced Textual's built-in Footer with a custom `KeymapBar` widget so each key chip renders in its mnemonic color per `TUI-KEYS.md`. Detail pane is scrollable, toggleable with `,`, and expands the backlog column when hidden.
+
+### Added
+
+- **Header Mid mode** (height 5) — smaller static mascot + plain OCTOPUS row + activity/path/state rows. Sits between Full and Compact. Auto-selected at 110-139 cols.
+- **ASCII wordmark** (Option B) — 3-row block-letter OCTOPUS for Full mode.
+- **Activity & repo glyphs** — `◇` (U+25C7) for activity name, `⬡` (U+2B21) for git repo name. Filled variants `◆` `⬢` reserved for future state encodings. Agent-run indicator `»` reserved.
+- **`KeymapBar` widget** (`cli/src/octopus/tui/keymap_bar.py`) — replaces Textual's Footer. Per-key colors sourced from `TUI-KEYS.md`: `n` lavender, `m` yellow, `f` green, `p` teal, `d`/`b` pink, `,` lavender, system keys grey. Responsive: 7/9/11 chips by terminal width.
+- **Detail pane** — scrollable, lavender border on focus, toggle with `,`, backlog widens when hidden.
+- **Bindings**: `b` block (prompts reason), `B` unblock, `u` undo (stub toast), `y` yank slug to clipboard, `g` go-to slug, `H` cycle header mode.
+- **Block / unblock actions** in `cli/src/octopus/actions.py`.
+- **Skill mirror refs**: `skills/octopus/references/tui-glyphs.md` and `tui-keys.md` — operational subset of the spec, per the CLAUDE.md sync rule.
+
+### Changed
+
+- **Panel border colors are now bucket-coherent on focus only** — BACKLOG grey, NOW pink, NEXT cyan, DETAIL lavender, board DONE green. Resting panels keep the neutral grey border (`#2A2C36`).
+- **Header restructured** into Textual `Horizontal` columns (mascot | left meta | right counts) instead of one widget with internal row padding.
+- **Counts moved to right corner**; Full/Mid show 2-row counts with labels, Compact uses single-row no-labels.
+- **Small mascot** now content-bbox cropped (cols 2-13, rows 2-11) instead of resized — pixel-exact 12×10 figure preserves aspect.
+- **Session glyph hygiene**: `▶` is now the single canonical session glyph in both header state row and task-row override. `◆` was retired from "session" allocation (D91).
+
+### Fixed
+
+- **Duplicate OCTOPUS** in the header (purple title + white activity name on separate rows). Activity name now sits on its own glyph-prefixed row.
+- **Crooked small mascot** caused by asymmetric source padding (3 left, 2 right) being dragged into the resize. Replaced resize with content-bbox crop.
+- **Emoji fast-forward `⏩`** swapped to plain glyph `»` for the reserved agent-run slot.
+
+### Notes
+
+- Plugin manifests (`.claude-plugin/`, `.codex-plugin/`, `.agents/`) stay on the independent `0.1.0` track — only the CLI version moves.
+- The custom `KeymapBar` replaces Textual's `Footer` entirely; the cyan footer overrides in `theme.tcss` were removed.
+- This is RC1 — visual QA pass requested before promoting to `v0.9.7` final.
+
+---
+
 ## [0.9.6] — 2026-05-25
 
 **Mascot ambient idle interrupt.** The TUI mascot now occasionally moonwalks on its own while idle — every 30s there's a 15% chance to spontaneously play `moonwalk-d6` or `moonwalk-e` (50/50). Verb-triggered animations (`finish` → capovolta, `pin` → moonwalk-d6) still take priority and reset the ambient clock on completion.
