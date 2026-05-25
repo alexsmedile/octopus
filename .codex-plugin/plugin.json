@@ -12,5 +12,20 @@
     "agents/octopus-handoff-writer.md",
     "agents/octopus-context-loader.md"
   ],
-  "hooks": "hooks/hooks-codex.json"
+  "hooks": "hooks/hooks-codex.json",
+  "interface": {
+    "displayName": "Octopus",
+    "shortDescription": "Folder-native task & continuity system",
+    "longDescription": "Folder-native task and continuity system. Any folder containing .octopus/activity.md becomes an activity with tasks, sessions, handoffs, and accumulated memory stored as plain markdown next to the work. CLI-driven (octopus / octo); cross-activity read and write verbs let agents work from any cwd.",
+    "developerName": "Alessandro Smedile",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/alexsmedile/octopus",
+    "defaultPrompt": [
+      "What should I do next?",
+      "Show me the current activity and any blocked tasks.",
+      "Start a session and capture this work as a task."
+    ],
+    "brandColor": "#CBA6F7"
+  }
 }

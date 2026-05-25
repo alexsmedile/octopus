@@ -4,15 +4,32 @@
     "name": "Alessandro Smedile"
   },
   "metadata": {
-    "description": "Folder-native task and continuity system for Claude Code.",
-    "version": "0.1.0"
+    "description": "Folder-native task and continuity system. Captures tasks, sessions, memory, and handoffs as plain markdown next to your work.",
+    "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "octopus",
       "source": "./",
       "description": "Folder-native task and continuity system. Activities, tasks, sessions, memory, handoffs — all as markdown.",
-      "version": "0.1.0",
+      "version": "1.0.0",
+      "author": {
+        "name": "Alessandro Smedile"
+      },
+      "license": "MIT",
+      "homepage": "https://github.com/alexsmedile/octopus",
+      "repository": "https://github.com/alexsmedile/octopus",
+      "keywords": [
+        "tasks",
+        "productivity",
+        "folder-native",
+        "local-first",
+        "obsidian",
+        "claude-code",
+        "sessions",
+        "memory",
+        "handoffs"
+      ],
       "category": "productivity"
     }
   ]
