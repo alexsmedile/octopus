@@ -555,6 +555,32 @@ BucketPickerModal {
     height: 1fr;
 }
 
+/* Inline detail panel — docks at the bottom of the board when toggled. */
+#board-detail-panel {
+    height: 40%;
+    width: 1fr;
+    border: heavy #2A2C36;
+    border-title-color: #8A8D9A;
+    background: #0F1014;
+}
+#board-detail-panel:focus-within {
+    border: heavy #CBA6F7;
+    border-title-color: #CBA6F7;
+}
+#board-detail-scroll {
+    width: 1fr;
+    height: 1fr;
+    background: #0F1014;
+    scrollbar-size: 1 1;
+}
+#board-detail-body {
+    width: 1fr;
+    height: auto;
+    padding: 0 1;
+    background: #0F1014;
+    color: #F5F5F7;
+}
+
 /* ── Edit modal — matches the main view's .panel idiom ──────────────
    Outer modal frame: lavender heavy border, title in border (slug),
    subtitle = bucket label.

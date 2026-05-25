@@ -35,7 +35,7 @@ from pathlib import Path
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import ListItem, ListView, Static
 
@@ -47,10 +47,14 @@ from octopus.db.connection import get_db
 from octopus.db.queries import tasks_for_activity
 from octopus.fs.io import read_activity
 from octopus.tui.filter_bar import FilterBar
-from octopus.tui.focus import _drop_zombies, _filter_rows, _TaskListItem
+from octopus.tui.focus import (
+    _drop_zombies,
+    _filter_rows,
+    _render_detail,
+    _TaskListItem,
+)
 from octopus.tui.header_bar import HeaderBar
 from octopus.tui.help import HelpOverlay
-from octopus.tui.overlay import TaskDetailOverlay
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
 from octopus.tui.toast import Toast
@@ -76,7 +80,7 @@ class BoardScreen(Screen):
         Binding("?", "help", "help", show=True),
         Binding("slash", "filter", "filter", show=True),
         Binding("r", "reindex", "refresh", show=True),
-        Binding("enter", "open_detail", "detail", show=False),
+        Binding("enter", "open_detail", "detail", show=False, priority=True),
         Binding("right", "nav_right", "→", show=False),
         Binding("left", "nav_left", "←", show=False),
         Binding("up", "nav_up", "↑", show=False),
@@ -85,10 +89,11 @@ class BoardScreen(Screen):
         Binding("shift+tab", "nav_shift_tab", "prev col", show=False),
         Binding("right_square_bracket", "slide_right", "slide →", show=False),
         Binding("left_square_bracket", "slide_left", "slide ←", show=False),
-        Binding("escape", "noop", "close", show=False),
-        # Mode switch (App-level alias)
-        Binding("1", "focus_mode", "focus", show=True),
-        Binding("2", "board_mode", "board", show=True),
+        Binding("escape", "noop", "close", show=False, priority=True),
+        # Mode switch (App-level alias). priority=True so ListView focus
+        # doesn't swallow the digit on Textual 8.x.
+        Binding("1", "focus_mode", "focus", show=True, priority=True),
+        Binding("2", "board_mode", "board", show=True, priority=True),
         # Mutations
         Binding("s", "session_start", "session", show=True),
         Binding("f", "finish", "finish", show=True),
@@ -143,6 +148,13 @@ class BoardScreen(Screen):
         self._marquee_timer = None
         self._marquee_item: _TaskListItem | None = None
 
+        # Inline detail pane (docks bottom when visible).
+        self._detail_visible: bool = False
+        self._detail_body = Static("", id="board-detail-body", expand=True)
+        self._detail_scroll = VerticalScroll(
+            self._detail_body, id="board-detail-scroll"
+        )
+
     # Border titles per bucket.
     _HEADERS = {
         C_BACKLOG: "BACKLOG",
@@ -167,6 +179,18 @@ class BoardScreen(Screen):
             cols.append(panel)
 
         yield Horizontal(*cols, id="board-columns")
+
+        # Inline detail panel — hidden until user opens it.
+        detail_panel = Vertical(
+            self._detail_scroll,
+            classes="panel",
+            id="board-detail-panel",
+        )
+        detail_panel.border_title = "DETAIL"
+        detail_panel.styles.display = "none"
+        self._detail_panel = detail_panel
+        yield detail_panel
+
         yield self._toast
         yield self._status_bar
         yield KeymapBar()
@@ -327,6 +351,9 @@ class BoardScreen(Screen):
                 new_item.render_title(selected=True, title_offset=0)
             except Exception:
                 pass
+        # Keep detail in sync if the inline pane is open.
+        if self._detail_visible:
+            self._refresh_detail()
 
     def _current_list(self) -> ListView:
         return self._lists[self._active]
@@ -532,7 +559,9 @@ class BoardScreen(Screen):
     # ── actions ───────────────────────────────────────────────────────
 
     def action_noop(self) -> None:
-        pass
+        # If the detail pane is open, Esc closes it; otherwise no-op.
+        if self._detail_visible:
+            self.action_open_detail()
 
     def action_quit(self) -> None:
         try:
@@ -566,11 +595,38 @@ class BoardScreen(Screen):
         self._toast.flash("⟳ refreshed · filter cleared" if had_filter else "⟳ refreshed")
 
     def action_open_detail(self) -> None:
+        """Toggle the inline detail pane (docks at the bottom of the board)."""
         slug = self._current_slug()
-        if slug is None:
+        if slug is None and not self._detail_visible:
             self._toast.flash("nothing selected")
             return
-        self.app.push_screen(TaskDetailOverlay(self._activity_root, slug))
+        self._detail_visible = not self._detail_visible
+        if self._detail_panel is None:
+            return
+        if self._detail_visible:
+            self._detail_panel.styles.display = "block"
+            self._refresh_detail()
+            # Focus the scroll so ↓/↑ scroll the body.
+            try:
+                self.set_focus(self._detail_scroll)
+            except Exception:
+                pass
+        else:
+            self._detail_panel.styles.display = "none"
+            # Return focus to the active column.
+            try:
+                self.set_focus(self._lists[self._active])
+            except Exception:
+                pass
+
+    def _refresh_detail(self) -> None:
+        if not self._detail_visible:
+            return
+        slug = self._current_slug()
+        try:
+            self._detail_body.update(_render_detail(self._activity_root, slug))
+        except Exception as exc:
+            self._detail_body.update(f"(detail unavailable: {exc})")
 
     def _run(
         self,

@@ -303,9 +303,9 @@ class FocusScreen(Screen):
         Binding("tab", "nav_tab", "next pane", show=False),
         Binding("shift+tab", "nav_shift_tab", "prev pane", show=False),
         Binding("escape", "noop", "close", show=False),
-        # Mode switch
-        Binding("1", "focus_mode", "focus", show=True),
-        Binding("2", "board_mode", "board", show=True),
+        # Mode switch. priority=True so ListView focus doesn't swallow the digit.
+        Binding("1", "focus_mode", "focus", show=True, priority=True),
+        Binding("2", "board_mode", "board", show=True, priority=True),
         # Mutations
         Binding("s", "session_start", "session", show=True),
         Binding("S", "session_start_titled", "session+title", show=False),
