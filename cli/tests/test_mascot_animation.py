@@ -260,3 +260,34 @@ def test_animation_frames_advance_through_each_position():
         c.tick(50)
     # 6 frames but some may not be unique — at least 4 distinct.
     assert len(seen_grids) >= 4
+
+
+# ─── Ambient idle interrupt ─────────────────────────────────────────
+
+
+def test_ambient_does_not_fire_before_tick_window():
+    # Even with a "lucky" rng, the roll only happens at the AMBIENT_TICK_MS
+    # boundary, so the controller stays idle for the first 29 seconds.
+    c = MascotController()
+    c._rng = random.Random(0)  # would pass a .15 roll
+    for _ in range(29_000 // 50):
+        c.tick(50)
+    assert c.state == "idle"
+
+
+def test_ambient_fires_when_roll_succeeds():
+    # Seed 0 → first random() = 0.844… (would FAIL the 0.15 roll on first try),
+    # so we force a roll by patching AMBIENT_PROB to 1.0 for this controller.
+    import octopus.tui.mascot as mascot_mod
+
+    c = MascotController()
+    c._rng = random.Random(0)
+    orig_prob = mascot_mod.AMBIENT_PROB
+    mascot_mod.AMBIENT_PROB = 1.0
+    try:
+        # Tick just past AMBIENT_TICK_MS.
+        for _ in range(601):  # 601 * 50ms = 30.05s
+            c.tick(50)
+    finally:
+        mascot_mod.AMBIENT_PROB = orig_prob
+    assert c.state in {"moonwalk-d6", "moonwalk-e"}

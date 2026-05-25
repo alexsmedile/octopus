@@ -147,6 +147,13 @@ BLINK_COOLDOWN_MAX_MS: int = 4000
 # Probability of any given blink being a double.
 DOUBLE_BLINK_PROB: float = 0.20
 
+# Ambient idle interrupt: every AMBIENT_TICK_MS while idle, roll AMBIENT_PROB
+# to spontaneously play moonwalk-d6 or moonwalk-e (50/50). Set AMBIENT_PROB=0
+# to disable. See PLAN.md §"Trigger model".
+AMBIENT_TICK_MS: int = 30_000
+AMBIENT_PROB: float = 0.15
+AMBIENT_ANIMATIONS: tuple[str, ...] = ("moonwalk-d6", "moonwalk-e")
+
 
 # ─── Capovolta-B (squish + flip, triggered on `octopus finish`) ───────
 

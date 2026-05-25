@@ -19,6 +19,9 @@ from PIL import Image
 from rich_pixels import Pixels
 
 from octopus.tui.mascot_frames import (
+    AMBIENT_ANIMATIONS,
+    AMBIENT_PROB,
+    AMBIENT_TICK_MS,
     ANIMATIONS,
     BASE_REF,
     BLINK_COOLDOWN_MAX_MS,
@@ -112,6 +115,9 @@ class MascotController:
     _anim_frame_idx: int = 0
     _anim_frame_elapsed_ms: int = 0
 
+    # Ambient idle interrupt: roll AMBIENT_PROB every AMBIENT_TICK_MS.
+    _ambient_elapsed_ms: int = 0
+
     # Reproducibility for tests
     _rng: random.Random = field(default_factory=random.Random)
 
@@ -159,6 +165,15 @@ class MascotController:
         return self._blink_active.phase.level if self._blink_active else 0
 
     def _tick_calm(self, delta_ms: int) -> None:
+        # Ambient interrupt: every AMBIENT_TICK_MS, roll for a spontaneous
+        # animation. Reset the accumulator whether we fire or not.
+        self._ambient_elapsed_ms += delta_ms
+        if self._ambient_elapsed_ms >= AMBIENT_TICK_MS:
+            self._ambient_elapsed_ms = 0
+            if AMBIENT_PROB > 0 and self._rng.random() < AMBIENT_PROB:
+                pick = self._rng.choice(AMBIENT_ANIMATIONS)
+                self.trigger(pick)
+                return
         # Body channel
         self._calm_step_elapsed_ms += delta_ms
         step_ms = CALM_A_SEQUENCE[self._calm_step_idx].ms
@@ -202,6 +217,7 @@ class MascotController:
                 self.state = "idle"
                 self._anim_frames = ()
                 self._anim_frame_idx = 0
+                self._ambient_elapsed_ms = 0
 
 
 # ─── Tick interval used by the Textual widget ────────────────────────

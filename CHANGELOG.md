@@ -5,6 +5,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.6] — 2026-05-25
+
+**Mascot ambient idle interrupt.** The TUI mascot now occasionally moonwalks on its own while idle — every 30s there's a 15% chance to spontaneously play `moonwalk-d6` or `moonwalk-e` (50/50). Verb-triggered animations (`finish` → capovolta, `pin` → moonwalk-d6) still take priority and reset the ambient clock on completion.
+
+### Added
+
+- **Ambient idle animation roller** in `cli/src/octopus/tui/mascot.py` — tunable via `AMBIENT_TICK_MS` (30_000), `AMBIENT_PROB` (0.15), and `AMBIENT_ANIMATIONS` (`moonwalk-d6`, `moonwalk-e`) in `mascot_frames.py`. Set `AMBIENT_PROB=0` to disable.
+- 2 new tests covering the no-fire window and the forced-fire path. Full suite: 603/603 green.
+
+### Notes
+
+- Closes the last open deliverable on `.spectacular/requests/31-tui-mascot-ascii-animations`: ambient interrupt was deferred from initial implementation pending visual QA. QA confirmed; rate locked to the values listed in PLAN.md §"Trigger model".
+
+---
+
 ## [0.9.5] — 2026-05-25
 
 **CI hotfix.** Clears 68 ruff violations that were blocking the test workflow on every push to main. No runtime or behavioral changes; 601/601 tests pass.

@@ -1,8 +1,8 @@
 ---
-status: in-progress
+status: done
 priority: medium
 owner: alex
-updated: 2026-05-24
+updated: 2026-05-25
 summary: "Animated TUI mascot — Calm-A idle (independent body + blink channels) plus two event-triggered loops (Capovolta-B on finish, Moonwalk-D6 on pin, with E as an optional second variant). Half-block pixel-art rendering on a 16×14 grid."
 related:
   - 18-mascot-animation
@@ -220,14 +220,15 @@ Initial wiring (subject to revision once we see it in the TUI):
 
 - [x] Visual spec confirmed via preview.html (v1 through v9 iterations preserved in history)
 - [x] Locked PLAN.md (this file)
-- [ ] `mascot_frames.py` with all confirmed grids
-- [ ] `mascot.py` refactored
-- [ ] `_Mascot` widget state machine
-- [ ] Event wiring
-- [ ] Tests
-- [ ] Visual QA in real TUI
-- [ ] CHANGELOG entry
-- [ ] Version bump
+- [x] `mascot_frames.py` with all confirmed grids
+- [x] `mascot.py` refactored
+- [x] `_Mascot` widget state machine
+- [x] Event wiring (board.py + focus.py call `mascot.trigger()`)
+- [x] Tests (27 mascot tests, 603 total)
+- [x] Visual QA in real TUI (v0.9.6 session, ambient temp-boosted then reverted)
+- [x] CHANGELOG entry (v0.9.6)
+- [x] Version bump (0.9.5 → 0.9.6)
+- [x] Ambient idle interrupt (30s / 15%, picks d6 or e)
 
 ## References
 
