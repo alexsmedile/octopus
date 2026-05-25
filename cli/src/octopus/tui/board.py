@@ -7,18 +7,21 @@ Layout (3 of 5 buckets visible at a time):
     │    task B   │  task Y  │  task N │
     └─────────────┴──────────┴─────────┘
 
-The cycle is circular:
+Pages (5 buckets, window of 3 → 3 pages):
 
-    backlog → next → now → done → dropped → (wraps to backlog)
+    page 0: backlog | next    | now
+    page 1: next    | now     | done
+    page 2: now     | done    | dropped
 
 Same row widget, overlay, and mutation keymap as FocusScreen. Navigation:
   - `←`/`→` walks the cursor within the visible window; pressing past the
-    rightmost panel slides the window +1 and keeps the cursor on the
-    rightmost slot. Same for left-edge.
+    rightmost panel slides to the next page (cursor stays on rightmost
+    slot). Same for left-edge.
   - `]` / `[` slide the window without moving the cursor slot.
   - Tab / Shift-Tab mirror →/←.
   - `↑`/`↓` move within the focused column.
   - `n` captures into the focused column.
+  - Hard stops at page 0 (left) and page 2 (right) — no wrap.
 
 Mode switcher: `1` = Focus, `2` = Board (handled at App level).
 """
@@ -353,9 +356,14 @@ class BoardScreen(Screen):
     # ── window ────────────────────────────────────────────────────────
 
     def _visible_columns(self) -> tuple[str, ...]:
-        """Return the WINDOW_SIZE buckets currently visible, in display order."""
-        n = len(COLUMNS)
-        return tuple(COLUMNS[(self._window_start + i) % n] for i in range(WINDOW_SIZE))
+        """Return the WINDOW_SIZE buckets currently visible, in display order.
+
+        Window is clamped to 0 <= _window_start <= len(COLUMNS) - WINDOW_SIZE,
+        so this is just a plain slice — no wrap.
+        """
+        return tuple(
+            COLUMNS[self._window_start + i] for i in range(WINDOW_SIZE)
+        )
 
     def _apply_window(self) -> None:
         """Show only the panels in the current window; hide the rest.
@@ -399,17 +407,25 @@ class BoardScreen(Screen):
         except ValueError:
             return 0
 
+    # Last valid window start. With 5 buckets and WINDOW_SIZE=3 → 2,
+    # giving pages 0..2: backlog|next|now, next|now|done, now|done|dropped.
+    _MAX_START = len(COLUMNS) - WINDOW_SIZE
+
     def action_slide_right(self) -> None:
-        """Slide window +1, keep cursor on the same slot index."""
+        """Slide window +1. Hard stop at the last page (no wrap)."""
+        if self._window_start >= self._MAX_START:
+            return
         slot = self._cursor_slot()
-        self._window_start = (self._window_start + 1) % len(COLUMNS)
+        self._window_start += 1
         self._apply_window()
         self._set_active(self._visible_columns()[slot])
 
     def action_slide_left(self) -> None:
-        """Slide window -1, keep cursor on the same slot index."""
+        """Slide window -1. Hard stop at page 0 (no wrap)."""
+        if self._window_start <= 0:
+            return
         slot = self._cursor_slot()
-        self._window_start = (self._window_start - 1) % len(COLUMNS)
+        self._window_start -= 1
         self._apply_window()
         self._set_active(self._visible_columns()[slot])
 
@@ -419,21 +435,23 @@ class BoardScreen(Screen):
         slot = self._cursor_slot()
         if slot < WINDOW_SIZE - 1:
             self._set_active(self._visible_columns()[slot + 1])
-        else:
-            # Past rightmost: slide window, keep cursor on the new rightmost.
-            self._window_start = (self._window_start + 1) % len(COLUMNS)
+        elif self._window_start < self._MAX_START:
+            # Past rightmost and more pages to the right: slide window.
+            self._window_start += 1
             self._apply_window()
             self._set_active(self._visible_columns()[WINDOW_SIZE - 1])
+        # else: at the rightmost slot of the last page — hard stop, no wrap.
 
     def action_nav_left(self) -> None:
         slot = self._cursor_slot()
         if slot > 0:
             self._set_active(self._visible_columns()[slot - 1])
-        else:
-            # Before leftmost: slide window back, keep cursor on the new leftmost.
-            self._window_start = (self._window_start - 1) % len(COLUMNS)
+        elif self._window_start > 0:
+            # Before leftmost and more pages to the left: slide window back.
+            self._window_start -= 1
             self._apply_window()
             self._set_active(self._visible_columns()[0])
+        # else: at the leftmost slot of page 0 — hard stop, no wrap.
 
     def action_nav_up(self) -> None:
         try:

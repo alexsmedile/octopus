@@ -57,18 +57,20 @@ def test_app_has_mode_switchers() -> None:
     assert hasattr(OctopusApp, "switch_to_board")
 
 
-def test_window_math_is_circular() -> None:
-    """Sliding window should wrap through all 5 buckets and never skip."""
+def test_window_math_clamps_no_wrap() -> None:
+    """Sliding window walks pages 0..MAX_START in order, no wrap."""
     from octopus.tui.board import COLUMNS, WINDOW_SIZE
 
-    n = len(COLUMNS)
-    # Step through every start position. Each window must have WINDOW_SIZE
-    # unique buckets in pipeline order.
-    seen_windows = set()
-    for start in range(n):
-        window = tuple(COLUMNS[(start + i) % n] for i in range(WINDOW_SIZE))
-        assert len(set(window)) == WINDOW_SIZE
-        seen_windows.add(window)
-    # Every bucket appears as the leftmost slot in exactly one window.
-    leftmost = {w[0] for w in seen_windows}
-    assert leftmost == set(COLUMNS)
+    max_start = len(COLUMNS) - WINDOW_SIZE
+    pages = [
+        tuple(COLUMNS[start + i] for i in range(WINDOW_SIZE))
+        for start in range(max_start + 1)
+    ]
+    # 5 buckets, window 3 → 3 pages.
+    assert len(pages) == 3
+    assert pages[0] == ("backlog", "next", "now")
+    assert pages[1] == ("next", "now", "done")
+    assert pages[2] == ("now", "done", "dropped")
+    # Every page is a contiguous slice (no wrap), buckets unique.
+    for w in pages:
+        assert len(set(w)) == WINDOW_SIZE
