@@ -372,7 +372,7 @@ Full keymap, modes, mascot behavior, and scope rules in **[`docs/TUI.md`](docs/T
 
 ## Status & what's next
 
-Latest: **v0.9.9** (2026-05-25) — Board view refined: sliding 3-column window across all 5 buckets (`backlog→next→now→done→dropped`), inline detail pane from the bottom, Focus↔Board cursor restore, redesigned Edit/Confirm/Input/Picker modals with macOS-native word nav, and a properties cheat-sheet in the Edit modal that inserts canonical YAML stubs on Enter. Currently on phase **06 — adapter framework** (the path to v1). v1 ships when 06 + 07 (Obsidian bridge) are done.
+Latest: **v1.0.0** (2026-05-25) — **the symbolic v1**. Visual vocabulary locked: slot-1 is now a single hybrid resolver (exception → session → progress → bucket-idle), bucket idle glyphs are `· □ ▣ ● ✕`, the progress ladder `○ ◐ ◑ ●` is reserved for tasks with explicit progress, pin is `*` in octopus-brand lavender, and every glyph traces back to `TUI-GLYPHS.md`. Also lands the inline preview row on Enter that always surfaces `blocked_by` / `waiting_for` in matching glyph color. Currently on phase **06 — adapter framework**; v1.x continues with the Obsidian bridge.
 
 Full release history, phase table, and what's queued in **[`docs/ROADMAP.md`](docs/ROADMAP.md)**. Per-release detail in [CHANGELOG.md](CHANGELOG.md).
 

@@ -5,6 +5,38 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [1.0.0] — 2026-05-25
+
+**v1 — the symbolic milestone.** A year-plus of folder-first task design finally crosses the line. Visual vocabulary is locked, slot-1 has a real resolver, and every glyph in the TUI traces back to a single source of truth.
+
+### Added
+
+- **Inline property preview row on Enter** (Focus + Board) — pressing `Enter` on a task expands a one-row preview beneath it with per-bucket properties (created/priority for backlog, scheduled/priority for next, started/due for now, ended/kind for done/dropped). Second `Enter` collapses it. `e` still opens the edit modal — Enter is preview-only. Moving the cursor auto-collapses.
+- **Blocked/waiting reason always surfaced** — when a task has `issue: blocked` or `issue: waiting`, the preview row replaces slot 2 with the `blocked_by` / `waiting_for` reason, in the slot-1 glyph color (amber for blocked, mustard for waiting). Load-bearing context never gets hidden by view-specific property slots.
+- **Slot-1 hybrid resolver** (`cli/src/octopus/tui/icons.py`) — single pure function that collapses bucket × progress × exception into one glyph by priority: exception override (`! ? + ✕`) → session live (`▶`) → progress ladder (`○ ◐ ◑ ●`) → bucket idle. Replaces the ad-hoc precedence logic.
+
+### Changed
+
+- **Bucket idle glyphs** — `next` now renders `□` (was `○`), `now` renders `▣` (was `◐`). The old `○ ◐` are reserved for the progress ladder only; bucket and progress are now two distinct axes that share slot 1 by priority. `backlog=·`, `done=●`, `dropped=✕` unchanged.
+- **Header chip ordering** — backlog → next → now → done (was: backlog → now → next → done). Pipeline order, matches the Board left-to-right flow.
+- **Pin glyph + color** — pin is `*` everywhere (chip row AND preview row; the literal `★` in the preview row was retired). Pin color is `#CBA6F7` lavender — the octopus brand color family — same as `+ migrated` and `◇` activity prefix. Pink is now reserved for `now` bucket and urgent affordances only.
+- **Column titles aligned with slot-1** — Board + Focus borders: `□ NEXT`, `▣ NOW`, `● DONE`, `✕ DROPPED`. Row glyphs and column headers now share the same vocabulary.
+- **Exception triggers follow schema** — `! blocked` reads `issue=blocked` (canonical, per `SCHEMA-TASK.md`), `? waiting` reads `issue=waiting`, `+ migrated` reads `promoted_to` is set. Legacy `run_state` values still honored for backwards compat.
+
+### Fixed
+
+- **`◆ session` docstring drift** (`cli/src/octopus/tui/header_bar.py`) — the ASCII header art referenced a retired allocation (`◆` for "session live"). Updated to `▶ session`. Filled diamond stays permanently reserved for future activity-state encoding.
+- **`✗ DROPPED` column title** — board header used the chrome "error" glyph (`✗ U+2717`) instead of the slot-1 dropped glyph (`✕ U+2715`). Now `✕ DROPPED` for consistency with task rows.
+
+### Docs
+
+- Spec rewritten: `.spectacular/specs/TUI-GLYPHS.md` now leads with the priority resolver, documents chrome glyphs as a separate layer (`▸ ✓ ✗ ⟳ ⌂`), marks unshipped slot-2 flags as reserved (`! : ^ & #`), permanently reserves the diamond family for activity and hexagon family for git.
+- `DECISIONS.md` appends D91–D99 — v1 glyph locks, retired `◆ session`, bucket idle glyph allocations, `now` color, pin color, schema field alignment.
+- Skill reference `skills/octopus/references/tui-glyphs.md` mirrored from spec.
+- New `.spectacular/requests/41-tui-glyph-audit/` shipped with full `AUDIT.md` drift table for future reference.
+
+---
+
 ## [0.9.9] — 2026-05-25
 
 **Board view, refined.** The Board (`2`) now spans all five buckets via a sliding 3-column window, the inline detail pane drops down from the bottom on `,` (no more centered overlay), and the cursor follows you across Focus↔Board swaps. The Edit modal grows a third pane: a properties cheat-sheet that inserts the right YAML stub on Enter, so you stop guessing the schema.
