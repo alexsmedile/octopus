@@ -5,6 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.5] — 2026-05-25
+
+**CI hotfix.** Clears 68 ruff violations that were blocking the test workflow on every push to main. No runtime or behavioral changes; 601/601 tests pass.
+
+### Fixed
+
+- **CI test workflow** — `ruff check src tests` (which runs before pytest) was failing with 68 lint violations introduced over recent commits, blocking all CI runs on `main`. Now clean.
+
+### Changed
+
+- **Lint cleanup** in `cli/`:
+  - 49 auto-fixes: unused imports, import sort, f-string flags missing placeholders, `zip(..., strict=False)`.
+  - Manual fixes: 11× drop `.keys()` from `in` checks (SIM118), 4× collapse nested `if` blocks (SIM102), 2× replace loop-with-return with `any(...)` (SIM110), 2× rename unused loop vars `c`/`q` → `_c`/`_q` (B007), 2× rename ambiguous `l` → `entry` (E741).
+- **`cli/pyproject.toml`** — added `SIM401` to `tool.ruff.lint.ignore` with rationale (false positive on `sqlite3.Row`, which supports `in` but not `.get()`).
+
+---
+
 ## [0.9.4] — 2026-05-25
 
 **Visual + copy polish pass.** No CLI code changes — refinement of the README hero, diagrams, and positioning copy. Animated mascot, terminal-style lifecycle, vertical axes infographic, and a tighter pitch throughout.

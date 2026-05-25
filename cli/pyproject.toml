@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "octopus-cli"
-version = "0.9.4"
+version = "0.9.5"
 description = "A folder-native task system. Local-first project and task orchestration."
 readme = "README.md"
 requires-python = ">=3.11"
