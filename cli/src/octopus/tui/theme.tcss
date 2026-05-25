@@ -464,6 +464,10 @@ BucketPickerModal {
     border: heavy #A6E3A1;
     border-title-color: #A6E3A1;
 }
+#board-dropped-panel.panel--focused {
+    border: heavy #F38BA8;
+    border-title-color: #F38BA8;
+}
 
 /* When the detail pane is hidden, give backlog more breathing room.
    Toggled by FocusScreen.action_toggle_detail. */
@@ -545,7 +549,8 @@ BucketPickerModal {
 #board-backlog-panel,
 #board-next-panel,
 #board-now-panel,
-#board-done-panel {
+#board-done-panel,
+#board-dropped-panel {
     width: 1fr;
     height: 1fr;
 }

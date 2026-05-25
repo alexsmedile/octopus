@@ -1,18 +1,24 @@
-"""BoardScreen — kanban-style four-column view.
+"""BoardScreen — kanban-style sliding 3-column view over 5 buckets.
 
-Layout:
+Layout (3 of 5 buckets visible at a time):
 
-    ┌── BACKLOG ──┬── NEXT ──┬── NOW ──┬── DONE ──┐
-    │  ▸ task A   │  task X  │  task M │  task Z  │
-    │    task B   │  task Y  │  task N │  task W  │
-    │    task C   │          │         │          │
-    └─────────────┴──────────┴─────────┴──────────┘
+    ┌── BACKLOG ──┬── NEXT ──┬── NOW ──┐
+    │  ▸ task A   │  task X  │  task M │
+    │    task B   │  task Y  │  task N │
+    └─────────────┴──────────┴─────────┘
 
-Same row widget, overlay, and mutation keymap as FocusScreen. Differences:
-  - Four columns instead of three quadrants
-  - `←`/`→` walks across all four; `↑`/`↓` stays within column
-  - Tab/Shift-Tab cycle columns
-  - `n` captures into the focused column
+The cycle is circular:
+
+    backlog → next → now → done → dropped → (wraps to backlog)
+
+Same row widget, overlay, and mutation keymap as FocusScreen. Navigation:
+  - `←`/`→` walks the cursor within the visible window; pressing past the
+    rightmost panel slides the window +1 and keeps the cursor on the
+    rightmost slot. Same for left-edge.
+  - `]` / `[` slide the window without moving the cursor slot.
+  - Tab / Shift-Tab mirror →/←.
+  - `↑`/`↓` move within the focused column.
+  - `n` captures into the focused column.
 
 Mode switcher: `1` = Focus, `2` = Board (handled at App level).
 """
@@ -51,7 +57,12 @@ C_BACKLOG = "backlog"
 C_NEXT = "next"
 C_NOW = "now"
 C_DONE = "done"
-COLUMNS = (C_BACKLOG, C_NEXT, C_NOW, C_DONE)
+C_DROPPED = "dropped"
+# Pipeline order. The board renders a 3-wide window over this cycle.
+COLUMNS = (C_BACKLOG, C_NEXT, C_NOW, C_DONE, C_DROPPED)
+
+# Number of buckets visible at a time.
+WINDOW_SIZE = 3
 
 
 class BoardScreen(Screen):
@@ -69,6 +80,8 @@ class BoardScreen(Screen):
         Binding("down", "nav_down", "↓", show=False),
         Binding("tab", "nav_tab", "next col", show=False),
         Binding("shift+tab", "nav_shift_tab", "prev col", show=False),
+        Binding("right_square_bracket", "slide_right", "slide →", show=False),
+        Binding("left_square_bracket", "slide_left", "slide ←", show=False),
         Binding("escape", "noop", "close", show=False),
         # Mode switch (App-level alias)
         Binding("1", "focus_mode", "focus", show=True),
@@ -114,6 +127,8 @@ class BoardScreen(Screen):
             c: ListView(id=f"board-{c}-list") for c in COLUMNS
         }
         self._panels: dict[str, Vertical] = {}
+        # Sliding 3-column window over COLUMNS. Initial: backlog | next | now.
+        self._window_start: int = 0
         self._active: str = C_NOW
 
         self._status_bar = StatusBar()
@@ -125,15 +140,18 @@ class BoardScreen(Screen):
         self._marquee_timer = None
         self._marquee_item: _TaskListItem | None = None
 
+    # Border titles per bucket.
+    _HEADERS = {
+        C_BACKLOG: "BACKLOG",
+        C_NEXT: "○ NEXT",
+        C_NOW: "● NOW",
+        C_DONE: "✓ DONE",
+        C_DROPPED: "✗ DROPPED",
+    }
+
     def compose(self) -> ComposeResult:
         yield self._header
 
-        headers = {
-            C_BACKLOG: "BACKLOG",
-            C_NEXT: "○ NEXT",
-            C_NOW: "● NOW",
-            C_DONE: "✓ DONE",
-        }
         cols = []
         for c in COLUMNS:
             panel = Vertical(
@@ -141,7 +159,7 @@ class BoardScreen(Screen):
                 classes="panel",
                 id=f"board-{c}-panel",
             )
-            panel.border_title = headers[c]
+            panel.border_title = self._HEADERS[c]
             self._panels[c] = panel
             cols.append(panel)
 
@@ -167,13 +185,18 @@ class BoardScreen(Screen):
         self._status_bar.set_activity_id(self._activity_id)
         self._status_bar.set_state("ready")
         self._refresh_data()
-        # Prefer the first column with tasks (NOW → NEXT → BACKLOG → DONE).
-        for c in (C_NOW, C_NEXT, C_BACKLOG, C_DONE):
-            if self._has_real_tasks(c):
-                self._set_active(c)
+        # Apply initial window visibility (backlog | next | now).
+        self._apply_window()
+        # Prefer the first visible column with tasks; fall back to NOW (or last visible).
+        visible = self._visible_columns()
+        chosen: str | None = None
+        for c in (C_NOW, C_NEXT, C_BACKLOG):
+            if c in visible and self._has_real_tasks(c):
+                chosen = c
                 break
-        else:
-            self._set_active(C_NOW)
+        if chosen is None:
+            chosen = C_NOW if C_NOW in visible else visible[-1]
+        self._set_active(chosen)
         self._marquee_timer = self.set_interval(0.4, self._tick_marquee)
 
     # ── data ──────────────────────────────────────────────────────────
@@ -216,6 +239,7 @@ class BoardScreen(Screen):
             C_NEXT: "  Empty.   Use [#F38BA8 bold]m[/] from backlog to plan.",
             C_NOW: "  Empty.   Use [#F38BA8 bold]m[/] from next to activate.",
             C_DONE: "  Nothing finished yet.",
+            C_DROPPED: "  Nothing dropped.",
         }
         for c in COLUMNS:
             self._fill(c, rows_by_col[c], empty_msg=empties[c])
@@ -326,15 +350,90 @@ class BoardScreen(Screen):
     def _has_real_tasks(self, c: str) -> bool:
         return any(isinstance(child, _TaskListItem) for child in self._lists[c].children)
 
+    # ── window ────────────────────────────────────────────────────────
+
+    def _visible_columns(self) -> tuple[str, ...]:
+        """Return the WINDOW_SIZE buckets currently visible, in display order."""
+        n = len(COLUMNS)
+        return tuple(COLUMNS[(self._window_start + i) % n] for i in range(WINDOW_SIZE))
+
+    def _apply_window(self) -> None:
+        """Show only the panels in the current window; hide the rest.
+
+        Order matters — the visible panels keep COLUMNS' DOM order, so the
+        leftmost on-screen column may be any bucket depending on
+        _window_start. We use `display = True/False` and a per-panel
+        `layout-order` style to reorder visible panels left-to-right.
+        """
+        visible = self._visible_columns()
+        for c, panel in self._panels.items():
+            if c in visible:
+                panel.display = True
+            else:
+                panel.display = False
+        # Reorder visible panels so they appear left-to-right in window order.
+        # Textual lays out by DOM order; move each visible panel after the
+        # previous one to enforce the desired sequence.
+        try:
+            container = self.query_one("#board-columns")
+        except Exception:
+            return
+        prev_panel = None
+        for c in visible:
+            panel = self._panels[c]
+            try:
+                if prev_panel is None:
+                    # Put first visible panel before everything else.
+                    container.move_child(panel, before=0)
+                else:
+                    container.move_child(panel, after=prev_panel)
+            except Exception:
+                pass
+            prev_panel = panel
+
+    def _cursor_slot(self) -> int:
+        """Index (0..WINDOW_SIZE-1) of `_active` within the visible window."""
+        visible = self._visible_columns()
+        try:
+            return visible.index(self._active)
+        except ValueError:
+            return 0
+
+    def action_slide_right(self) -> None:
+        """Slide window +1, keep cursor on the same slot index."""
+        slot = self._cursor_slot()
+        self._window_start = (self._window_start + 1) % len(COLUMNS)
+        self._apply_window()
+        self._set_active(self._visible_columns()[slot])
+
+    def action_slide_left(self) -> None:
+        """Slide window -1, keep cursor on the same slot index."""
+        slot = self._cursor_slot()
+        self._window_start = (self._window_start - 1) % len(COLUMNS)
+        self._apply_window()
+        self._set_active(self._visible_columns()[slot])
+
+    # ── nav ───────────────────────────────────────────────────────────
+
     def action_nav_right(self) -> None:
-        i = COLUMNS.index(self._active)
-        if i < len(COLUMNS) - 1:
-            self._set_active(COLUMNS[i + 1])
+        slot = self._cursor_slot()
+        if slot < WINDOW_SIZE - 1:
+            self._set_active(self._visible_columns()[slot + 1])
+        else:
+            # Past rightmost: slide window, keep cursor on the new rightmost.
+            self._window_start = (self._window_start + 1) % len(COLUMNS)
+            self._apply_window()
+            self._set_active(self._visible_columns()[WINDOW_SIZE - 1])
 
     def action_nav_left(self) -> None:
-        i = COLUMNS.index(self._active)
-        if i > 0:
-            self._set_active(COLUMNS[i - 1])
+        slot = self._cursor_slot()
+        if slot > 0:
+            self._set_active(self._visible_columns()[slot - 1])
+        else:
+            # Before leftmost: slide window back, keep cursor on the new leftmost.
+            self._window_start = (self._window_start - 1) % len(COLUMNS)
+            self._apply_window()
+            self._set_active(self._visible_columns()[0])
 
     def action_nav_up(self) -> None:
         try:
@@ -349,12 +448,12 @@ class BoardScreen(Screen):
             pass
 
     def action_nav_tab(self) -> None:
-        i = COLUMNS.index(self._active)
-        self._set_active(COLUMNS[(i + 1) % len(COLUMNS)])
+        # Same shape as nav_right — slides past the rightmost.
+        self.action_nav_right()
 
     def action_nav_shift_tab(self) -> None:
-        i = COLUMNS.index(self._active)
-        self._set_active(COLUMNS[(i - 1) % len(COLUMNS)])
+        # Same shape as nav_left.
+        self.action_nav_left()
 
     def action_focus_mode(self) -> None:
         if hasattr(self.app, "switch_to_focus"):
@@ -556,10 +655,10 @@ class BoardScreen(Screen):
         self.app.push_screen(BucketPickerModal(current=current), _on_choice)
 
     def action_capture_inline(self) -> None:
-        # Don't allow capturing into "done" — pointless.
+        # Don't allow capturing into terminal buckets — pointless.
         target_bucket = self._active
-        if target_bucket == C_DONE:
-            self._toast.flash("can't capture into done")
+        if target_bucket in (C_DONE, C_DROPPED):
+            self._toast.flash(f"can't capture into {target_bucket}")
             return
 
         def _on_title(title: str | None) -> None:
