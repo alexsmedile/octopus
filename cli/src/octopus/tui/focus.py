@@ -217,17 +217,22 @@ _BUCKET_PREVIEW: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
 }
 
 
-def _block_reason(row: sqlite3.Row) -> tuple[str, str] | None:
-    """Return (label, value) for a blocked/waiting task, or None.
+def _block_reason(row: sqlite3.Row) -> tuple[str, str, str] | None:
+    """Return (label, value, color) for a blocked/waiting task, or None.
 
     `issue` lives in its own column; `blocked_by` and `waiting_for` are
     inside `raw_frontmatter` JSON. We extract them defensively so a
     missing/malformed payload never breaks rendering.
+
+    Color matches the slot-1 exception glyph color:
+      blocked → #FAB387 amber  (same as `!` glyph)
+      waiting → #F5C76E mustard (same as `?` glyph)
     """
     issue = (row["issue"] if _row_has(row, "issue") else None) or ""
     if issue not in ("blocked", "waiting"):
         return None
     key = "blocked_by" if issue == "blocked" else "waiting_for"
+    color = "#FAB387" if issue == "blocked" else "#F5C76E"
     raw = row["raw_frontmatter"] if _row_has(row, "raw_frontmatter") else None
     value = ""
     if raw:
@@ -239,7 +244,7 @@ def _block_reason(row: sqlite3.Row) -> tuple[str, str] | None:
                 value = str(v).strip()
         except Exception:
             value = ""
-    return (key, value or issue)
+    return (key, value or issue, color)
 
 
 def _row_preview(row: sqlite3.Row) -> Text:
@@ -256,16 +261,17 @@ def _row_preview(row: sqlite3.Row) -> Text:
     out.append("    ", style="#0F1014")
 
     if _row_has(row, "pinned") and row["pinned"]:
-        out.append("★ pinned", style="#F38BA8")
+        out.append("* pinned", style="#CBA6F7")
         out.append("   ·   ", style="#3A3D48")
 
-    def _chip(label: str, value, *, urgent: bool = False) -> None:
-        label_style = "#F38BA8 bold" if urgent else "#8A8D9A"
+    def _chip(label: str, value, *, color: str | None = None) -> None:
+        label_style = f"{color} bold" if color else "#8A8D9A"
         out.append(f"{label} ", style=label_style)
         if value is None or value == "":
             out.append("—", style="#3A3D48")
         else:
-            out.append(str(value), style="#F5F5F7")
+            value_style = color if color else "#F5F5F7"
+            out.append(str(value), style=value_style)
 
     (l1, c1), (l2, c2) = pair
     v1 = row[c1] if _row_has(row, c1) else None
@@ -274,7 +280,7 @@ def _row_preview(row: sqlite3.Row) -> Text:
 
     reason = _block_reason(row)
     if reason is not None:
-        _chip(reason[0], reason[1], urgent=True)
+        _chip(reason[0], reason[1], color=reason[2])
     else:
         v2 = row[c2] if _row_has(row, c2) else None
         _chip(l2, v2)
@@ -488,13 +494,13 @@ class FocusScreen(Screen):
             classes="panel",
             id="now-panel",
         )
-        now_panel.border_title = "● NOW"
+        now_panel.border_title = "▣ NOW"
         next_panel = Vertical(
             self._lists[Q_NEXT],
             classes="panel",
             id="next-panel",
         )
-        next_panel.border_title = "○ NEXT"
+        next_panel.border_title = "□ NEXT"
         self._panels[Q_BACKLOG] = backlog_panel
         self._panels[Q_NOW] = now_panel
         self._panels[Q_NEXT] = next_panel

@@ -1748,3 +1748,61 @@ See `.spectacular/specs/TUI-GLYPHS.md` Slot 3 for the full spec.
 - `.spectacular/specs/TUI-GLYPHS.md` (glyph layer)
 - `.spectacular/specs/TUI-KEYS.md` (key layer)
 - Mirror to `docs/KEYS.md` (public) and `skills/octopus/references/tui-{glyphs,keys}.md` (operational) pending.
+
+---
+
+## v1.0 — Glyph audit & reconciliation (request 41)
+
+### D91 — Retire `◆ session`
+- The filled-diamond `◆` as a "session live" indicator is **retired**. Session live is `▶` everywhere (header state row AND slot-1 task override).
+- `◆` stays **permanently reserved** for future activity-state encoding (filled variant of `◇`).
+- Codebase docstring drift fixed in `header_bar.py:9, 201`.
+
+### D92 — Bucket idle glyphs (slot 1)
+- The slot-1 glyph is a **collapsed hybrid** of bucket × progress × exception. Priority: exception > session > progress > bucket-idle.
+- **Bucket idle glyphs (when no progress, no session, no exception):**
+  - `backlog` → `·` grey dot
+  - `next`    → `□` outline square (was `○`)
+  - `now`     → `▣` filled-inner square (was `◐`)
+  - `done`    → `●` filled green (terminal — also top of progress ladder)
+  - `dropped` → `✕` grey (terminal)
+- Progress ladder (`○ ◐ ◑ ●`) is now used *only* when a task has explicit `progress` value. Inherits bucket color.
+- Column headers (`board.py`, `focus.py`) updated to match: `□ NEXT`, `▣ NOW`, `● DONE`, `✕ DROPPED`.
+
+### D93 — `now` color is pink, not yellow
+- `now` bucket renders in `#F38BA8` (now-pink) per shipped palette. The aspirational yellow `#FACC15` from earlier draft of TUI-GLYPHS.md is **retired**.
+- Yellow (`#F5C76E`) is reserved for `?` waiting glyph and `⟳` busy spinner state — distinct semantic, distinct usage.
+
+### D94 — Pinned glyph is `*` everywhere
+- Pinned uses `*` in both the chip row AND the inline preview row. The `★` (filled-star) literal in `focus.py:_row_preview` was retired in v1.0.
+- Spec sync: `TUI-GLYPHS.md` flag-glyphs table updated; `skills/octopus/references/tui-glyphs.md` mirrored.
+
+### D95 — Diamond + hexagon families reserved permanently
+- `◇` `◆` — diamond family, reserved for **activity** state.
+- `⬡` `⬢` — hexagon family, reserved for **git/repo** state.
+- Filled variants currently unused but slot-reserved. Color stays lavender; only fill changes when activated.
+
+### D96 — Slot-1 exception triggers follow schema
+- Code reads the **canonical schema field** for each exception:
+  - `! blocked`  ← `issue=blocked` (legacy `run_state=blocked` still honored).
+  - `? waiting`  ← `issue=waiting` (legacy `run_state=waiting` still honored).
+  - `+ migrated` ← `promoted_to` is set (was incorrectly checking `run_state=migrated` or `migrated` field).
+- Schema field aliases stay as the source of truth. See `SCHEMA-TASK.md`.
+
+### D97 — Chrome glyphs are not status glyphs
+- `▸` cursor, `✓` success, `✗` error, `⟳` spinner, `⌂` home are **chrome affordances**, never task state.
+- `✕` (U+2715, dropped-bucket task state) ≠ `✗` (U+2717, operation failure). Never substitute.
+
+### D98 — `progress` field is forward-spec
+- The renderer for the progress ladder is shipped, but `progress` is not yet in `SCHEMA-TASK.md`. The field is **reserved** for v1.x.
+- Bucket idle glyph fills the gap until then — every task is treated as idle on its bucket until `progress` is wired through schema + import.
+
+### Specs synced
+- `.spectacular/specs/TUI-GLYPHS.md` rewritten (slot-1 resolver, bucket idle glyphs, retired allocations).
+- `skills/octopus/references/tui-glyphs.md` mirrored (operational subset).
+- Code: `cli/src/octopus/tui/icons.py` (resolver + constants), `header_bar.py`, `board.py`, `focus.py`.
+
+### D99 — Pin color is lavender (`#CBA6F7`), not pink
+- Pinned chip + preview row both use `#CBA6F7` (existing palette lavender — same family as `+ migrated`, `◇ activity`, `⬡ repo`).
+- Reading: pinned tasks are "held / saved by the user" — a calmer, persistent signal. Pink (`#F38BA8`) belongs to `now` and urgent affordances; reserving it for those keeps urgency loud.
+- Octopus brand colour aligns with the lavender family — pinning is the most "branded" gesture in the row vocabulary.

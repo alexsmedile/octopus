@@ -160,10 +160,10 @@ class BoardScreen(Screen):
     # Border titles per bucket.
     _HEADERS = {
         C_BACKLOG: "BACKLOG",
-        C_NEXT: "○ NEXT",
-        C_NOW: "● NOW",
-        C_DONE: "✓ DONE",
-        C_DROPPED: "✗ DROPPED",
+        C_NEXT: "□ NEXT",
+        C_NOW: "▣ NOW",
+        C_DONE: "● DONE",
+        C_DROPPED: "✕ DROPPED",
     }
 
     def compose(self) -> ComposeResult:

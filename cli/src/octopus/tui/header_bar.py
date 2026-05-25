@@ -6,7 +6,7 @@ Right: title, activity, path, session, counts, mode tabs — stacked.
     ▄▄▄▄▄▄▄▄▄▄    OCTOPUS                                      1 focus  2 board
     ██████████    demo activity
     ████████████  ⌂ ~/vault/data/skills_db/octopus
-    ██●●██●●████  ◆ session 12m  ·  3 now  ·  7 next  ·  2 blocked
+    ██●●██●●████  ▶ session 12m  ·  7 next  ·  3 now  ·  2 blocked
     ████████████  ⟳ ready
     ██ ██ ██ ██
 """
@@ -106,8 +106,8 @@ def _counts_cells(counts: HeaderCounts) -> list[tuple[str, str, str]]:
     `glyph_chunk` already includes the number (e.g. "· 12")."""
     cells = [
         (f"· {counts.backlog}", "backlog", "#8A8D9A"),
-        (f"◐ {counts.now}", "now",     "#F38BA8"),
-        (f"○ {counts.next_}", "next",    "#89DCEB"),
+        (f"□ {counts.next_}", "next",    "#89DCEB"),
+        (f"▣ {counts.now}", "now",     "#F38BA8"),
         (f"● {counts.done}", "done",    "#A6E3A1"),
     ]
     if counts.blocked:
@@ -198,7 +198,7 @@ class _HeaderLeft(Static):
             # 3 rows:
             #   row 0: OCTOPUS  ·  ◇ activity  ·  ⬡ repo
             #   row 1: ⌂ path
-            #   row 2: ⟳ ready / ◆ session …
+            #   row 2: ⟳ ready / ▶ session …
             combined = Text(no_wrap=True, overflow="ellipsis")
             combined.append(self.title_text, style="bold #CBA6F7")
             if self.activity_name:

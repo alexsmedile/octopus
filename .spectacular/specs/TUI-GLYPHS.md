@@ -1,91 +1,126 @@
 # TUI-GLYPHS — Status & flag glyph dictionary
 
-Authoritative spec for the visual vocabulary used by the Octopus TUI and (opt-in) the CLI. Locked by request [34-tui-key-schema](../requests/34-tui-key-schema/PLAN.md). Companion to [TUI-KEYS.md](TUI-KEYS.md).
+Authoritative spec for the visual vocabulary used by the Octopus TUI and (opt-in) the CLI. Locked by request [34-tui-key-schema](../requests/34-tui-key-schema/PLAN.md) and revised by [41-tui-glyph-audit](../requests/41-tui-glyph-audit/PLAN.md). Companion to [TUI-KEYS.md](TUI-KEYS.md).
 
 ## Model
 
-Each task row exposes **three positional slots**:
+Each task row exposes **three positional slots**, plus a chrome layer:
 
 ```
-  ◐  fix the webhook auth bug                *!:   code  ~2h
-  └─ status glyph                            └─ flag glyphs (≤3)   └─ kind · age
-  (slot 1, single cell)                      (slot 2, ≤3 cells)    (slot 3, dim)
+  ▸  ▣  fix the webhook auth bug                *!:   code · 2h
+  │  │                                          │     │
+  │  └─ slot 1: status (single cell)            │     └─ slot 3: meta (dim)
+  └─ chrome: cursor (when row is selected)      └─ slot 2: flags (≤3)
 ```
 
-- **Slot 1 — status glyph.** Exactly one. Carries progress along a 4-stage circle ladder; bucket axis comes from row color and (in the TUI) the pane the row lives in. Exception states (`▶` `!` `?` `✕` `+`) break the ladder.
-- **Slot 2 — flag glyphs.** Zero to three. Independent boolean flags (pinned, priority, references, etc.). Cap at 3; overflow collapses to `…` and surfaces in the Detail pane.
+- **Chrome** — `▸ cursor`, `✓ success`, `✗ error`. Affordances, never task state.
+- **Slot 1 — status glyph.** Exactly one cell. **Collapsed hybrid** of bucket × progress × exception state, resolved by precedence. See "Slot 1" below.
+- **Slot 2 — flag glyphs.** Zero to three. Independent boolean flags. Cap at 3; overflow collapses to `…` and surfaces in the Detail pane. **Currently only `*` (pinned) is shipped; the rest are reserved.**
 - **Slot 3 — meta suffix.** Dim grey, right-aligned: `kind` chip + `age` (e.g. `code · 2h ago`). Already shipped; documented here for completeness.
 
-## Slot 1 — Status glyphs
+## Slot 1 — Status glyph (collapsed hybrid)
 
-| Glyph | State | When | Color |
+Slot 1 is a single cell that collapses three axes — **bucket × progress × exception state** — into one glyph. The resolver runs top-down; first match wins.
+
+### Priority resolver
+
+1. **Exception overrides** — `!` blocked → `?` waiting → `+` migrated → `✕` dropped (terminal bucket).
+2. **Session live** — `▶` (active human session). `»` is reserved for agent sessions.
+3. **Progress active** — when the task has a non-null `progress` value, show the **progress ladder**: `○ ◐ ◑ ●`. Inherits **bucket color**.
+4. **Bucket idle** — no progress, no session, no exception. Shows the **bucket idle glyph**.
+
+A task with `progress=0.5` AND `bucket=now` AND `issue=blocked` renders `!`, not `◐` or `▣`. Exceptions always win.
+
+### Why a hybrid
+
+Bucket and progress are independent axes — the user needs to see *both*. But slot 1 is one cell. Trade-off: when a task is **idle**, the bucket axis is the only signal worth showing; when a task is **active** (has progress), progress is the more informative axis and the bucket axis is carried by **color** (the glyph inherits the bucket's color, even though the glyph shape comes from the progress ladder).
+
+### Glyphs
+
+#### Exception overrides (highest precedence)
+
+| Glyph | State | Trigger | Color |
 |---|---|---|---|
-| `·` | parked / idle | `bucket=backlog` AND `progress` is null | dim grey |
-| `○` | open | `progress` rounds to 0 (and not parked) | bucket color |
-| `◐` | half | `progress` rounds to 0.5 | bucket color |
-| `◑` | most-done | `progress` rounds to 0.75+ (only when `progress_stages: 4`) | bucket color |
-| `●` | done | `bucket=done` (terminal state) | done-green |
-| `▶` | session live | `session_id` is set on the task | now-yellow, bold |
-| `✕` | dropped | `bucket=dropped` | drop-pink, dim |
-| `!` | blocked | `run_state=blocked` | drop-pink |
-| `?` | waiting | `issue=waiting` | drop-pink |
-| `+` | migrated | `promoted_to` is set | lavender |
+| `!` | blocked | `issue=blocked` (canonical) or `run_state=blocked` (legacy) | warn amber `#FAB387` |
+| `?` | waiting | `issue=waiting` (canonical) or `run_state=waiting` (legacy) | mustard `#F5C76E` |
+| `+` | migrated | `promoted_to` is set | lavender `#CBA6F7` |
+| `✕` | dropped | `bucket=dropped` (terminal) | dim grey `#8A8D9A` |
 
-### Precedence (highest wins)
+#### Session
 
-When multiple states apply, the higher-precedence glyph wins. A task that is `blocked` AND has progress=0.5 shows `!`, not `◐`.
+| Glyph | State | Trigger | Color |
+|---|---|---|---|
+| `▶` | session live | active human session on this task | cyan `#89DCEB` |
+| `»` | reserved — agent session | (future) | cyan `#89DCEB` |
 
-1. `!` blocked
-2. `?` waiting
-3. `▶` session live
-4. `+` migrated
-5. `●` done (terminal bucket)
-6. `✕` dropped (terminal bucket)
-7. Progress ladder: `·` parked → `○` open → `◐` half → `◑` most → (`●` is the top of the ladder, already at level 5)
+#### Progress ladder (active tasks with `progress` field)
 
-### Bucket axis
+| Glyph | Stop | Color |
+|---|---|---|
+| `○` | open / progress ≈ 0 | bucket color |
+| `◐` | half / progress ≈ 50% | bucket color |
+| `◑` | most / progress ≈ 75% (only when `progress_stages: 4`) | bucket color |
+| `●` | done / progress = 100% | bucket color (done → mint green) |
 
-Color carries the bucket in the collapsed (default) variant. Pane context reinforces it in the TUI: rows in the Backlog pane look uniformly muted; rows in the Now pane share the yellow accent.
+#### Bucket idle (no progress, no session, no exception)
+
+| Bucket | Glyph | Why | Color |
+|---|---|---|---|
+| backlog | `·` | grey dot — parked, no activity | dim grey `#8A8D9A` |
+| next | `□` | outline square — planned but inert | cyan `#89DCEB` |
+| now | `▣` | filled-inner square — current focus | now-pink `#F38BA8` |
+| done | `●` | filled green — terminal (also top of progress ladder) | mint `#A6E3A1` |
+| dropped | `✕` | terminal (also covered as exception override) | dim grey `#8A8D9A` |
+
+### Bucket axis (color reinforcement)
+
+Color carries the bucket axis when the glyph shape comes from the progress ladder. Pane context (in the TUI) reinforces it: rows in the BACKLOG pane are uniformly muted; rows in the NOW pane share the now-pink accent.
 
 | Bucket | Color |
 |---|---|
-| backlog | `#7AB8FF` (or muted grey for fully-idle rows) |
-| next | `#5EEAD4` |
-| now | `#FACC15` |
-| done | `#86EFAC` |
-| dropped | `#F38BA8` (dim) |
+| backlog | `#8A8D9A` dim grey |
+| next | `#89DCEB` cyan |
+| now | `#F38BA8` pink |
+| done | `#A6E3A1` mint |
+| dropped | `#8A8D9A` dim grey |
+
+The `now` color is pink (`#F38BA8`), not yellow. Yellow (`#F5C76E`) is reserved for `?` waiting and `⟳` busy spinner.
 
 ## Slot 2 — Flag glyphs
 
 Independent boolean flags. Rendered after the title, before the meta suffix. Cap at 3.
 
-| Glyph | Flag | Color | Source field |
-|---|---|---|---|
-| `*` | pinned | next-teal | `pinned: true` |
-| `!` | priority high | drop-pink | `priority: high` |
-| `:` | has references | lavender | `refs:` non-empty |
-| `^` | has linked session | next-teal | any session log exists |
-| `&` | scheduled | now-yellow | `scheduled_for` is set |
-| `#` | tagged | dim grey | `tags:` non-empty |
+| Glyph | Flag | Color | Source field | Status |
+|---|---|---|---|---|
+| `*` | pinned | lavender `#CBA6F7` | `pinned: true` | **active** |
+| `!` | priority high | drop-pink | `priority: high` | **reserved** |
+| `:` | has refs | lavender | `refs:` non-empty | **reserved** |
+| `^` | has session log | next-teal | any session log exists | **reserved** |
+| `&` | scheduled | now-yellow | `scheduled` is set | **reserved** |
+| `#` | tagged | dim grey | `tags:` non-empty | **reserved** |
 
 ### Slot-collision note
 
 `!` appears in both slot 1 (blocked) and slot 2 (priority high). This is intentional and unambiguous because the slots sit in different columns. Renderers must never collapse the slots into one cell.
 
-## Slot 3 — Header glyphs
+### Pinned glyph
 
-Glyphs that decorate rows in the top header bar. These are not status glyphs (they don't change per task); they label the kind of line you're looking at.
+Pinned uses `*` (asterisk) in **both** the chip row and the inline preview row. The previous `★` (filled star) literal in `_row_preview` was retired in v1.0 — same glyph everywhere.
 
-| Glyph | Code point | Color | Slot | Status | Meaning |
-|---|---|---|---|---|---|
-| `⌂` | U+2302 | dim `#8A8D9A` | Path row | active | Working directory / scope path |
-| `◇` | U+25C7 | lavender `#CBA6F7` | Activity row | **active** | Activity-name prefix |
-| `⬡` | U+2B21 | lavender `#CBA6F7` | Activity row | **active** | Repo-name prefix (shown when activity root is inside a git repo) |
-| `◆` | U+25C6 | — | Activity row (variant) | **reserved** | Filled-diamond variant — future activity-state encoding |
-| `⬢` | U+2B22 | — | Activity row (variant) | **reserved** | Filled-hexagon variant — future repo-state encoding |
-| `▶` | U+25B6 | cyan `#89DCEB` | State row | active | Human session running in this activity |
-| `»` | U+00BB | cyan `#89DCEB` | State row | **reserved** | Agent run indicator — future "an agent is acting on this activity / task" |
-| `⟳` | U+27F3 | dim or `#F5C76E` busy | State row | active | Tui state (ready / refreshing…) |
+## Header glyphs
+
+Glyphs in the top header bar. Static labels for the kind of line you're looking at — never per-task state.
+
+| Glyph | Code point | Color | Where | Status |
+|---|---|---|---|---|
+| `⌂` | U+2302 | dim `#8A8D9A` | Path row | active |
+| `◇` | U+25C7 | lavender `#CBA6F7` | Activity row prefix | **active — reserved for activity** |
+| `⬡` | U+2B21 | lavender `#CBA6F7` | Repo row prefix (when activity root is inside a git repo) | **active — reserved for git** |
+| `◆` | U+25C6 | lavender (future) | Activity row variant | **reserved** — filled variant for future activity-state encoding |
+| `⬢` | U+2B22 | lavender (future) | Repo row variant | **reserved** — filled variant for future repo-state encoding |
+| `▶` | U+25B6 | cyan `#89DCEB` | State row + slot-1 override | active — human session running |
+| `»` | U+00BB | cyan `#89DCEB` | State row + slot-1 override | **reserved** — agent session running |
+| `⟳` | U+27F3 | dim or `#F5C76E` busy | State row | active — TUI ready / refreshing |
 
 ### Activity row layout
 
@@ -95,20 +130,54 @@ Single-line form: `◇ <activity-name>   ⬡ <repo-name>` — both glyphs lavend
 
 **Why walk up.** Activity folders are commonly subfolders of a larger repo (e.g. `~/repo/projects/foo/`) — walking up catches this without the user having to flag it. The `$HOME` ceiling prevents accidentally surfacing a parent repo when the activity actually lives in a non-git location.
 
-**Reserved filled variants.** `◆` (filled diamond) and `⬢` (filled hexagon) are defined but not rendered. They are slot-reserved for future state encodings on the same row (e.g. "activity has unread alerts," "repo has uncommitted changes"). Color stays lavender for any future variant — only the fill changes.
+**Reserved filled variants.** `◆` (filled diamond) and `⬢` (filled hexagon) are defined but not rendered. They are reserved for future state encodings on the same row (e.g. "activity has unread alerts," "repo has uncommitted changes"). Color stays lavender for any future variant — only the fill changes. **Diamond and hexagon are permanently reserved for activity and git respectively** — never reassign.
 
-### Session vs agent (active + reserved)
+### Session vs agent
 
 Two complementary "something is running" indicators, in the same color family but distinct silhouettes:
 
-- `▶` — **active**. Human session running. Used in both header state row and task-row override (Slot 1).
-- `»` — **reserved**. Agent run indicator. Reserved for when an autonomous agent is acting on the activity or a specific task. Will use the same color as `▶` (cyan) so both read as "live activity," but the chevron silhouette distinguishes "human at the wheel" from "agent at the wheel."
+- `▶` — **active**. Human session running. Used in both header state row and task-row slot-1 override.
+- `»` — **reserved**. Agent run indicator. Reserved for when an autonomous agent is acting on the activity or a specific task. Will use the same color as `▶` (cyan) so both read as "live activity," but the silhouette distinguishes "human at the wheel" from "agent at the wheel."
 
 Emoji fast-forward (`⏩`) was rejected: renders inconsistently across terminals, breaks the plain-glyph vocabulary, and color-emoji rendering clashes with the rest of the palette.
 
-### Session glyph hygiene
+### Retired allocations
 
-The session-active glyph is `▶` in **both** scopes (header state row + task row override). The previous `◆` allocation for "session" in the header has been retired — see D91. Each glyph carries one meaning.
+- `◆ session` (filled diamond as session indicator) — **retired** in v1.0. The filled-diamond slot is reserved for future activity-state encoding. Session live is `▶`. See D91.
+
+## Chrome glyphs
+
+Not status, not flags — UI affordances. Listed here so they never get reassigned.
+
+| Glyph | Meaning | Where |
+|---|---|---|
+| `▸` | cursor — selected row indicator | every list view |
+| `✓` | success affordance | toast success prefix, DONE column header would alias here historically (now uses `●` to match slot-1 done) |
+| `✗` | error affordance | toast error prefix, save-failure banner in edit modal |
+| `⟳` | refresh / busy | state row, refresh toasts |
+| `⌂` | path / home | path row prefix |
+
+### `✕` vs `✗`
+
+Visually similar (U+2715 vs U+2717), semantically distinct:
+- `✕` = task state (slot 1, terminal bucket "dropped")
+- `✗` = operation failure (chrome, toast/banner)
+
+Never substitute one for the other.
+
+## Board / Focus column headers
+
+The bucket name in each column's `border_title` uses the **bucket idle glyph** (consistent with slot 1):
+
+| Column | Header text |
+|---|---|
+| BACKLOG | `BACKLOG` (no glyph — uniform-mute treatment) |
+| NEXT | `□ NEXT` |
+| NOW | `▣ NOW` |
+| DONE | `● DONE` |
+| DROPPED | `✕ DROPPED` |
+
+`DONE` header uses `●` (the slot-1 done glyph), not `✓` (chrome). Consistency across the row glyph and the column header is more valuable than chrome flair.
 
 ## Detail pane — KV value glyphs
 
@@ -116,15 +185,17 @@ In the Detail pane's frontmatter key/value grid, the value is prefixed with the 
 
 | Field | Value rendering |
 |---|---|
-| `bucket` | `· backlog` / `○ next` / `◐ now` / `● done` / `✕ dropped` |
+| `bucket` | `· backlog` / `□ next` / `▣ now` / `● done` / `✕ dropped` |
 | `pinned` | `* true` / `false` |
-| `issue` | `? waiting` / `! failed` / `· none` |
-| `progress` | `○ 0%` / `◐ 50%` / `● 100%` (rounded to nearest stop) |
+| `issue` | `! blocked` / `? waiting` / `· none` |
+| `progress` | `○ 0%` / `◐ 50%` / `◑ 75%` / `● 100%` (rounded to nearest stop) |
 | `stage` | (free text, no glyph) |
 
 ## Progress field
 
-The `progress` field on a task is `0.0 .. 1.0`, nullable. Defaults to null. The renderer rounds to the nearest visible stop:
+The `progress` field on a task is `0.0 .. 1.0`, nullable. Defaults to null. **Not yet in `SCHEMA-TASK.md`** — forward-spec for v1.x. The renderer is shipped; the schema field is reserved.
+
+When set, the renderer rounds to the nearest visible stop:
 
 | `progress_stages` config | Stops | Visible glyphs |
 |---|---|---|
@@ -132,7 +203,7 @@ The `progress` field on a task is `0.0 .. 1.0`, nullable. Defaults to null. The 
 | 3 | 0, 0.5, 1 | `○ ◐ ●` |
 | 4 (default) | 0, 0.33, 0.66, 1 | `○ ◐ ◑ ●` |
 
-A null `progress` shows `·` in backlog rows, `○` everywhere else.
+A null `progress` falls through to the bucket idle glyph (see Slot 1 resolver step 4).
 
 ## Config knobs
 
@@ -156,9 +227,9 @@ ui:
 
 | `style` | Slot 1 dictionary |
 |---|---|
-| `collapsed` (default) | `· ○ ◐ ◑ ● ▶ ✕ ! ? +` — locked v1 set |
+| `collapsed` (default) | `· □ ▣ ● ○ ◐ ◑ ▶ ✕ ! ? +` — locked v1 set |
 | `combined` | Two-cell `bucket-arrow + progress-circle` (e.g. `▷○`, `▶◐`) for flat list views |
-| `minimal` | Pure-ASCII fallback `· o O X` — for monochrome terminals or scripts |
+| `minimal` | Pure-ASCII fallback `· [ ] # o O X` — for monochrome terminals or scripts |
 
 ### `use_color: false`
 
@@ -166,14 +237,7 @@ Drops color and switches to the `minimal` glyph set automatically. The `style` s
 
 ## Implementation contract
 
-The glyph renderer is a single pure function:
-
-```python
-def render_status(task: Task, style: GlyphStyle) -> RenderedGlyph:
-    """Return (glyph_char, color_class) for slot 1."""
-```
-
-No call-site branching. Themes are pure data. New presets are added by extending the `GlyphStyle` table — no changes to row code.
+The slot-1 resolver lives at `cli/src/octopus/tui/icons.py:status_glyph(row, *, active_session, progress_stages) -> str` and follows the priority order above exactly. No call-site branching. New presets are added by extending the resolver and palette — no changes to row rendering code.
 
 ## Terminal compatibility
 
@@ -189,6 +253,8 @@ The locked dictionary has been smoke-tested in:
 
 If a glyph fails to render in any of those, the user can drop to `minimal` style via config. The `minimal` set uses only ASCII characters guaranteed by ANSI X3.4.
 
+Known quirk: `▣` (U+25A3, filled inner square) renders correctly in all of the above. `□` (U+25A1) is universally supported. Both are 1-cell wide.
+
 ## CLI adoption
 
 `octopus list` and `octopus show` accept a `--glyphs <style>` flag. Default: off (text-only output, backward-compatible with scripts). Flipping the default to `on` is deferred until v1 ships.
@@ -196,5 +262,5 @@ If a glyph fails to render in any of those, the user can drop to `minimal` style
 ## See also
 
 - [TUI-KEYS.md](TUI-KEYS.md) — companion spec for the keybinding layer
-- [SCHEMA-TASK.md](SCHEMA-TASK.md) — task fields the renderer reads (`progress`, `bucket`, `run_state`, `issue`, etc.)
-- [DECISIONS.md](../DECISIONS.md) — locked decisions G1-G4
+- [SCHEMA-TASK.md](SCHEMA-TASK.md) — task fields the renderer reads (`bucket`, `run_state`, `issue`, `promoted_to`; `progress` is forward-spec)
+- [DECISIONS.md](../DECISIONS.md) — locked decisions G1–G4, D91, and v1 glyph allocations
