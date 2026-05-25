@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Octopus glyphs — progress experiment</title>
+<style>
+  :root {
+    --bg:#0F1014; --panel:#13141B; --border:#2A2D38;
+    --text:#E4E6F0; --mute:#8A8D9A; --dim:#6B6E7A;
+    --backlog:#7AB8FF; --next:#5EEAD4; --now:#FACC15;
+    --done:#86EFAC; --drop:#F38BA8; --lav:#CBA6F7;
+  }
+  body {
+    margin: 0; padding: 32px;
+    background: #07080B; color: var(--text);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px; line-height: 1.5;
+  }
+  h1, h2 {
+    font-family: -apple-system, system-ui, sans-serif;
+    font-weight: 600;
+  }
+  h1 { font-size: 16px; color: var(--mute); margin: 0 0 4px; }
+  .sub { color: var(--dim); font-family: -apple-system, system-ui, sans-serif;
+         font-size: 12px; margin-bottom: 24px; max-width: 700px; }
+  h2 { font-size: 13px; color: var(--lav); letter-spacing: 0.08em;
+       text-transform: uppercase; margin: 28px 0 8px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    max-width: 720px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 60px 1fr 110px 120px;
+    align-items: center;
+    padding: 3px 0;
+    column-gap: 12px;
+  }
+  .g    { font-size: 15px; text-align: left; letter-spacing: 0.04em; }
+  .lbl  { color: var(--text); }
+  .desc { color: var(--mute); font-size: 11px; }
+  .key  { color: var(--dim); font-size: 11px; }
+
+  .g.backlog  { color: var(--mute); }
+  .g.next     { color: var(--next); }
+  .g.now      { color: var(--now); }
+  .g.done     { color: var(--done); }
+  .g.drop     { color: var(--drop); }
+  .g.lav      { color: var(--lav); }
+
+  .legend {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    column-gap: 12px;
+    row-gap: 4px;
+    margin: 8px 0;
+    font-size: 12px;
+  }
+  .legend .k { color: var(--dim); }
+
+  table {
+    border-collapse: collapse;
+    margin: 8px 0 16px;
+    font-size: 12px;
+  }
+  table th, table td {
+    border-bottom: 1px solid var(--border);
+    padding: 6px 12px;
+    text-align: left;
+  }
+  table th { color: var(--mute); font-weight: 600; }
+  table .ex { font-size: 15px; letter-spacing: 0.04em; }
+
+  .note {
+    color: var(--dim);
+    font-size: 11px;
+    font-family: -apple-system, system-ui, sans-serif;
+    max-width: 680px;
+    margin: 6px 0 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Octopus glyphs — progress axis</h1>
+<p class="sub">
+  Bucket position via arrow weight (·/▷/▶), progress via circle fill (○/◐/◑/●).
+  Two variants below: <b>combined</b> (two cells, bucket + progress) and <b>collapsed</b>
+  (one cell, the progress glyph alone — bucket inferred by color/context).
+</p>
+
+<!-- ─────────── Variant 1: combined two-cell ─────────── -->
+<h2>Variant 1 — Combined (2 cells: bucket + progress)</h2>
+
+<div class="panel">
+  <div class="row">
+    <span class="g backlog">·</span>
+    <span class="lbl">draft the migration plan</span>
+    <span class="desc">backlog · idle</span>
+    <span class="key">bucket=backlog</span>
+  </div>
+  <div class="row">
+    <span class="g backlog">·<span style="color:var(--next)">○</span></span>
+    <span class="lbl">draft the migration plan</span>
+    <span class="desc">backlog · sketched</span>
+    <span class="key">progress=open</span>
+  </div>
+  <div class="row">
+    <span class="g next">▷</span>
+    <span class="lbl">queue the rollout</span>
+    <span class="desc">next · idle</span>
+    <span class="key">bucket=next</span>
+  </div>
+  <div class="row">
+    <span class="g next">▷<span style="color:var(--next)">○</span></span>
+    <span class="lbl">queue the rollout</span>
+    <span class="desc">next · started</span>
+    <span class="key">progress=open</span>
+  </div>
+  <div class="row">
+    <span class="g now">▶<span style="color:var(--next)">○</span></span>
+    <span class="lbl">fix the webhook auth bug</span>
+    <span class="desc">now · just opened</span>
+    <span class="key">progress=open</span>
+  </div>
+  <div class="row">
+    <span class="g now">▶<span style="color:var(--now)">◐</span></span>
+    <span class="lbl">fix the webhook auth bug</span>
+    <span class="desc">now · halfway</span>
+    <span class="key">progress=half</span>
+  </div>
+  <div class="row">
+    <span class="g now">▶<span style="color:var(--now)">◑</span></span>
+    <span class="lbl">fix the webhook auth bug</span>
+    <span class="desc">now · most-done</span>
+    <span class="key">progress=most</span>
+  </div>
+  <div class="row">
+    <span class="g done">●</span>
+    <span class="lbl">add focus-mode keymap</span>
+    <span class="desc">done</span>
+    <span class="key">progress=done</span>
+  </div>
+  <div class="row">
+    <span class="g drop">✕</span>
+    <span class="lbl">explore Go rewrite</span>
+    <span class="desc">dropped</span>
+    <span class="key">progress=dropped</span>
+  </div>
+  <div class="row">
+    <span class="g drop">▶<span style="color:var(--drop)">!</span></span>
+    <span class="lbl">deploy hotfix</span>
+    <span class="desc">now · blocked</span>
+    <span class="key">run_state=blocked</span>
+  </div>
+  <div class="row">
+    <span class="g drop">▶<span style="color:var(--drop)">?</span></span>
+    <span class="lbl">deploy hotfix</span>
+    <span class="desc">now · waiting</span>
+    <span class="key">issue=waiting</span>
+  </div>
+</div>
+
+<p class="note">
+  Two cells per row. Bucket arrow is colored by bucket; progress glyph is
+  colored by activity. Reads top-down like a kanban + Gantt at once.
+  Cost: 2 char columns of glyph width instead of 1.
+</p>
+
+<!-- ─────────── Variant 2: collapsed one-cell ─────────── -->
+<h2>Variant 2 — Collapsed (1 cell: progress only, color = bucket)</h2>
+
+<div class="panel">
+  <div class="row">
+    <span class="g backlog">·</span>
+    <span class="lbl">draft the migration plan</span>
+    <span class="desc">backlog · idle</span>
+    <span class="key">color=backlog</span>
+  </div>
+  <div class="row">
+    <span class="g backlog">○</span>
+    <span class="lbl">draft the migration plan</span>
+    <span class="desc">backlog · sketched</span>
+    <span class="key">color=backlog</span>
+  </div>
+  <div class="row">
+    <span class="g next">○</span>
+    <span class="lbl">queue the rollout</span>
+    <span class="desc">next · open</span>
+    <span class="key">color=next</span>
+  </div>
+  <div class="row">
+    <span class="g next">◐</span>
+    <span class="lbl">queue the rollout</span>
+    <span class="desc">next · half (started early)</span>
+    <span class="key">color=next</span>
+  </div>
+  <div class="row">
+    <span class="g now">○</span>
+    <span class="lbl">fix the webhook auth bug</span>
+    <span class="desc">now · just opened</span>
+    <span class="key">color=now</span>
+  </div>
+  <div class="row">
+    <span class="g now">◐</span>
+    <span class="lbl">fix the webhook auth bug</span>
+    <span class="desc">now · halfway</span>
+    <span class="key">color=now</span>
+  </div>
+  <div class="row">
+    <span class="g now">◑</span>
+    <span class="lbl">fix the webhook auth bug</span>
+    <span class="desc">now · most-done</span>
+    <span class="key">color=now</span>
+  </div>
+  <div class="row">
+    <span class="g done">●</span>
+    <span class="lbl">add focus-mode keymap</span>
+    <span class="desc">done</span>
+    <span class="key">color=done</span>
+  </div>
+  <div class="row">
+    <span class="g drop">✕</span>
+    <span class="lbl">explore Go rewrite</span>
+    <span class="desc">dropped</span>
+    <span class="key">color=drop</span>
+  </div>
+  <div class="row">
+    <span class="g drop">!</span>
+    <span class="lbl">deploy hotfix</span>
+    <span class="desc">now · blocked</span>
+    <span class="key">color=drop</span>
+  </div>
+  <div class="row">
+    <span class="g drop">?</span>
+    <span class="lbl">deploy hotfix</span>
+    <span class="desc">now · waiting</span>
+    <span class="key">color=drop</span>
+  </div>
+</div>
+
+<p class="note">
+  One cell per row. Bucket disambiguated by color alone. Tightest layout,
+  but loses bucket info for color-blind / monochrome readers.
+</p>
+
+<!-- ─────────── Hybrid: header chip + glyph ─────────── -->
+<h2>Variant 3 — Hybrid (the recommendation)</h2>
+
+<p class="note" style="margin-bottom: 10px;">
+  Rows live <i>inside</i> a bucket pane already, so the bucket is implicit.
+  Use the <b>progress circle alone</b> in row slot 1; reserve the arrow only
+  for the <b>"active session"</b> state (`▶`) — the loudest signal.
+</p>
+
+<div class="panel">
+  <div class="row">
+    <span class="g backlog">·</span>
+    <span class="lbl">draft the migration plan</span>
+    <span class="desc">idle / parked</span>
+    <span class="key">progress=none</span>
+  </div>
+  <div class="row">
+    <span class="g next">○</span>
+    <span class="lbl">queue the rollout</span>
+    <span class="desc">open</span>
+    <span class="key">progress=open</span>
+  </div>
+  <div class="row">
+    <span class="g now">◐</span>
+    <span class="lbl">fix the webhook auth bug</span>
+    <span class="desc">in progress (half)</span>
+    <span class="key">progress=half</span>
+  </div>
+  <div class="row">
+    <span class="g now">◑</span>
+    <span class="lbl">finalize the patch</span>
+    <span class="desc">in progress (most)</span>
+    <span class="key">progress=most</span>
+  </div>
+  <div class="row">
+    <span class="g now">▶</span>
+    <span class="lbl">deploy hotfix</span>
+    <span class="desc">session live</span>
+    <span class="key">session_id set</span>
+  </div>
+  <div class="row">
+    <span class="g done">●</span>
+    <span class="lbl">add focus-mode keymap</span>
+    <span class="desc">done</span>
+    <span class="key">progress=done</span>
+  </div>
+  <div class="row">
+    <span class="g drop">✕</span>
+    <span class="lbl">explore Go rewrite</span>
+    <span class="desc">dropped</span>
+    <span class="key">progress=dropped</span>
+  </div>
+  <div class="row">
+    <span class="g drop">!</span>
+    <span class="lbl">deploy hotfix</span>
+    <span class="desc">blocked</span>
+    <span class="key">run_state=blocked</span>
+  </div>
+  <div class="row">
+    <span class="g drop">?</span>
+    <span class="lbl">deploy hotfix</span>
+    <span class="desc">waiting</span>
+    <span class="key">issue=waiting</span>
+  </div>
+</div>
+
+<p class="note">
+  One cell, progress is the carrier, bucket comes from <i>pane context</i>
+  (rows in the Backlog pane look different from rows in the Now pane).
+  Loudest exception states (`▶` session, `!` blocked, `?` waiting, `✕` dropped)
+  break out of the circle ladder so they pop visually.
+</p>
+
+<!-- ─────────── Full progression in one row ─────────── -->
+<h2>Side-by-side ladder</h2>
+
+<table>
+  <tr>
+    <th>Variant 1 (bucket+progress)</th>
+    <th>Variant 2 (collapsed)</th>
+    <th>Variant 3 (progress only)</th>
+    <th>Meaning</th>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--mute);">·</td>
+    <td class="ex" style="color:var(--mute);">·</td>
+    <td class="ex" style="color:var(--mute);">·</td>
+    <td>backlog idle</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--mute);">·<span style="color:var(--next)">○</span></td>
+    <td class="ex" style="color:var(--backlog);">○</td>
+    <td class="ex" style="color:var(--backlog);">○</td>
+    <td>backlog started</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--next);">▷</td>
+    <td class="ex" style="color:var(--next);">○</td>
+    <td class="ex" style="color:var(--next);">○</td>
+    <td>next open</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--now);">▶<span style="color:var(--next)">○</span></td>
+    <td class="ex" style="color:var(--now);">○</td>
+    <td class="ex" style="color:var(--now);">○</td>
+    <td>now opened</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--now);">▶<span style="color:var(--now)">◐</span></td>
+    <td class="ex" style="color:var(--now);">◐</td>
+    <td class="ex" style="color:var(--now);">◐</td>
+    <td>now halfway</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--now);">▶<span style="color:var(--now)">◑</span></td>
+    <td class="ex" style="color:var(--now);">◑</td>
+    <td class="ex" style="color:var(--now);">◑</td>
+    <td>now most-done</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--now);">▶</td>
+    <td class="ex" style="color:var(--now);">▶</td>
+    <td class="ex" style="color:var(--now);">▶</td>
+    <td>session live</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--done);">●</td>
+    <td class="ex" style="color:var(--done);">●</td>
+    <td class="ex" style="color:var(--done);">●</td>
+    <td>done</td>
+  </tr>
+  <tr>
+    <td class="ex" style="color:var(--drop);">✕</td>
+    <td class="ex" style="color:var(--drop);">✕</td>
+    <td class="ex" style="color:var(--drop);">✕</td>
+    <td>dropped</td>
+  </tr>
+</table>
+
+<p class="note">
+  Same row in all three variants. <b>Variant 3</b> is my recommendation —
+  one cell, bucket from pane context, exceptions pop. The cost is that
+  Board mode (where buckets sit side-by-side) needs the column header to
+  carry bucket color.
+</p>
+
+</body>
+</html>

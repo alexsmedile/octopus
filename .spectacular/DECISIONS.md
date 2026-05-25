@@ -1,5 +1,5 @@
 ---
-updated: 2026-05-23
+updated: 2026-05-25
 ---
 
 # Decisions log
@@ -1656,3 +1656,52 @@ the JSON-shaped equivalent.
 JSON output. TTY → pretty-printed (2-space indent). Pipe → compact
 single-line. `--format pretty|compact` to override. Noun-explicit form
 (`get activity`, not `get`) — future-stable for `get task <slug>`.
+
+---
+
+## 2026-05-25 — TUI key schema + glyph vocabulary (request 34)
+
+### G1 — Glyph variant: collapsed (1 cell, color = bucket)
+- Slot 1 carries **progress only**: `· ○ ◐ ◑ ●`. Bucket axis carried by color and pane context.
+- Exception states (`▶` session, `✕` dropped, `!` blocked, `?` waiting, `+` migrated) break the ladder.
+- See `.spectacular/specs/TUI-GLYPHS.md`.
+
+### G2 — Session marker
+- `▶` overrides the progress glyph whenever `session_id` is set. One cell.
+
+### G3 — CLI glyph adoption
+- `octopus list` / `octopus show` accept `--glyphs <style>`. Default off (script-safe). Flip-the-default deferred to v1+.
+
+### G4 — Config knobs
+- `ui.glyphs.style` (collapsed | combined | minimal), `progress_stages` (2 | 3 | 4), `use_color` (bool), `session_marker` (arrow | none).
+- Resolution: CLI flag > per-activity config > user config > built-in default.
+
+### D1 — Detail-pane key (collision with drop)
+- **`d` stays as drop** (unchanged from today). `,` is the new detail-pane toggle.
+- Reads as "aside / pause" — fits a pane that is an aside to the main flow.
+
+### D2 — Block / unblock
+- `b` = block (wired). `B` (capital) = unblock. Capital-pair idiom matches `s`/`S`, `m`/`M`, `f`/`F`.
+
+### D3 — Arrow chip glyphs
+- `← → ↑ ↓` (Unicode geometric, same family as the locked glyph set).
+
+### D4 — Enter / Tab / Esc labels
+- `CR` / `TAB` / `ESC` (2-3 ASCII chars). `↵`/`⇥`/`⎋` rejected as emoji-adjacent.
+
+### D5 — Enter semantics under 4-pane Focus
+- If Detail pane visible: focus it. If collapsed: open it (same effect as `,`).
+
+### D6 — Undo
+- `u` reverses the most recent mutation. Backed by `octopus.actions` audit log. `Ctrl+*` keys rejected (multiplexer flakiness).
+
+### D7 — Yank slug
+- `y` (vim idiom). Uses `pbcopy` / `xclip` / `wl-copy` / `clip.exe` by platform.
+
+### Status-bar chip responsiveness
+- Narrow (<100 cols): 7 chips. Medium (100-119): 9. Wide (≥120): 11. `?` always reveals the full keymap.
+
+### Specs landed
+- `.spectacular/specs/TUI-GLYPHS.md` (glyph layer)
+- `.spectacular/specs/TUI-KEYS.md` (key layer)
+- Mirror to `docs/KEYS.md` (public) and `skills/octopus/references/tui-{glyphs,keys}.md` (operational) pending.

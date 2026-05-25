@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Octopus TUI — visual redesign preview v1</title>
+<style>
+  :root {
+    /* Palette (locked) */
+    --bg:        #0F1014;
+    --panel:     #13141B;
+    --panel-2:   #16171E;
+    --panel-h:   #1A1B22;
+    --border:    #2A2D38;
+    --border-2:  #3A3D48;
+    --text:      #E4E6F0;
+    --text-mute: #8A8D9A;
+    --text-dim:  #6B6E7A;
+    /* Bucket accents */
+    --backlog:   #7AB8FF;
+    --next:      #5EEAD4;
+    --now:       #FACC15;
+    --done:      #86EFAC;
+    --drop:      #F38BA8;
+    /* System */
+    --lavender:  #CBA6F7;
+    --mint:      #5EEAD4;
+    --eye:       #1A1A1A;
+    /* Bucket-tinted bg (subtle wash) */
+    --now-wash:  #1A1620;
+    --backlog-wash: #131720;
+    --next-wash: #131C1B;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #07080B;
+    color: var(--text);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.35;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stage { padding: 40px; }
+  h1.stage-title {
+    font-family: -apple-system, system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-mute);
+    margin: 0 0 8px 0;
+  }
+  .stage-sub {
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+  }
+
+  /* ──────────── Terminal window ──────────── */
+  .term {
+    width: 980px;
+    background: linear-gradient(#15161D, var(--bg));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.55);
+    margin-bottom: 32px;
+  }
+  .titlebar {
+    height: 32px;
+    background: var(--panel-h);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.r { background: #FF5F57; }
+  .dot.y { background: #FEBC2E; }
+  .dot.g { background: #28C840; }
+  .title {
+    flex: 1;
+    text-align: center;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+
+  /* ──────────── Header bar ──────────── */
+  .hdr {
+    display: grid;
+    grid-template-columns: 56px 1fr auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .mascot {
+    width: 40px; height: 32px;
+    display: inline-block;
+    /* Pixel-art mascot (BASE_REF, 16x14 grid @ 2.4px) */
+  }
+  .mascot svg { width: 100%; height: 100%; }
+  .hdr-id .name {
+    font-weight: 600;
+    color: var(--lavender);
+    letter-spacing: 0.02em;
+  }
+  .hdr-id .name::before { content: "🐙 "; }
+  .hdr-id .path {
+    font-size: 11px;
+    color: var(--text-mute);
+  }
+  .tabs { display: flex; gap: 8px; }
+  .tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-2);
+    background: var(--panel-2);
+    color: var(--text-mute);
+    font-size: 12px;
+  }
+  .tab.active {
+    background: #2A2540;
+    border-color: var(--lavender);
+    color: var(--lavender);
+    font-weight: 700;
+  }
+  .counters {
+    display: grid;
+    grid-template-columns: auto auto auto auto;
+    column-gap: 6px;
+    row-gap: 2px;
+    font-size: 12px;
+    align-items: center;
+  }
+  .counters .lbl { color: var(--text); }
+  .counters .num { font-weight: 700; padding-right: 10px; }
+  .counters .dot-mini { font-size: 10px; }
+  .counters .now-c   .num { color: var(--now); }
+  .counters .next-c  .num { color: var(--next); }
+  .counters .back-c  .num { color: var(--backlog); }
+  .counters .done-c  .num { color: var(--done); }
+  .counters .now-c   .dot-mini { color: var(--now); }
+  .counters .next-c  .dot-mini { color: var(--next); }
+
+  /* ──────────── Body — 3-column or 4-column ──────────── */
+  .body {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+  .body.wide { grid-template-columns: 288px 1fr 288px; }     /* ≥120 cols → 4-pane */
+  .body.narrow { grid-template-columns: 288px 1fr; }         /* <120 cols → 3-pane */
+
+  .col-mid { display: grid; grid-template-rows: 1.7fr 1fr; gap: 12px; }
+
+  .pane {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .pane.focused {
+    border-width: 2px;
+  }
+  .pane.focused.now-pane    { border-color: var(--now);   background: var(--now-wash); }
+  .pane.focused.next-pane   { border-color: var(--next);  background: #131C1B; }
+  .pane.focused.backlog-pane{ border-color: var(--backlog); background: #131720; }
+  .pane.focused.detail-pane { border-color: var(--lavender); }
+
+  .pane-h {
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .pane-h.backlog { background: #1F2A3A; color: var(--backlog); }
+  .pane-h.now     { background: #3A2F1A; color: var(--now); }
+  .pane-h.next    { background: #1F3530; color: var(--next); }
+  .pane-h.detail  { background: #2A2540; color: var(--lavender); }
+
+  .pane-body { padding: 12px 14px; flex: 1; overflow: hidden; }
+
+  /* ──────────── Rows ──────────── */
+  .row {
+    padding: 6px 0;
+  }
+  .row .title { color: var(--text); }
+  .row .meta  { color: var(--text-dim); font-size: 11px; }
+  .row.dim .title { color: var(--text-mute); }
+  .row .title::before { content: "▸ "; color: var(--text-mute); }
+
+  .row.selected {
+    border: 1px dashed var(--now);
+    background: #2A2520;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 2px -10px;
+  }
+  .row.selected .title { color: var(--now); font-weight: 600; }
+  .row.selected .title::before { content: "📌 "; }
+
+  .row.just-finished {
+    border: 1px solid var(--done);
+    background: #1F2A1F;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 2px -10px;
+    opacity: 0.7;
+  }
+  .row.just-finished .title { color: var(--text-mute); text-decoration: line-through; }
+  .row.just-finished .title::before { content: "✓ "; color: var(--done); }
+
+  /* ──────────── Detail pane content ──────────── */
+  .detail-title {
+    color: var(--now);
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .detail-title::before { content: "📌 "; }
+  .kv {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    row-gap: 4px;
+    column-gap: 8px;
+    font-size: 11px;
+    margin-bottom: 14px;
+  }
+  .kv .k { color: var(--text-mute); }
+  .kv .v.now-v    { color: var(--now); }
+  .kv .v.lav      { color: var(--lavender); }
+  .kv .v.drop-v   { color: var(--drop); }
+  .kv .v.text     { color: var(--text); }
+  .section-h {
+    color: var(--lavender);
+    font-weight: 700;
+    font-size: 12px;
+    margin-top: 6px;
+    margin-bottom: 4px;
+  }
+  .section-h::before { content: "## "; color: var(--text-mute); }
+  .section-body { font-size: 11px; color: var(--text); }
+  .section-body p { margin: 4px 0; }
+
+  /* ──────────── Status bar ──────────── */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--panel-h);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: transparent;
+  }
+  .chip .key {
+    display: inline-block;
+    min-width: 18px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #1A1A1A;
+    font-weight: 700;
+    text-align: center;
+  }
+  .chip .lbl { color: var(--text); }
+  .chip.cap   .key { background: var(--lavender); }
+  .chip.move  .key { background: var(--now); }
+  .chip.fin   .key { background: var(--done); }
+  .chip.pin   .key { background: var(--next); }
+  .chip.blk   .key { background: var(--drop); }
+  .chip.det   .key { background: var(--lavender); }
+  .chip.gen   .key { background: var(--border-2); color: var(--text); }
+  .chip.gen   .key { background: var(--border-2); color: var(--text); }
+
+  .sync {
+    text-align: right;
+    color: var(--mint);
+  }
+  .sync .cwd { color: var(--text-dim); font-size: 10px; display: block; }
+
+  /* On narrow, hide some chips */
+  .narrow-only { display: none; }
+  .term.narrow .narrow-only { display: inline-flex; }
+  .term.narrow .wide-only { display: none; }
+
+  /* Narrow window variant */
+  .term.narrow { width: 760px; }
+  .term.narrow .body { grid-template-columns: 240px 1fr; }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <h1 class="stage-title">Octopus TUI — visual redesign preview v1</h1>
+  <p class="stage-sub">
+    HTML mockup translating the README hero SVG into the live TUI structure.
+    Top: wide terminal (≥120 cols), 4-pane Focus with Detail open.
+    Bottom: narrow terminal, Detail collapsed.
+    Palette &amp; chrome are the candidates for porting into <code>theme.tcss</code>.
+  </p>
+
+  <!-- ─────────── WIDE TERMINAL (≥120 cols) ─────────── -->
+  <div class="term wide-term">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">octopus tui — ~/code/my-project</span>
+    </div>
+
+    <!-- HEADER -->
+    <div class="hdr">
+      <span class="mascot">
+        <svg viewBox="0 0 40 32" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#CBA6F7">
+            <rect x="7.2" y="4.8" width="24" height="2.4"/>
+            <rect x="7.2" y="7.2" width="24" height="2.4"/>
+            <rect x="4.8" y="9.6" width="28.8" height="2.4"/>
+            <rect x="4.8" y="12" width="7.2" height="2.4"/>
+            <rect x="16.8" y="12" width="7.2" height="2.4"/>
+            <rect x="28.8" y="12" width="4.8" height="2.4"/>
+            <rect x="4.8" y="14.4" width="7.2" height="2.4"/>
+            <rect x="16.8" y="14.4" width="7.2" height="2.4"/>
+            <rect x="28.8" y="14.4" width="4.8" height="2.4"/>
+            <rect x="4.8" y="16.8" width="28.8" height="2.4"/>
+            <rect x="4.8" y="19.2" width="28.8" height="2.4"/>
+            <rect x="4.8" y="21.6" width="4.8" height="2.4"/>
+            <rect x="12" y="21.6" width="4.8" height="2.4"/>
+            <rect x="19.2" y="21.6" width="4.8" height="2.4"/>
+            <rect x="26.4" y="21.6" width="4.8" height="2.4"/>
+            <rect x="4.8" y="24" width="4.8" height="2.4"/>
+            <rect x="12" y="24" width="4.8" height="2.4"/>
+            <rect x="19.2" y="24" width="4.8" height="2.4"/>
+            <rect x="26.4" y="24" width="4.8" height="2.4"/>
+            <rect x="4.8" y="26.4" width="4.8" height="2.4"/>
+            <rect x="12" y="26.4" width="4.8" height="2.4"/>
+            <rect x="19.2" y="26.4" width="4.8" height="2.4"/>
+            <rect x="26.4" y="26.4" width="4.8" height="2.4"/>
+          </g>
+          <g fill="#1A1A1A">
+            <rect x="12" y="12" width="4.8" height="2.4"/>
+            <rect x="24" y="12" width="4.8" height="2.4"/>
+            <rect x="12" y="14.4" width="4.8" height="2.4"/>
+            <rect x="24" y="14.4" width="4.8" height="2.4"/>
+          </g>
+        </svg>
+      </span>
+      <div class="hdr-id">
+        <div class="name">my-project</div>
+        <div class="path">~/code/my-project</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">[1] Focus</div>
+        <div class="tab">[2] Board</div>
+      </div>
+      <div class="counters">
+        <span class="now-c"><span class="dot-mini">●</span> <span class="lbl">now</span> <span class="num">2</span></span>
+        <span class="back-c"><span class="lbl">backlog</span> <span class="num">7</span></span>
+        <span class="next-c"><span class="dot-mini">○</span> <span class="lbl">next</span> <span class="num">3</span></span>
+        <span class="done-c"><span class="lbl">done</span> <span class="num">14</span></span>
+      </div>
+    </div>
+
+    <!-- BODY: 3 columns (4 panes) -->
+    <div class="body wide">
+      <!-- BACKLOG -->
+      <div class="pane backlog-pane">
+        <div class="pane-h backlog">▾ Backlog · 7</div>
+        <div class="pane-body">
+          <div class="row"><div class="title">ship the TUI</div><div class="meta">code · captured 3d ago</div></div>
+          <div class="row"><div class="title">wire skill reference docs</div><div class="meta">docs · captured 5d ago</div></div>
+          <div class="row"><div class="title">refactor activity router</div><div class="meta">code · captured yesterday</div></div>
+          <div class="row"><div class="title">design v2 mascot poses</div><div class="meta">design · captured today</div></div>
+          <div class="row dim"><div class="title">explore Go rewrite (someday)</div><div class="meta">research</div></div>
+          <div class="row dim"><div class="title">write the changelog automation</div><div class="meta">tooling</div></div>
+        </div>
+      </div>
+
+      <!-- NOW + NEXT (middle column) -->
+      <div class="col-mid">
+        <div class="pane focused now-pane">
+          <div class="pane-h now">● Now · 2</div>
+          <div class="pane-body">
+            <div class="row selected">
+              <div class="title">fix the webhook auth bug</div>
+              <div class="meta">code · started today · started 2h ago</div>
+            </div>
+            <div class="row"><div class="title">handoff template review</div><div class="meta">docs · started yesterday</div></div>
+            <div class="row just-finished">
+              <div class="title">add focus-mode keymap</div>
+              <div class="meta">just finished · slide to done</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane next-pane">
+          <div class="pane-h next">○ Next · 3</div>
+          <div class="pane-body">
+            <div class="row"><div class="title">sqlite index migrations</div><div class="meta">code · queued for tomorrow</div></div>
+            <div class="row"><div class="title">write release notes</div><div class="meta">docs · queued</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DETAIL -->
+      <div class="pane detail-pane">
+        <div class="pane-h detail">▾ Detail</div>
+        <div class="pane-body">
+          <div class="detail-title">fix the webhook auth bug</div>
+          <div class="kv">
+            <span class="k">bucket</span><span class="v now-v">now</span>
+            <span class="k">stage</span><span class="v text">debugging</span>
+            <span class="k">pinned</span><span class="v now-v">true</span>
+            <span class="k">issue</span><span class="v drop-v">waiting</span>
+            <span class="k">waiting_for</span><span class="v text">staging creds</span>
+            <span class="k">started</span><span class="v text">2026-05-24</span>
+          </div>
+          <div class="section-h">References</div>
+          <div class="section-body">
+            <p>- [PR #847](github…)</p>
+            <p>- Slack #incident-2026-05-23</p>
+          </div>
+          <div class="section-h">Notes</div>
+          <div class="section-body">
+            <p>HMAC signature drift on the renewal path. Clock skew? Repro on staging once creds land.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <div class="chips">
+        <span class="chip cap"><span class="key">n</span><span class="lbl">capture</span></span>
+        <span class="chip move"><span class="key">m</span><span class="lbl">move →</span></span>
+        <span class="chip fin"><span class="key">f</span><span class="lbl">finish</span></span>
+        <span class="chip pin"><span class="key">p</span><span class="lbl">pin</span></span>
+        <span class="chip blk"><span class="key">b</span><span class="lbl">block</span></span>
+        <span class="chip gen"><span class="key">↵</span><span class="lbl">open</span></span>
+        <span class="chip det"><span class="key">d</span><span class="lbl">detail</span></span>
+        <span class="chip gen"><span class="key">⇥</span><span class="lbl">pane</span></span>
+        <span class="chip gen"><span class="key">?</span><span class="lbl">help</span></span>
+        <span class="chip gen"><span class="key">q</span><span class="lbl">quit</span></span>
+      </div>
+      <div class="sync">
+        <span>● synced · v0.9.6</span>
+        <span class="cwd">cwd: ~/code/my-project</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── NARROW TERMINAL (<120 cols, Detail collapsed) ─────────── -->
+  <div class="term narrow">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="title">octopus tui — ~/code/my-project  (narrow · detail collapsed)</span>
+    </div>
+
+    <div class="hdr">
+      <span class="mascot">
+        <svg viewBox="0 0 40 32" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#CBA6F7">
+            <rect x="7.2" y="4.8" width="24" height="2.4"/>
+            <rect x="7.2" y="7.2" width="24" height="2.4"/>
+            <rect x="4.8" y="9.6" width="28.8" height="2.4"/>
+            <rect x="4.8" y="12" width="7.2" height="2.4"/>
+            <rect x="16.8" y="12" width="7.2" height="2.4"/>
+            <rect x="28.8" y="12" width="4.8" height="2.4"/>
+            <rect x="4.8" y="14.4" width="7.2" height="2.4"/>
+            <rect x="16.8" y="14.4" width="7.2" height="2.4"/>
+            <rect x="28.8" y="14.4" width="4.8" height="2.4"/>
+            <rect x="4.8" y="16.8" width="28.8" height="2.4"/>
+            <rect x="4.8" y="19.2" width="28.8" height="2.4"/>
+            <rect x="4.8" y="21.6" width="4.8" height="2.4"/>
+            <rect x="12" y="21.6" width="4.8" height="2.4"/>
+            <rect x="19.2" y="21.6" width="4.8" height="2.4"/>
+            <rect x="26.4" y="21.6" width="4.8" height="2.4"/>
+            <rect x="4.8" y="24" width="4.8" height="2.4"/>
+            <rect x="12" y="24" width="4.8" height="2.4"/>
+            <rect x="19.2" y="24" width="4.8" height="2.4"/>
+            <rect x="26.4" y="24" width="4.8" height="2.4"/>
+            <rect x="4.8" y="26.4" width="4.8" height="2.4"/>
+            <rect x="12" y="26.4" width="4.8" height="2.4"/>
+            <rect x="19.2" y="26.4" width="4.8" height="2.4"/>
+            <rect x="26.4" y="26.4" width="4.8" height="2.4"/>
+          </g>
+          <g fill="#1A1A1A">
+            <rect x="12" y="12" width="4.8" height="2.4"/>
+            <rect x="24" y="12" width="4.8" height="2.4"/>
+            <rect x="12" y="14.4" width="4.8" height="2.4"/>
+            <rect x="24" y="14.4" width="4.8" height="2.4"/>
+          </g>
+        </svg>
+      </span>
+      <div class="hdr-id">
+        <div class="name">my-project</div>
+        <div class="path">~/code/my-project</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">[1]F</div>
+        <div class="tab">[2]B</div>
+      </div>
+      <div class="counters">
+        <span class="now-c"><span class="dot-mini">●</span> <span class="num">2</span></span>
+        <span class="back-c"><span class="num">7</span></span>
+        <span class="next-c"><span class="dot-mini">○</span> <span class="num">3</span></span>
+        <span class="done-c"><span class="num">14</span></span>
+      </div>
+    </div>
+
+    <div class="body narrow">
+      <div class="pane backlog-pane">
+        <div class="pane-h backlog">▾ Backlog · 7</div>
+        <div class="pane-body">
+          <div class="row"><div class="title">ship the TUI</div><div class="meta">code · 3d ago</div></div>
+          <div class="row"><div class="title">wire skill ref docs</div><div class="meta">docs · 5d ago</div></div>
+          <div class="row"><div class="title">refactor activity router</div><div class="meta">code · yesterday</div></div>
+          <div class="row dim"><div class="title">explore Go rewrite</div><div class="meta">research</div></div>
+        </div>
+      </div>
+
+      <div class="col-mid">
+        <div class="pane focused now-pane">
+          <div class="pane-h now">● Now · 2</div>
+          <div class="pane-body">
+            <div class="row selected">
+              <div class="title">fix the webhook auth bug</div>
+              <div class="meta">code · started 2h ago</div>
+            </div>
+            <div class="row"><div class="title">handoff template review</div><div class="meta">docs · started yesterday</div></div>
+          </div>
+        </div>
+        <div class="pane next-pane">
+          <div class="pane-h next">○ Next · 3</div>
+          <div class="pane-body">
+            <div class="row"><div class="title">sqlite index migrations</div><div class="meta">code · tomorrow</div></div>
+            <div class="row"><div class="title">write release notes</div><div class="meta">docs · queued</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <div class="chips">
+        <span class="chip cap"><span class="key">n</span><span class="lbl">cap</span></span>
+        <span class="chip move"><span class="key">m</span><span class="lbl">→</span></span>
+        <span class="chip fin"><span class="key">f</span><span class="lbl">fin</span></span>
+        <span class="chip pin"><span class="key">p</span><span class="lbl">pin</span></span>
+        <span class="chip det"><span class="key">d</span><span class="lbl">detail</span></span>
+        <span class="chip gen"><span class="key">?</span><span class="lbl">help</span></span>
+        <span class="chip gen"><span class="key">q</span><span class="lbl">quit</span></span>
+      </div>
+      <div class="sync">
+        <span>● synced</span>
+        <span class="cwd">v0.9.6</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

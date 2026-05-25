@@ -34,6 +34,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
+from textual.containers import VerticalScroll
 from textual.widgets import Footer, ListItem, ListView, Static
 
 from octopus import actions
@@ -44,11 +45,19 @@ from octopus.fs.io import read_activity
 from octopus.tui.filter_bar import FilterBar
 from octopus.tui.header_bar import HeaderBar
 from octopus.tui.help import HelpOverlay
-from octopus.tui.icons import BLOCKED, CURSOR, PINNED
+from octopus.tui.icons import BLOCKED, CURSOR, PINNED, status_glyph, status_glyph_color
 from octopus.tui.overlay import TaskDetailOverlay
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
 from octopus.tui.toast import Toast
+
+
+def _row_has(row, key: str) -> bool:
+    """sqlite3.Row's __contains__ checks values, not column names. Use keys()."""
+    try:
+        return key in row.keys()
+    except AttributeError:
+        return key in row
 
 
 def _drop_zombies(activity_root: Path, rows):
@@ -69,7 +78,7 @@ def _drop_zombies(activity_root: Path, rows):
     out = []
     octopus_dir = activity_root / ".octopus"
     for r in rows:
-        slug = r["slug"] if "slug" in r else None
+        slug = r["slug"] if _row_has(r, "slug") else None
         if not slug:
             continue
         if find_task_file(octopus_dir, mode, slug) is not None:
@@ -84,7 +93,7 @@ def _filter_rows(rows, needle: str):
         return list(rows)
     out = []
     for r in rows:
-        title = (r["title"] if "title" in r else "") or ""
+        title = (r["title"] if _row_has(r, "title") else "") or ""
         if n in title.lower():
             out.append(r)
     return out
@@ -114,18 +123,18 @@ def _row_chips(row: sqlite3.Row, *, provider_chips: dict[str, str] | None = None
     parts: list[tuple[str, str]] = []
 
     # kind chip (D46) — shown left-most among chips when present
-    kind = row["kind"] if "kind" in row else None
+    kind = row["kind"] if _row_has(row, "kind") else None
     if kind:
         parts.append((f"[{kind}]", "#89DCEB"))
 
-    if "pinned" in row and row["pinned"]:
+    if _row_has(row, "pinned") and row["pinned"]:
         parts.append((PINNED, "#CBA6F7"))
-    run_state = row["run_state"] if "run_state" in row else None
+    run_state = row["run_state"] if _row_has(row, "run_state") else None
     if run_state == "blocked":
         parts.append((BLOCKED, "#FAB387"))
 
     # promotion arrow (D48) — right-most chip, dim
-    promoted_to = row["promoted_to"] if "promoted_to" in row else None
+    promoted_to = row["promoted_to"] if _row_has(row, "promoted_to") else None
     if promoted_to:
         chip_label = _provider_chip(promoted_to, provider_chips or {})
         parts.append((f"→ {chip_label}", "#8A8D9A"))
@@ -154,6 +163,11 @@ def _row_text(
     else:
         t.append("  ")
 
+    # Leading status glyph — encodes progress; bucket carried by color.
+    bucket = (row["bucket"] if _row_has(row, "bucket") else "") or ""
+    glyph = status_glyph(row)
+    t.append(f"{glyph} ", style=status_glyph_color(glyph, bucket))
+
     title = row["title"] or "(untitled)"
     if title_offset > 0:
         # Marquee loop: build a continuous "title · title · title …" strip and
@@ -166,7 +180,6 @@ def _row_text(
         strip = (title + gap) * 3
         title = strip[title_offset % period :][:period]
 
-    bucket = (row["bucket"] if "bucket" in row else "") or ""
     if bucket in ("done", "dropped"):
         t.append(title, style="#8A8D9A strike")
     else:
@@ -207,6 +220,52 @@ Q_NOW = "now"
 Q_NEXT = "next"
 
 
+def _render_detail(activity_root: Path, slug: str | None) -> Text:
+    """Build the detail-pane body for a slug. Defensive: never raises."""
+    if not slug:
+        return Text("(no task selected)", style="#8A8D9A")
+
+    from octopus.actions import find_task_file
+    from octopus.fs.io import read_task
+    from octopus.fs.scaffold import read_storage_mode
+
+    octopus_dir = activity_root / ".octopus"
+    try:
+        mode = read_storage_mode(octopus_dir)
+    except Exception:
+        mode = "flat"
+
+    path = find_task_file(octopus_dir, mode, slug)
+    if path is None:
+        return Text(f"(task file not found: {slug})", style="#FAB387")
+
+    try:
+        task, body = read_task(path)
+    except Exception as exc:
+        return Text(f"(read failed: {exc})", style="#FAB387")
+
+    title = (getattr(task, "title", None) or slug).strip()
+    bucket = (getattr(task, "bucket", "") or "").lower()
+
+    out = Text(no_wrap=False)
+    out.append(title + "\n", style="#F5F5F7 bold")
+    meta_parts: list[str] = []
+    if bucket:
+        meta_parts.append(bucket)
+    pinned = getattr(task, "pinned", False)
+    if pinned:
+        meta_parts.append("pinned")
+    run_state = (getattr(task, "run_state", "") or "").lower()
+    if run_state:
+        meta_parts.append(run_state)
+    if meta_parts:
+        out.append("  ·  ".join(meta_parts) + "\n", style="#8A8D9A")
+    out.append("\n")
+    body_text = (body or "").strip() or "(no body)"
+    out.append(body_text, style="#F5F5F7")
+    return out
+
+
 class FocusScreen(Screen):
     """Three-quadrant Focus mode."""
 
@@ -239,6 +298,17 @@ class FocusScreen(Screen):
         Binding("e", "edit_external", "edit", show=True),
         Binding("d", "drop", "drop", show=True),
         Binding("p", "toggle_pin", "pin", show=True),
+        # Detail pane
+        Binding("comma", "toggle_detail", "detail pane", show=True),
+        # Header display mode (Full / Compact / Slim)
+        Binding("H", "cycle_header_mode", "header size", show=False),
+        # Block / unblock
+        Binding("b", "block", "block", show=True),
+        Binding("B", "unblock", "unblock", show=False),
+        # Undo / yank / go-to
+        Binding("u", "undo", "undo", show=False),
+        Binding("y", "yank_slug", "yank slug", show=False),
+        Binding("g", "goto_slug", "go to…", show=False),
     ]
 
     def __init__(self, activity_title: str, activity_root: Path) -> None:
@@ -274,6 +344,12 @@ class FocusScreen(Screen):
         # Refs to the Vertical wrappers so we can flip border classes.
         self._panels: dict[str, Vertical] = {}
 
+        # Detail pane state. Hidden by default; toggled with `,`.
+        self._detail_visible: bool = False
+        self._detail_body = Static("", id="detail-body", expand=True)
+        self._detail_scroll = VerticalScroll(self._detail_body, id="detail-scroll")
+        self._detail_panel: Vertical | None = None
+
         # Marquee state — increments while the selected row's title clips.
         self._marquee_offset: int = 0
         self._marquee_timer = None
@@ -286,29 +362,39 @@ class FocusScreen(Screen):
         yield self._header
 
         backlog_panel = Vertical(
-            Static("  [bold]BACKLOG[/]", classes="panel-header"),
             self._lists[Q_BACKLOG],
             classes="panel",
             id="backlog-panel",
         )
+        backlog_panel.border_title = "BACKLOG"
         now_panel = Vertical(
-            Static("  [bold]● NOW[/]", classes="panel-header"),
             self._lists[Q_NOW],
             classes="panel",
             id="now-panel",
         )
+        now_panel.border_title = "● NOW"
         next_panel = Vertical(
-            Static("  [bold]○ NEXT[/]", classes="panel-header"),
             self._lists[Q_NEXT],
             classes="panel",
             id="next-panel",
         )
+        next_panel.border_title = "○ NEXT"
         self._panels[Q_BACKLOG] = backlog_panel
         self._panels[Q_NOW] = now_panel
         self._panels[Q_NEXT] = next_panel
 
         right_column = Vertical(now_panel, next_panel, id="right-column")
-        yield Horizontal(backlog_panel, right_column, id="quadrants")
+
+        detail_panel = Vertical(
+            self._detail_scroll,
+            classes="panel",
+            id="detail-panel",
+        )
+        detail_panel.border_title = "DETAIL"
+        detail_panel.styles.display = "none"
+        self._detail_panel = detail_panel
+
+        yield Horizontal(backlog_panel, right_column, detail_panel, id="quadrants")
         yield self._toast
         yield self._status_bar
         yield Footer()
@@ -319,8 +405,14 @@ class FocusScreen(Screen):
         self._header.set_cwd(_short_path(self._activity_root))
         self._header.set_mode("focus")
         self._header.set_state("ready")
-        self._status_bar.set_activity(self._activity_title)
+        self._status_bar.set_activity_id(self._activity_id)
         self._status_bar.set_state("ready")
+        # Auto-pick header mode for current terminal width.
+        try:
+            term_width = self.app.size.width
+        except Exception:
+            term_width = 120
+        self._header.set_display_mode(self._header.auto_mode_for_width(term_width))
         self._refresh_data()
         # Land on whichever quadrant has tasks, preferring NOW → NEXT → BACKLOG.
         for q in (Q_NOW, Q_NEXT, Q_BACKLOG):
@@ -390,9 +482,10 @@ class FocusScreen(Screen):
             backlog_rows = list(tasks_for_activity(conn, self._activity_id, bucket="backlog"))
             now_rows = list(tasks_for_activity(conn, self._activity_id, bucket="now"))
             next_rows = list(tasks_for_activity(conn, self._activity_id, bucket="next"))
+            done_count = len(list(tasks_for_activity(conn, self._activity_id, bucket="done")))
             blocked = sum(
                 1 for r in backlog_rows + now_rows + next_rows
-                if "run_state" in r and r["run_state"] == "blocked"
+                if _row_has(r, "run_state") and r["run_state"] == "blocked"
             )
         finally:
             try:
@@ -424,7 +517,13 @@ class FocusScreen(Screen):
         ))
 
         self._status_bar.set_counts(len(now_rows), len(next_rows), blocked)
-        self._header.set_counts(len(now_rows), len(next_rows), blocked)
+        self._header.set_counts(
+            now=len(now_rows),
+            next_=len(next_rows),
+            blocked=blocked,
+            backlog=len(backlog_rows),
+            done=done_count,
+        )
 
     def _fill(self, quadrant: str, rows: list[sqlite3.Row], *, empty_msg: str) -> None:
         lst = self._lists[quadrant]
@@ -480,6 +579,7 @@ class FocusScreen(Screen):
                 new_item.render_title(selected=True, title_offset=0)
             except Exception:
                 pass
+        self._refresh_detail()
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         """Repaint when arrow-nav moves within a list — keeps the cursor glyph
@@ -502,6 +602,7 @@ class FocusScreen(Screen):
                 new_item.render_title(selected=True, title_offset=0)
             except Exception:
                 pass
+        self._refresh_detail()
 
     def _current_list(self) -> ListView:
         return self._lists[self._active]
@@ -652,6 +753,31 @@ class FocusScreen(Screen):
         self._status_bar.set_state("ready", busy=False)
         self._header.set_state("ready", busy=False)
         self._toast.flash("⟳ refreshed · filter cleared" if had_filter else "⟳ refreshed")
+
+    def _refresh_detail(self) -> None:
+        """Repaint the detail pane for the currently highlighted task.
+        Cheap no-op when the pane is hidden — skip disk I/O entirely."""
+        if not self._detail_visible:
+            return
+        slug = self._current_slug()
+        try:
+            self._detail_body.update(_render_detail(self._activity_root, slug))
+        except Exception:
+            pass
+
+    def action_cycle_header_mode(self) -> None:
+        try:
+            new_mode = self._header.cycle_display_mode()
+        except Exception:
+            return
+        self._toast.flash(f"header: {new_mode}")
+
+    def action_toggle_detail(self) -> None:
+        self._detail_visible = not self._detail_visible
+        if self._detail_panel is not None:
+            self._detail_panel.styles.display = "block" if self._detail_visible else "none"
+        if self._detail_visible:
+            self._refresh_detail()
 
     def action_open_detail(self) -> None:
         slug = self._current_slug()
@@ -821,6 +947,80 @@ class FocusScreen(Screen):
             self._toast.flash(f"✓ edited {slug}")
         else:
             self._toast.flash(f"open: {path}  (e needs newer Textual)")
+
+    def action_block(self) -> None:
+        slug = self._current_slug()
+        if slug is None:
+            self._toast.flash("nothing selected")
+            return
+
+        def _on_reason(reason: str | None) -> None:
+            # Empty reason still blocks — the user pressed Enter on purpose.
+            self._run(
+                lambda: actions.block_task(self._activity_root, slug, reason or None),
+                success_msg=f"{slug} blocked",
+            )
+
+        self.app.push_screen(
+            InputModal(f"Block {slug} — reason (optional)", placeholder="reason…"),
+            _on_reason,
+        )
+
+    def action_unblock(self) -> None:
+        slug = self._current_slug()
+        if slug is None:
+            self._toast.flash("nothing selected")
+            return
+        self._run(
+            lambda: actions.unblock_task(self._activity_root, slug),
+            success_msg=f"{slug} unblocked",
+        )
+
+    def action_undo(self) -> None:
+        # Real undo requires snapshot/journaling — not yet implemented.
+        self._toast.flash("undo: not yet implemented")
+
+    def action_yank_slug(self) -> None:
+        slug = self._current_slug()
+        if slug is None:
+            self._toast.flash("nothing selected")
+            return
+        # Best-effort macOS clipboard. Falls back to a toast showing the slug.
+        try:
+            proc = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+            proc.communicate(input=slug.encode("utf-8"), timeout=2)
+            if proc.returncode == 0:
+                self._toast.flash(f"✓ yanked {slug}")
+                return
+        except Exception:
+            pass
+        self._toast.flash(f"slug: {slug}")
+
+    def action_goto_slug(self) -> None:
+        def _on_value(value: str | None) -> None:
+            if not value:
+                return
+            target = value.strip()
+            if not target:
+                return
+            # Find the slug in any quadrant and select it.
+            for q, lst in self._lists.items():
+                for i, child in enumerate(lst.children):
+                    if isinstance(child, _TaskListItem) and child.task_slug == target:
+                        self._set_active(q)
+                        try:
+                            lst.index = i
+                        except Exception:
+                            pass
+                        self._refresh_detail()
+                        self._toast.flash(f"→ {target}")
+                        return
+            self._toast.flash(f"not in view: {target}")
+
+        self.app.push_screen(
+            InputModal("Go to slug", placeholder="task slug…"),
+            _on_value,
+        )
 
     def action_session_start(self) -> None:
         self._run(

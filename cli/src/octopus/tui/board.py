@@ -80,7 +80,18 @@ class BoardScreen(Screen):
         Binding("e", "edit_external", "edit", show=True),
         Binding("d", "drop", "drop", show=True),
         Binding("p", "toggle_pin", "pin", show=True),
+        Binding("H", "cycle_header_mode", "header size", show=False),
     ]
+
+    def action_cycle_header_mode(self) -> None:
+        try:
+            new_mode = self._header.cycle_display_mode()
+        except Exception:
+            return
+        try:
+            self._toast.flash(f"header: {new_mode}")
+        except Exception:
+            pass
 
     def __init__(self, activity_title: str, activity_root: Path) -> None:
         super().__init__()
@@ -115,19 +126,19 @@ class BoardScreen(Screen):
         yield self._header
 
         headers = {
-            C_BACKLOG: "  [bold]BACKLOG[/]",
-            C_NEXT: "  [bold]○ NEXT[/]",
-            C_NOW: "  [bold]● NOW[/]",
-            C_DONE: "  [bold]✓ DONE[/]",
+            C_BACKLOG: "BACKLOG",
+            C_NEXT: "○ NEXT",
+            C_NOW: "● NOW",
+            C_DONE: "✓ DONE",
         }
         cols = []
         for c in COLUMNS:
             panel = Vertical(
-                Static(headers[c], classes="panel-header"),
                 self._lists[c],
                 classes="panel",
                 id=f"board-{c}-panel",
             )
+            panel.border_title = headers[c]
             self._panels[c] = panel
             cols.append(panel)
 
@@ -143,7 +154,12 @@ class BoardScreen(Screen):
         self._header.set_cwd(_short_path(self._activity_root))
         self._header.set_mode("board")
         self._header.set_state("ready")
-        self._status_bar.set_activity(self._activity_title)
+        try:
+            term_width = self.app.size.width
+        except Exception:
+            term_width = 120
+        self._header.set_display_mode(self._header.auto_mode_for_width(term_width))
+        self._status_bar.set_activity_id(self._activity_id)
         self._status_bar.set_state("ready")
         self._refresh_data()
         # Prefer the first column with tasks (NOW → NEXT → BACKLOG → DONE).
@@ -171,9 +187,10 @@ class BoardScreen(Screen):
         try:
             for c in COLUMNS:
                 rows_by_col[c] = list(tasks_for_activity(conn, self._activity_id, bucket=c))
+            from octopus.tui.focus import _row_has
             blocked = sum(
                 1 for rows in rows_by_col.values() for r in rows
-                if "run_state" in r and r["run_state"] == "blocked"
+                if _row_has(r, "run_state") and r["run_state"] == "blocked"
             )
         finally:
             try:
@@ -202,7 +219,11 @@ class BoardScreen(Screen):
             len(rows_by_col[C_NOW]), len(rows_by_col[C_NEXT]), blocked,
         )
         self._header.set_counts(
-            len(rows_by_col[C_NOW]), len(rows_by_col[C_NEXT]), blocked,
+            now=len(rows_by_col[C_NOW]),
+            next_=len(rows_by_col[C_NEXT]),
+            blocked=blocked,
+            backlog=len(rows_by_col[C_BACKLOG]),
+            done=len(rows_by_col[C_DONE]),
         )
 
     def _fill(self, col: str, rows: list[sqlite3.Row], *, empty_msg: str) -> None:

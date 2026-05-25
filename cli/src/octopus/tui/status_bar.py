@@ -1,12 +1,14 @@
-"""Status bar widget — three-zone layout docked at screen bottom.
+"""Status bar widget — docked at screen bottom.
 
-Layout:
+Layout (v3 design):
 
-    ⌂ activity   ◆ session 12m   │   ⟳ ready · 3 now · 7 next · 2 blocked   │   ? help  q quit
+    id: my-project-4f2a                                  ● synced · v0.9.6
 
-Left:   activity name (with HOME glyph)
-Center: session state + index state + bucket counts
-Right:  static key hints (always visible)
+Left:   activity-id (canonical, no path duplication — header has the path)
+Right:  sync indicator + app version
+
+Counters moved to the header. State/session label optional (shown center
+when present, e.g. while reindexing).
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from rich.text import Text
 from textual.reactive import reactive
 from textual.widgets import Static
 
-from octopus.tui.icons import HOME, SESSION, SPINNER
+from octopus import __version__
 
 
 @dataclass(frozen=True)
@@ -32,59 +34,55 @@ class StatusBar(Static):
 
     DEFAULT_CSS = ""  # styled by theme.tcss via #status-bar
 
-    activity_name: reactive[str] = reactive("")
-    session_label: reactive[str] = reactive("")   # e.g. "12m" or "" when no session
-    state_label: reactive[str] = reactive("ready")  # "ready" | "reindexing…" | etc.
+    activity_id: reactive[str] = reactive("")
+    session_label: reactive[str] = reactive("")
+    state_label: reactive[str] = reactive("ready")
     state_busy: reactive[bool] = reactive(False)
-    counts: reactive[BucketCounts] = reactive(BucketCounts())
+    counts: reactive[BucketCounts] = reactive(BucketCounts())  # kept for back-compat
 
     def __init__(self) -> None:
         super().__init__(id="status-bar")
 
     def render(self) -> Text:
+        # Left: activity id.
         left = Text()
-        left.append(f"{HOME} ", style="dim")
-        left.append(self.activity_name or "—", style="bold")
+        left.append("id: ", style="dim")
+        left.append(self.activity_id or "—", style="#8A8D9A")
 
+        # Center (optional): non-ready state ("reindexing…") or active session.
         center = Text()
-        if self.session_label:
-            center.append(f"{SESSION} session {self.session_label}", style="#6DD3A7")
-            center.append("   │   ", style="dim")
+        if self.state_busy and self.state_label and self.state_label != "ready":
+            center.append(f"⟳ {self.state_label}", style="#F5C76E")
+        elif self.session_label:
+            center.append(f"◆ session {self.session_label}", style="#89DCEB")
 
-        state_style = "#F5C76E" if self.state_busy else "dim"
-        center.append(f"{SPINNER} {self.state_label}", style=state_style)
+        # Right: sync indicator + version.
+        right = Text()
+        if self.state_busy:
+            right.append("◐ syncing", style="#F5C76E")
+        else:
+            right.append("● synced", style="#A6E3A1")
+        right.append(" · ", style="dim")
+        right.append(f"v{__version__}", style="#8A8D9A")
 
-        c = self.counts
-        if c.now or c.next_ or c.blocked:
-            center.append("  ·  ", style="dim")
-            parts = []
-            if c.now:
-                parts.append(f"{c.now} now")
-            if c.next_:
-                parts.append(f"{c.next_} next")
-            if c.blocked:
-                parts.append(f"{c.blocked} blocked")
-            center.append(" · ".join(parts), style="dim")
-
-        right = Text("? help  q quit", style="dim")
-
-        # Compose with flexible spacing — Textual Static doesn't auto-stretch,
-        # so pad the center to fill. Width is queried at render time.
+        # Three-zone layout.
         try:
             total_width = self.size.width or 100
         except Exception:
             total_width = 100
 
-        left_str = left.plain
-        center_str = center.plain
-        right_str = right.plain
+        left_len = left.cell_len
+        center_len = center.cell_len
+        right_len = right.cell_len
 
-        # Layout: [left]   [center centered]   [right]
-        # Compute pad so right hugs the right edge.
-        used = len(left_str) + len(center_str) + len(right_str)
+        used = left_len + center_len + right_len
         slack = max(2, total_width - used)
-        left_pad = slack // 2
-        right_pad = slack - left_pad
+        if center_len:
+            left_pad = slack // 2
+            right_pad = slack - left_pad
+        else:
+            left_pad = slack
+            right_pad = 0
 
         out = Text()
         out.append_text(left)
@@ -94,10 +92,14 @@ class StatusBar(Static):
         out.append_text(right)
         return out
 
-    # ── public setters (called from App / Screen) ──────────────────────
+    # ── public setters ─────────────────────────────────────────────────
 
     def set_activity(self, name: str) -> None:
-        self.activity_name = name
+        # Back-compat shim — older callers passed a display name; treat as id.
+        self.activity_id = name
+
+    def set_activity_id(self, value: str) -> None:
+        self.activity_id = value
 
     def set_session(self, label: str) -> None:
         self.session_label = label
@@ -107,4 +109,6 @@ class StatusBar(Static):
         self.state_busy = busy
 
     def set_counts(self, now: int, next_: int, blocked: int) -> None:
+        # Kept for back-compat — counts now live in the header. We accept the
+        # call so existing callers don't break, but render ignores them.
         self.counts = BucketCounts(now=now, next_=next_, blocked=blocked)

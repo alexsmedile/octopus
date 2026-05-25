@@ -41,22 +41,22 @@ Header {
 }
 
 #header-bar > Horizontal {
-    height: 7;
+    height: 1fr;
     width: 1fr;
 }
 
 #header-mascot {
     width: 18;
-    height: 7;
+    height: 1fr;
     background: #0F1014;
     padding: 0 1 0 0;
 }
 
 #header-text {
     width: 1fr;
-    height: 7;
+    height: 1fr;
     background: #0F1014;
-    padding: 1 0 0 1;
+    padding: 0 0 0 1;
 }
 
 Footer {
@@ -67,14 +67,18 @@ Footer {
 /* ── Panels ─────────────────────────────────────────────────────────── */
 
 .panel {
-    border: round #2A2C36;
-    padding: 1 2;
+    border: heavy #2A2C36;
+    border-title-color: #8A8D9A;
+    border-title-style: bold;
+    border-title-align: left;
+    padding: 0 1;
     background: #0F1014;
     color: #F5F5F7;
 }
 
 .panel--focused {
-    border: round #F38BA8;
+    border: heavy #F38BA8;
+    border-title-color: #F38BA8;
     background: #16171E;
 }
 
@@ -316,6 +320,26 @@ Footer > .footer--highlight-key {
 #next-panel {
     width: 1fr;
     height: 1fr;
+}
+
+#detail-panel {
+    width: 2fr;
+    height: 1fr;
+}
+
+#detail-scroll {
+    width: 1fr;
+    height: 1fr;
+    background: #0F1014;
+    scrollbar-size: 1 1;
+}
+
+#detail-body {
+    width: 1fr;
+    height: auto;
+    padding: 0 1;
+    background: #0F1014;
+    color: #F5F5F7;
 }
 
 /* ── Filter bar (modal slide-up) ────────────────────────────────────── */

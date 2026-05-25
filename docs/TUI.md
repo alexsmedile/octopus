@@ -15,36 +15,21 @@ The mascot lives in the header. It's a 16×14 pixel-art octopus rendered with `r
 
 ## Keymap
 
-### Movement
+The full keymap (with chip colors, responsive subsets, and glyph dictionary) lives in [**KEYS.md**](KEYS.md). The most common bindings:
+
 | Key | What |
 |---|---|
+| `n` `m` `f` `p` `d` | capture · advance · finish · pin · drop |
+| `,` | toggle the Detail pane (Focus mode) |
+| `b` / `B` | block (prompts reason) / unblock |
+| `s` / `S` | start session (quick / titled) |
+| `e` | edit in `$EDITOR` |
+| `u` / `y` | undo last mutation / yank slug |
+| `/` `r` `?` `q` | filter · refresh · help · quit |
 | `1` / `2` | Focus / Board mode |
-| `←` `→` | move between quadrants / columns |
-| `↑` `↓` | move within a list (edges jump panes) |
-| `Tab` / `S-Tab` | cycle panes |
-| `Enter` | open task detail overlay |
+| `←→↑↓` `Tab` `Enter` | navigate · cycle panes · focus Detail |
 
-### Mutations (route through `octopus.actions`)
-| Key | What |
-|---|---|
-| `n` | capture new task into the focused pane |
-| `m` | advance one step along the pipeline (`backlog → next → now → done`) |
-| `M` | move to a chosen bucket (prompts) |
-| `f` | finish task — moves to `done/`, stamps `end_date`, clears `pinned` |
-| `d` | drop (with `y/n` confirm) |
-| `p` | toggle pin |
-| `e` | open the task file in `$EDITOR` |
-| `s` / `S` | start session (quick / with title) |
-| `b` | block (prompts for reason) |
-| `u` | unblock |
-
-### Search & maintenance
-| Key | What |
-|---|---|
-| `/` | filter by title substring |
-| `r` | refresh from index (clears filter) |
-| `?` | help overlay (full keymap) |
-| `q` | quit (confirms if a session is open) |
+All mutations route through `octopus.actions` — same write layer as the CLI. See [KEYS.md](KEYS.md) for the glyph vocabulary (`· ○ ◐ ◑ ●` etc.) and config knobs.
 
 ## The write layer
 

@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Octopus TUI — v3 (Textual-faithful)</title>
+<style>
+  /*
+    v3 — Textual-faithful redesign preview.
+    Constraints honoured (vs v2):
+     - No fake box-drawing chars in pane bodies. Textual draws real borders.
+       Pane "headers" are rendered via Textual's `border-title` which paints
+       text onto the top border — simulated here with a single border + an
+       inset label.
+     - 1-char wide borders everywhere. No 2px CSS borders.
+       Focused panes swap border style (≈ Textual's `heavy` vs `round`).
+     - No CSS borders on rows. Selection / pin / finished use background + glyph.
+     - No icon/text centering. All task content left-aligned. Only the right
+       header counters and right status text are right-aligned.
+     - Every visual decision below has a 1:1 TCSS port.
+  */
+  :root {
+    --bg:        #0F1014;
+    --panel:     #13141B;
+    --panel-2:   #16171E;
+    --panel-h:   #1A1B22;
+    --border:    #2A2D38;
+    --border-2:  #3A3D48;
+    --text:      #E4E6F0;
+    --text-mute: #8A8D9A;
+    --text-dim:  #6B6E7A;
+    --backlog:   #7AB8FF;
+    --next:      #5EEAD4;
+    --now:       #FACC15;
+    --done:      #86EFAC;
+    --drop:      #F38BA8;
+    --lavender:  #CBA6F7;
+    --mint:      #5EEAD4;
+    --eye:       #1A1A1A;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #07080B;
+    color: var(--text);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+  .stage { padding: 40px; }
+  h1.stage-title {
+    font-family: -apple-system, system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-mute);
+    margin: 0 0 8px 0;
+  }
+  .stage-sub {
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    max-width: 760px;
+  }
+
+  /* ─── Terminal frame ─── */
+  .term {
+    width: 980px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+  .titlebar {
+    height: 24px;
+    background: #000;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 10px; height: 10px; }
+  .dot.r { background: #FF5F57; }
+  .dot.y { background: #FEBC2E; }
+  .dot.g { background: #28C840; }
+  .term-label {
+    flex: 1;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-mute);
+  }
+
+  /* ─── Header bar ─── */
+  .hdr {
+    display: grid;
+    grid-template-columns: 56px auto 1fr auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .mascot { width: 48px; height: 38px; }
+  .mascot svg { width: 100%; height: 100%; }
+
+  .hdr-id .name { font-weight: 700; color: var(--lavender); text-align: left; }
+  .hdr-id .name::before { content: "[*] "; color: var(--lavender); }
+  .hdr-id .path { font-size: 11px; color: var(--text-mute); text-align: left; }
+
+  .tabs { display: flex; gap: 0; }
+  .tab {
+    padding: 3px 12px;
+    border: 1px solid var(--border-2);
+    background: var(--panel-2);
+    color: var(--text-mute);
+    font-size: 12px;
+  }
+  .tab + .tab { border-left: 0; }
+  .tab.active {
+    background: #2A2540;
+    border-color: var(--lavender);
+    color: var(--lavender);
+    font-weight: 700;
+  }
+
+  .counters {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 16px;
+    row-gap: 2px;
+    font-size: 12px;
+    text-align: right;
+    justify-items: end;
+  }
+  .counters .cell {
+    display: inline-grid;
+    grid-template-columns: 14px 52px auto;
+    column-gap: 4px;
+    align-items: baseline;
+    white-space: nowrap;
+  }
+  .counters .g    { font-size: 13px; text-align: center; }
+  .counters .lbl  { color: var(--text); text-align: left; }
+  .counters .num  { font-weight: 700; text-align: right; }
+  .counters .back-c .g, .counters .back-c .num { color: var(--backlog); }
+  .counters .next-c .g, .counters .next-c .num { color: var(--next); }
+  .counters .now-c  .g, .counters .now-c  .num { color: var(--now); }
+  .counters .done-c .g, .counters .done-c .num { color: var(--done); }
+  /* Narrow variant: single row, glyph + num only (no label) */
+  .counters.narrow-c { grid-template-columns: repeat(4, auto); column-gap: 12px; }
+  .counters.narrow-c .cell { grid-template-columns: 14px auto; }
+
+  /* ─── Header MODE variants ───────────────────────────────────────────
+     .hdr            (default) = FULL — 7 terminal rows ≈ today's TUI.
+     .hdr.compact    = ~3 rows; mini mascot, no path, glyph-only counters.
+     .hdr.slim       = ~1 row;  no mascot at all; [*] inline brand mark.
+  */
+  .hdr.compact {
+    grid-template-columns: 32px auto 1fr auto auto;
+    gap: 12px;
+    padding: 6px 12px;
+  }
+  .hdr.compact .mascot { width: 24px; height: 20px; }
+  .hdr.compact .hdr-id .path { display: none; }
+  .hdr.compact .counters { grid-template-columns: repeat(4, auto); column-gap: 12px; }
+  .hdr.compact .counters .cell { grid-template-columns: 14px auto; column-gap: 3px; }
+  .hdr.compact .counters .lbl { display: none; }
+
+  .hdr.slim {
+    grid-template-columns: auto 1fr auto auto;
+    gap: 12px;
+    padding: 2px 10px;
+    height: 22px;
+  }
+  .hdr.slim .mascot { display: none; }
+  .hdr.slim .hdr-id .path { display: none; }
+  .hdr.slim .hdr-id .name { font-size: 12px; }
+  .hdr.slim .tab { padding: 0 6px; font-size: 11px; }
+  .hdr.slim .counters { grid-template-columns: repeat(4, auto); column-gap: 8px; }
+  .hdr.slim .counters .cell { grid-template-columns: 12px auto; column-gap: 2px; }
+  .hdr.slim .counters .lbl { display: none; }
+  .hdr.slim .counters .g { font-size: 12px; }
+
+  /* ─── Body grid ─── */
+  .body {
+    display: grid;
+    gap: 0;
+    padding: 0;
+  }
+  .body.wide   { grid-template-columns: 288px 1fr 288px; }
+  .body.narrow { grid-template-columns: 240px 1fr; }
+
+  .col, .col-mid {
+    display: flex;
+    flex-direction: column;
+  }
+  .col-mid { display: grid; grid-template-rows: 1.7fr 1fr; }
+
+  /* ─── Pane — single-char border + border-title ───
+     Textual draws the top border itself; the title is overlaid on it via
+     `border-title-align: left` and `border-title: ...`. We simulate that
+     with `position: relative` + a label that sits on the top border.       */
+  .pane {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    margin: 6px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .pane + .pane { margin-top: 0; }
+  /* Focused = swap border style. Textual analogue: border: heavy <color>.   */
+  .pane.focused.now-pane     { border: 1px solid var(--now);     box-shadow: inset 0 0 0 1px var(--now); }
+  .pane.focused.next-pane    { border: 1px solid var(--next);    box-shadow: inset 0 0 0 1px var(--next); }
+  .pane.focused.backlog-pane { border: 1px solid var(--backlog); box-shadow: inset 0 0 0 1px var(--backlog); }
+  .pane.focused.detail-pane  { border: 1px solid var(--lavender);box-shadow: inset 0 0 0 1px var(--lavender); }
+
+  .pane-title {
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    padding: 0 6px;
+    background: var(--bg);     /* punches a hole in the top border */
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .pane-title.backlog { color: var(--backlog); }
+  .pane-title.now     { color: var(--now); }
+  .pane-title.next    { color: var(--next); }
+  .pane-title.detail  { color: var(--lavender); }
+
+  /* counter chip in the top-right of the pane border */
+  .pane-count {
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    padding: 0 6px;
+    background: var(--bg);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-mute);
+  }
+
+  .pane-body {
+    padding: 10px 12px 10px;
+    flex: 1;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  /* ─── Rows — no borders, left-aligned, glyph-driven state ─── */
+  .row {
+    padding: 3px 0;
+    text-align: left;
+  }
+  .row .title { color: var(--text); display: block; text-align: left; }
+  .row .meta  { color: var(--text-dim); font-size: 11px; display: block; text-align: left; }
+  .row.dim .title { color: var(--text-mute); }
+  .row .title::before { content: "▸ "; color: var(--text-mute); }
+
+  /* Selected/pinned: bg wash + glyph swap. No border. */
+  .row.selected {
+    background: #2A2218;
+    padding: 4px 8px;
+    margin: 2px -8px;
+  }
+  .row.selected .title { color: var(--now); font-weight: 700; }
+  .row.selected .title::before { content: "* "; color: var(--now); }
+
+  .row.just-finished {
+    background: #18241A;
+    padding: 4px 8px;
+    margin: 2px -8px;
+    opacity: 0.75;
+  }
+  .row.just-finished .title { color: var(--text-mute); text-decoration: line-through; }
+  .row.just-finished .title::before { content: "✓ "; color: var(--done); }
+
+  /* ─── Detail pane content ─── */
+  .detail-title { color: var(--now); font-weight: 700; margin-bottom: 10px; text-align: left; }
+  .detail-title::before { content: "* "; }
+  .kv {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    row-gap: 3px;
+    column-gap: 8px;
+    font-size: 11px;
+    margin-bottom: 12px;
+    text-align: left;
+  }
+  .kv .k { color: var(--text-mute); }
+  .kv .v.now-v  { color: var(--now); }
+  .kv .v.lav    { color: var(--lavender); }
+  .kv .v.drop-v { color: var(--drop); }
+  .kv .v.text   { color: var(--text); }
+  .section-h {
+    color: var(--lavender);
+    font-weight: 700;
+    font-size: 12px;
+    margin: 10px 0 4px;
+    text-align: left;
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+  }
+  .section-body { font-size: 11px; color: var(--text); text-align: left; }
+  .section-body p { margin: 3px 0; }
+
+  /* ─── Status bar ─── */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    background: var(--panel-h);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; }
+  .chip .key {
+    display: inline-block;
+    min-width: 16px;
+    padding: 0 5px;
+    color: #1A1A1A;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid rgba(0,0,0,0.4);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .chip .lbl { color: var(--text); }
+  .chip.cap   .key { background: var(--lavender); }
+  .chip.move  .key { background: var(--now); }
+  .chip.fin   .key { background: var(--done); }
+  .chip.pin   .key { background: var(--next); }
+  .chip.blk   .key { background: var(--drop); }
+  .chip.det   .key { background: var(--lavender); }
+  .chip.gen   .key { background: var(--border-2); color: var(--text); }
+  .sync { text-align: right; color: var(--mint); }
+  .sync .cwd { color: var(--text-dim); font-size: 10px; display: block; }
+
+  .term.narrow { width: 760px; }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <h1 class="stage-title">Octopus TUI — v3 (Textual-faithful, left-aligned)</h1>
+  <p class="stage-sub">
+    Three header height modes for three terminal widths. Header is collapsible
+    via <code>H</code>. <b>Full</b> (≥100 cols, today's 7-row default) keeps the
+    mascot at full size with all animations. <b>Compact</b> (80–99 cols) drops
+    to ~3 rows with a mini mascot and blink only. <b>Slim</b> (&lt;80 cols or
+    user opt-in) collapses to ~1 row — no mascot at all; <code>[*]</code> brand
+    mark sits inline with the project name.
+  </p>
+
+  <h2 style="font-family:-apple-system,system-ui,sans-serif;font-weight:600;font-size:13px;color:var(--lavender);letter-spacing:.08em;text-transform:uppercase;margin:24px 0 8px;">Full header — ≥100 cols (default, 7 rows)</h2>
+
+  <!-- ───── WIDE — Full header ───── -->
+  <div class="term wide-term">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="term-label">octopus tui — ~/code/my-project</span>
+    </div>
+
+    <div class="hdr">
+      <span class="mascot">
+        <svg viewBox="0 0 40 32" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#CBA6F7">
+            <rect x="7.2" y="4.8" width="24" height="2.4"/><rect x="7.2" y="7.2" width="24" height="2.4"/>
+            <rect x="4.8" y="9.6" width="28.8" height="2.4"/>
+            <rect x="4.8" y="12" width="7.2" height="2.4"/><rect x="16.8" y="12" width="7.2" height="2.4"/><rect x="28.8" y="12" width="4.8" height="2.4"/>
+            <rect x="4.8" y="14.4" width="7.2" height="2.4"/><rect x="16.8" y="14.4" width="7.2" height="2.4"/><rect x="28.8" y="14.4" width="4.8" height="2.4"/>
+            <rect x="4.8" y="16.8" width="28.8" height="2.4"/><rect x="4.8" y="19.2" width="28.8" height="2.4"/>
+            <rect x="4.8" y="21.6" width="4.8" height="2.4"/><rect x="12" y="21.6" width="4.8" height="2.4"/><rect x="19.2" y="21.6" width="4.8" height="2.4"/><rect x="26.4" y="21.6" width="4.8" height="2.4"/>
+            <rect x="4.8" y="24" width="4.8" height="2.4"/><rect x="12" y="24" width="4.8" height="2.4"/><rect x="19.2" y="24" width="4.8" height="2.4"/><rect x="26.4" y="24" width="4.8" height="2.4"/>
+            <rect x="4.8" y="26.4" width="4.8" height="2.4"/><rect x="12" y="26.4" width="4.8" height="2.4"/><rect x="19.2" y="26.4" width="4.8" height="2.4"/><rect x="26.4" y="26.4" width="4.8" height="2.4"/>
+          </g>
+          <g fill="#1A1A1A">
+            <rect x="12" y="12" width="4.8" height="2.4"/><rect x="24" y="12" width="4.8" height="2.4"/>
+            <rect x="12" y="14.4" width="4.8" height="2.4"/><rect x="24" y="14.4" width="4.8" height="2.4"/>
+          </g>
+        </svg>
+      </span>
+      <div class="hdr-id">
+        <div class="name">my-project</div>
+        <div class="path">~/code/my-project</div>
+      </div>
+      <div></div>
+      <div class="tabs">
+        <div class="tab active">[1] Focus</div>
+        <div class="tab">[2] Board</div>
+      </div>
+      <div class="counters">
+        <span class="cell back-c"><span class="g">·</span><span class="lbl">backlog</span><span class="num">7</span></span>
+        <span class="cell now-c"><span class="g">◐</span><span class="lbl">now</span><span class="num">2</span></span>
+        <span class="cell next-c"><span class="g">○</span><span class="lbl">next</span><span class="num">3</span></span>
+        <span class="cell done-c"><span class="g">●</span><span class="lbl">done</span><span class="num">14</span></span>
+      </div>
+    </div>
+
+    <div class="body wide">
+      <div class="col">
+        <div class="pane backlog-pane">
+          <span class="pane-title backlog">Backlog</span>
+          <span class="pane-count">7</span>
+          <div class="pane-body">
+            <div class="row"><span class="title">ship the TUI</span><span class="meta">code · captured 3d ago</span></div>
+            <div class="row"><span class="title">wire skill reference docs</span><span class="meta">docs · captured 5d ago</span></div>
+            <div class="row"><span class="title">refactor activity router</span><span class="meta">code · captured yesterday</span></div>
+            <div class="row"><span class="title">design v2 mascot poses</span><span class="meta">design · captured today</span></div>
+            <div class="row dim"><span class="title">explore Go rewrite (someday)</span><span class="meta">research</span></div>
+            <div class="row dim"><span class="title">write the changelog automation</span><span class="meta">tooling</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-mid">
+        <div class="pane focused now-pane">
+          <span class="pane-title now">Now</span>
+          <span class="pane-count" style="color: var(--now);">2</span>
+          <div class="pane-body">
+            <div class="row selected">
+              <span class="title">fix the webhook auth bug</span>
+              <span class="meta">code · started today · 2h ago</span>
+            </div>
+            <div class="row"><span class="title">handoff template review</span><span class="meta">docs · started yesterday</span></div>
+            <div class="row just-finished">
+              <span class="title">add focus-mode keymap</span>
+              <span class="meta">just finished · slide to done</span>
+            </div>
+          </div>
+        </div>
+        <div class="pane next-pane">
+          <span class="pane-title next">Next</span>
+          <span class="pane-count">3</span>
+          <div class="pane-body">
+            <div class="row"><span class="title">sqlite index migrations</span><span class="meta">code · queued for tomorrow</span></div>
+            <div class="row"><span class="title">write release notes</span><span class="meta">docs · queued</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="pane detail-pane">
+          <span class="pane-title detail">Detail</span>
+          <div class="pane-body">
+            <div class="detail-title">fix the webhook auth bug</div>
+            <div class="kv">
+              <span class="k">bucket</span><span class="v now-v">now</span>
+              <span class="k">stage</span><span class="v text">debugging</span>
+              <span class="k">pinned</span><span class="v now-v">true</span>
+              <span class="k">issue</span><span class="v drop-v">waiting</span>
+              <span class="k">waiting_for</span><span class="v text">staging creds</span>
+              <span class="k">started</span><span class="v text">2026-05-24</span>
+            </div>
+            <div class="section-h">References</div>
+            <div class="section-body">
+              <p>- [PR #847](github…)</p>
+              <p>- Slack #incident-2026-05-23</p>
+            </div>
+            <div class="section-h">Notes</div>
+            <div class="section-body">
+              <p>HMAC signature drift on the renewal path. Clock skew? Repro on staging once creds land.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <div class="chips">
+        <span class="chip cap"><span class="key">n</span><span class="lbl">capture</span></span>
+        <span class="chip move"><span class="key">m</span><span class="lbl">move →</span></span>
+        <span class="chip fin"><span class="key">f</span><span class="lbl">finish</span></span>
+        <span class="chip pin"><span class="key">p</span><span class="lbl">pin</span></span>
+        <span class="chip blk"><span class="key">d</span><span class="lbl">drop</span></span>
+        <span class="chip blk"><span class="key">b</span><span class="lbl">block</span></span>
+        <span class="chip gen"><span class="key">CR</span><span class="lbl">open</span></span>
+        <span class="chip det"><span class="key">,</span><span class="lbl">detail</span></span>
+        <span class="chip gen"><span class="key">/</span><span class="lbl">filter</span></span>
+        <span class="chip gen"><span class="key">?</span><span class="lbl">help</span></span>
+        <span class="chip gen"><span class="key">q</span><span class="lbl">quit</span></span>
+      </div>
+      <div class="sync">
+        <span>● synced · v0.9.6</span>
+        <span class="cwd">id: my-project-4f2a</span>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="font-family:-apple-system,system-ui,sans-serif;font-weight:600;font-size:13px;color:var(--lavender);letter-spacing:.08em;text-transform:uppercase;margin:24px 0 8px;">Compact header — 80-99 cols or H toggle (~3 rows, mini mascot)</h2>
+
+  <!-- ───── NARROW · Compact header ───── -->
+  <div class="term narrow">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="term-label">octopus tui — ~/code/my-project  (compact header · detail collapsed)</span>
+    </div>
+
+    <div class="hdr compact">
+      <span class="mascot">
+        <svg viewBox="0 0 40 32" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+          <g fill="#CBA6F7">
+            <rect x="7.2" y="4.8" width="24" height="2.4"/><rect x="7.2" y="7.2" width="24" height="2.4"/>
+            <rect x="4.8" y="9.6" width="28.8" height="2.4"/>
+            <rect x="4.8" y="12" width="7.2" height="2.4"/><rect x="16.8" y="12" width="7.2" height="2.4"/><rect x="28.8" y="12" width="4.8" height="2.4"/>
+            <rect x="4.8" y="14.4" width="7.2" height="2.4"/><rect x="16.8" y="14.4" width="7.2" height="2.4"/><rect x="28.8" y="14.4" width="4.8" height="2.4"/>
+            <rect x="4.8" y="16.8" width="28.8" height="2.4"/><rect x="4.8" y="19.2" width="28.8" height="2.4"/>
+            <rect x="4.8" y="21.6" width="4.8" height="2.4"/><rect x="12" y="21.6" width="4.8" height="2.4"/><rect x="19.2" y="21.6" width="4.8" height="2.4"/><rect x="26.4" y="21.6" width="4.8" height="2.4"/>
+            <rect x="4.8" y="24" width="4.8" height="2.4"/><rect x="12" y="24" width="4.8" height="2.4"/><rect x="19.2" y="24" width="4.8" height="2.4"/><rect x="26.4" y="24" width="4.8" height="2.4"/>
+            <rect x="4.8" y="26.4" width="4.8" height="2.4"/><rect x="12" y="26.4" width="4.8" height="2.4"/><rect x="19.2" y="26.4" width="4.8" height="2.4"/><rect x="26.4" y="26.4" width="4.8" height="2.4"/>
+          </g>
+          <g fill="#1A1A1A">
+            <rect x="12" y="12" width="4.8" height="2.4"/><rect x="24" y="12" width="4.8" height="2.4"/>
+            <rect x="12" y="14.4" width="4.8" height="2.4"/><rect x="24" y="14.4" width="4.8" height="2.4"/>
+          </g>
+        </svg>
+      </span>
+      <div class="hdr-id">
+        <div class="name">my-project</div>
+        <div class="path">~/code/my-project</div>
+      </div>
+      <div></div>
+      <div class="tabs">
+        <div class="tab active">[1]F</div>
+        <div class="tab">[2]B</div>
+      </div>
+      <div class="counters narrow-c">
+        <span class="cell back-c"><span class="g">·</span><span class="num">7</span></span>
+        <span class="cell now-c"><span class="g">◐</span><span class="num">2</span></span>
+        <span class="cell next-c"><span class="g">○</span><span class="num">3</span></span>
+        <span class="cell done-c"><span class="g">●</span><span class="num">14</span></span>
+      </div>
+    </div>
+
+    <div class="body narrow">
+      <div class="col">
+        <div class="pane backlog-pane">
+          <span class="pane-title backlog">Backlog</span>
+          <span class="pane-count">7</span>
+          <div class="pane-body">
+            <div class="row"><span class="title">ship the TUI</span><span class="meta">code · 3d ago</span></div>
+            <div class="row"><span class="title">wire skill ref docs</span><span class="meta">docs · 5d ago</span></div>
+            <div class="row"><span class="title">refactor activity router</span><span class="meta">code · yesterday</span></div>
+            <div class="row dim"><span class="title">explore Go rewrite</span><span class="meta">research</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-mid">
+        <div class="pane focused now-pane">
+          <span class="pane-title now">Now</span>
+          <span class="pane-count" style="color: var(--now);">2</span>
+          <div class="pane-body">
+            <div class="row selected">
+              <span class="title">fix the webhook auth bug</span>
+              <span class="meta">code · started 2h ago</span>
+            </div>
+            <div class="row"><span class="title">handoff template review</span><span class="meta">docs · started yesterday</span></div>
+          </div>
+        </div>
+        <div class="pane next-pane">
+          <span class="pane-title next">Next</span>
+          <span class="pane-count">3</span>
+          <div class="pane-body">
+            <div class="row"><span class="title">sqlite index migrations</span><span class="meta">code · tomorrow</span></div>
+            <div class="row"><span class="title">write release notes</span><span class="meta">docs · queued</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <div class="chips">
+        <span class="chip cap"><span class="key">n</span><span class="lbl">cap</span></span>
+        <span class="chip move"><span class="key">m</span><span class="lbl">→</span></span>
+        <span class="chip fin"><span class="key">f</span><span class="lbl">fin</span></span>
+        <span class="chip pin"><span class="key">p</span><span class="lbl">pin</span></span>
+        <span class="chip blk"><span class="key">d</span><span class="lbl">drop</span></span>
+        <span class="chip gen"><span class="key">?</span><span class="lbl">help</span></span>
+        <span class="chip gen"><span class="key">q</span><span class="lbl">quit</span></span>
+      </div>
+      <div class="sync">
+        <span>● synced</span>
+        <span class="cwd">v0.9.6 · 4f2a</span>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="font-family:-apple-system,system-ui,sans-serif;font-weight:600;font-size:13px;color:var(--lavender);letter-spacing:.08em;text-transform:uppercase;margin:24px 0 8px;">Slim header — &lt;80 cols or H toggle (~1 row, no mascot)</h2>
+
+  <!-- ───── NARROW · Slim header ───── -->
+  <div class="term narrow">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="term-label">octopus tui — ~/code/my-project  (slim header)</span>
+    </div>
+
+    <div class="hdr slim">
+      <div class="hdr-id">
+        <span class="name">my-project</span>
+      </div>
+      <div></div>
+      <div class="tabs">
+        <div class="tab active">[1]F</div>
+        <div class="tab">[2]B</div>
+      </div>
+      <div class="counters">
+        <span class="cell back-c"><span class="g">·</span><span class="num">7</span></span>
+        <span class="cell now-c"><span class="g">◐</span><span class="num">2</span></span>
+        <span class="cell next-c"><span class="g">○</span><span class="num">3</span></span>
+        <span class="cell done-c"><span class="g">●</span><span class="num">14</span></span>
+      </div>
+    </div>
+
+    <div class="body narrow">
+      <div class="col">
+        <div class="pane backlog-pane">
+          <span class="pane-title backlog">Backlog</span>
+          <span class="pane-count">7</span>
+          <div class="pane-body">
+            <div class="row"><span class="title">ship the TUI</span><span class="meta">code · 3d ago</span></div>
+            <div class="row"><span class="title">wire skill ref docs</span><span class="meta">docs · 5d ago</span></div>
+            <div class="row"><span class="title">refactor activity router</span><span class="meta">code · yesterday</span></div>
+            <div class="row"><span class="title">design v2 mascot poses</span><span class="meta">design · today</span></div>
+            <div class="row dim"><span class="title">explore Go rewrite</span><span class="meta">research</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-mid">
+        <div class="pane focused now-pane">
+          <span class="pane-title now">Now</span>
+          <span class="pane-count" style="color: var(--now);">2</span>
+          <div class="pane-body">
+            <div class="row selected">
+              <span class="title">fix the webhook auth bug</span>
+              <span class="meta">code · started 2h ago</span>
+            </div>
+            <div class="row"><span class="title">handoff template review</span><span class="meta">docs · started yesterday</span></div>
+          </div>
+        </div>
+        <div class="pane next-pane">
+          <span class="pane-title next">Next</span>
+          <span class="pane-count">3</span>
+          <div class="pane-body">
+            <div class="row"><span class="title">sqlite index migrations</span><span class="meta">code · tomorrow</span></div>
+            <div class="row"><span class="title">write release notes</span><span class="meta">docs · queued</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <div class="chips">
+        <span class="chip cap"><span class="key">n</span><span class="lbl">cap</span></span>
+        <span class="chip move"><span class="key">m</span><span class="lbl">→</span></span>
+        <span class="chip fin"><span class="key">f</span><span class="lbl">fin</span></span>
+        <span class="chip pin"><span class="key">p</span><span class="lbl">pin</span></span>
+        <span class="chip blk"><span class="key">d</span><span class="lbl">drop</span></span>
+        <span class="chip gen"><span class="key">?</span><span class="lbl">help</span></span>
+        <span class="chip gen"><span class="key">q</span><span class="lbl">quit</span></span>
+      </div>
+      <div class="sync">
+        <span>● synced</span>
+        <span class="cwd">v0.9.6 · 4f2a</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

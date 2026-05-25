@@ -246,6 +246,27 @@ def toggle_pin(activity_root: Path, slug: str) -> TaskResult:
     return pin_task(activity_root, slug)
 
 
+def block_task(
+    activity_root: Path, slug: str, reason: str | None = None
+) -> TaskResult:
+    """Set run_state to 'blocked'. Reason is appended to the task body if given."""
+    path, task, body, octopus_dir, storage_mode = _load(activity_root, slug)
+    task.run_state = "blocked"
+    if reason:
+        suffix = f"\n\n> blocked: {reason.strip()}\n"
+        body = (body or "") + suffix
+    _save(task, body, path, octopus_dir, storage_mode, activity_root)
+    return TaskResult(slug, task.bucket, "blocked")
+
+
+def unblock_task(activity_root: Path, slug: str) -> TaskResult:
+    """Clear run_state."""
+    path, task, body, octopus_dir, storage_mode = _load(activity_root, slug)
+    task.run_state = None
+    _save(task, body, path, octopus_dir, storage_mode, activity_root)
+    return TaskResult(slug, task.bucket, "unblocked")
+
+
 # ── capture ────────────────────────────────────────────────────────────
 
 

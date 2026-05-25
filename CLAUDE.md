@@ -68,6 +68,8 @@ All design specs live under `.spectacular/`. There is no separate `specs/` or `d
 | Memory schema | `.spectacular/specs/SCHEMA-MEMORY.md` |
 | Four-axis task model | `.spectacular/specs/AXIS-MODEL.md` |
 | CLI verbs & views | `.spectacular/specs/CLI-VERBS.md` |
+| TUI glyph dictionary | `.spectacular/specs/TUI-GLYPHS.md` |
+| TUI keybinding schema | `.spectacular/specs/TUI-KEYS.md` |
 | Validation rules across all schemas | `.spectacular/specs/CRITICAL-DEPENDENCIES.md` |
 | Language/library choices | `.spectacular/STACK.md` |
 | Locked decisions log | `.spectacular/DECISIONS.md` |
@@ -110,6 +112,8 @@ If you find a conflict, surface it to Alessandro before resolving. Do not silent
   | `SCHEMA-MEMORY.md` | `skills/octopus/references/schemas/memory.md` |
   | `SCHEMA-HANDOFF.md` | `skills/octopus/references/schemas/handoff.md` |
   | `CLI-VERBS.md` | `skills/octopus/references/cli-verbs.md` |
+  | `TUI-GLYPHS.md` | `skills/octopus/references/tui-glyphs.md` |
+  | `TUI-KEYS.md` | `skills/octopus/references/tui-keys.md` |
   | `CRITICAL-DEPENDENCIES.md` | `skills/octopus/references/critical-dependencies.md` |
   References are *rewritten for the skill context* (operational, terse), not verbatim copies. Update both files in the same commit when content overlaps. If drift becomes recurrent, escalate to a pre-commit hook.
 - Do not run install/sync/deploy commands unless Alessandro explicitly asks.

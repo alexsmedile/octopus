@@ -34,8 +34,10 @@ from octopus.tui.mascot import (
 
 @dataclass(frozen=True)
 class HeaderCounts:
+    backlog: int = 0
     now: int = 0
     next_: int = 0
+    done: int = 0
     blocked: int = 0
 
 
@@ -90,19 +92,12 @@ class _HeaderText(Static):
     state_busy: reactive[bool] = reactive(False)
     counts: reactive[HeaderCounts] = reactive(HeaderCounts())
     active_mode: reactive[str] = reactive("focus")
+    display_mode: reactive[str] = reactive("full")  # full | compact | slim
 
     def __init__(self) -> None:
         super().__init__(id="header-text")
 
-    def render(self) -> Group:
-        # Row 0: title (left) + mode tabs (right) on the same line.
-        line0 = Text(no_wrap=True, overflow="ellipsis")
-        line0.append(self.title_text, style="bold #CBA6F7")
-        # Pad to push tabs right.
-        try:
-            width = self.size.width or 80
-        except Exception:
-            width = 80
+    def _render_tabs(self) -> Text:
         tabs = Text()
         for i, (key, label) in enumerate((("focus", "1 focus"), ("board", "2 board"))):
             if i:
@@ -111,42 +106,102 @@ class _HeaderText(Static):
                 tabs.append(f" {label} ", style="bold #0F1014 on #CBA6F7")
             else:
                 tabs.append(f" {label} ", style="#8A8D9A")
+        return tabs
+
+    def _render_counts(self) -> Text:
+        c = self.counts
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append(f"· {c.backlog}", style="#8A8D9A")
+        line.append("   ", style="dim")
+        line.append(f"◐ {c.now}", style="#F38BA8")
+        line.append("   ", style="dim")
+        line.append(f"○ {c.next_}", style="#89DCEB")
+        line.append("   ", style="dim")
+        line.append(f"● {c.done}", style="#A6E3A1")
+        if c.blocked:
+            line.append("   ", style="dim")
+            line.append(f"! {c.blocked}", style="#FAB387")
+        return line
+
+    def render(self) -> Group:
+        mode = self.display_mode
+        if mode == "slim":
+            return Group(self._render_slim())
+        if mode == "compact":
+            return self._render_compact()
+        return self._render_full()
+
+    def _render_slim(self) -> Text:
+        # One row: TITLE · activity · counts · …pad… · tabs
+        try:
+            width = self.size.width or 80
+        except Exception:
+            width = 80
+        left = Text(no_wrap=True, overflow="ellipsis")
+        left.append(self.title_text, style="bold #CBA6F7")
+        if self.activity_name:
+            left.append("  ·  ", style="dim")
+            left.append(self.activity_name, style="#F5F5F7")
+        left.append("  ·  ", style="dim")
+        left.append_text(self._render_counts())
+        tabs = self._render_tabs()
+        slack = max(2, width - left.cell_len - tabs.cell_len)
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append_text(left)
+        line.append(" " * slack)
+        line.append_text(tabs)
+        return line
+
+    def _render_compact(self) -> Group:
+        try:
+            width = self.size.width or 80
+        except Exception:
+            width = 80
+        # Row 0: title + tabs
+        line0 = Text(no_wrap=True, overflow="ellipsis")
+        line0.append(self.title_text, style="bold #CBA6F7")
+        if self.activity_name:
+            line0.append("  ·  ", style="dim")
+            line0.append(self.activity_name, style="#F5F5F7")
+        tabs = self._render_tabs()
         slack = max(2, width - line0.cell_len - tabs.cell_len)
         line0.append(" " * slack)
         line0.append_text(tabs)
+        # Row 1: path
+        line1 = Text(no_wrap=True, overflow="ellipsis")
+        line1.append(f"{HOME} ", style="dim")
+        line1.append(self.cwd_path or "—", style="#8A8D9A")
+        # Row 2: counts
+        return Group(line0, line1, self._render_counts())
 
-        # Row 1: activity name.
+    def _render_full(self) -> Group:
+        try:
+            width = self.size.width or 80
+        except Exception:
+            width = 80
+        # Row 0: title + tabs
+        line0 = Text(no_wrap=True, overflow="ellipsis")
+        line0.append(self.title_text, style="bold #CBA6F7")
+        tabs = self._render_tabs()
+        slack = max(2, width - line0.cell_len - tabs.cell_len)
+        line0.append(" " * slack)
+        line0.append_text(tabs)
+        # Row 1: activity name
         line1 = Text(no_wrap=True, overflow="ellipsis")
         line1.append(self.activity_name or "—", style="#F5F5F7")
-
-        # Row 2: CWD path.
+        # Row 2: cwd
         line2 = Text(no_wrap=True, overflow="ellipsis")
         line2.append(f"{HOME} ", style="dim")
         line2.append(self.cwd_path or "—", style="#8A8D9A")
-
-        # Row 3: session + counts.
-        line3 = Text(no_wrap=True, overflow="ellipsis")
-        if self.session_label:
-            line3.append(f"{SESSION} session {self.session_label}", style="#6DD3A7")
-            line3.append("  ·  ", style="dim")
-        c = self.counts
-        parts = []
-        if c.now:
-            parts.append(f"{c.now} now")
-        if c.next_:
-            parts.append(f"{c.next_} next")
-        if c.blocked:
-            parts.append(f"{c.blocked} blocked")
-        if parts:
-            line3.append(" · ".join(parts), style="dim")
-        elif not self.session_label:
-            line3.append("no session", style="dim")
-
-        # Row 4: state.
-        state_style = "#F5C76E" if self.state_busy else "dim"
+        # Row 3: counts
+        line3 = self._render_counts()
+        # Row 4: session + state
         line4 = Text(no_wrap=True)
+        if self.session_label:
+            line4.append(f"{SESSION} session {self.session_label}", style="#89DCEB")
+            line4.append("  ·  ", style="dim")
+        state_style = "#F5C76E" if self.state_busy else "dim"
         line4.append(f"{SPINNER} {self.state_label}", style=state_style)
-
         return Group(line0, line1, line2, line3, line4)
 
 
@@ -190,8 +245,54 @@ class HeaderBar(Widget):
         self._text.state_label = label
         self._text.state_busy = busy
 
-    def set_counts(self, now: int, next_: int, blocked: int) -> None:
-        self._text.counts = HeaderCounts(now=now, next_=next_, blocked=blocked)
+    def set_counts(
+        self,
+        now: int,
+        next_: int,
+        blocked: int,
+        backlog: int = 0,
+        done: int = 0,
+    ) -> None:
+        self._text.counts = HeaderCounts(
+            backlog=backlog, now=now, next_=next_, done=done, blocked=blocked
+        )
 
     def set_mode(self, mode: str) -> None:
         self._text.active_mode = mode
+
+    # ── Header display mode (full / compact / slim) ─────────────────────
+
+    _MODE_HEIGHTS = {"full": 7, "compact": 3, "slim": 1}
+    _MODE_CYCLE = ("full", "compact", "slim")
+
+    @property
+    def display_mode(self) -> str:
+        return self._text.display_mode
+
+    def set_display_mode(self, mode: str) -> None:
+        if mode not in self._MODE_HEIGHTS:
+            return
+        self._text.display_mode = mode
+        height = self._MODE_HEIGHTS[mode]
+        self.styles.height = height
+        # Mascot only appears in full mode; hide otherwise to reclaim width.
+        self._mascot.styles.display = "block" if mode == "full" else "none"
+        self._text.refresh()
+
+    def cycle_display_mode(self) -> str:
+        cur = self._text.display_mode
+        try:
+            i = self._MODE_CYCLE.index(cur)
+        except ValueError:
+            i = 0
+        nxt = self._MODE_CYCLE[(i + 1) % len(self._MODE_CYCLE)]
+        self.set_display_mode(nxt)
+        return nxt
+
+    @staticmethod
+    def auto_mode_for_width(width: int) -> str:
+        if width < 80:
+            return "slim"
+        if width < 120:
+            return "compact"
+        return "full"
