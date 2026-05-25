@@ -442,3 +442,115 @@ ListView > ListItem.--highlight {
     width: 1fr;
     height: 1fr;
 }
+
+/* ── Edit modal (in-app body + frontmatter editor) ──────────────────── */
+
+#edit-modal {
+    width: 80%;
+    height: 80%;
+    background: #16171E;
+    border: heavy #CBA6F7;          /* overridden at mount by bucket color */
+    border-title-color: #CBA6F7;
+    border-title-style: bold;
+    border-title-align: left;
+    padding: 0 1;
+    align: center middle;
+    layout: vertical;
+}
+
+#edit-titlebar {
+    width: 1fr;
+    height: 1;
+    padding: 0 1;
+    background: #16171E;
+}
+
+#edit-title {
+    width: 1fr;
+    height: 1;
+    content-align: left middle;
+}
+
+#edit-bucket {
+    width: auto;
+    height: 1;
+    content-align: right middle;
+    padding: 0 0 0 2;
+}
+
+#edit-panes {
+    width: 1fr;
+    height: 1fr;
+    padding: 0 1;
+    background: #16171E;
+}
+
+.edit-section {
+    width: 1fr;
+    height: 1;
+    color: #8A8D9A;
+    background: #16171E;
+    text-style: bold;
+    padding: 0 0 0 0;
+}
+
+#edit-frontmatter {
+    width: 1fr;
+    height: auto;
+    max-height: 30%;
+    background: #0F1014;
+    color: #F5F5F7;
+    border: round #2A2C36;
+    padding: 0 1;
+    scrollbar-size: 1 1;
+}
+
+#edit-frontmatter:focus {
+    border: round #CBA6F7;
+}
+
+#edit-body {
+    width: 1fr;
+    height: 1fr;
+    background: #0F1014;
+    color: #F5F5F7;
+    border: round #2A2C36;
+    padding: 0 1;
+    scrollbar-size: 1 1;
+}
+
+#edit-body:focus {
+    border: round #F5F5F7;
+}
+
+#edit-footer {
+    width: 1fr;
+    height: 1;
+    padding: 0 1;
+    background: #16171E;
+}
+
+#edit-hint {
+    width: 1fr;
+    height: 1;
+    color: #8A8D9A;
+    content-align: left middle;
+}
+
+#edit-dirty {
+    width: auto;
+    height: 1;
+    content-align: right middle;
+}
+
+#confirm-discard {
+    width: auto;
+    height: 3;
+    padding: 1 3;
+    background: #2A1E26;
+    color: #F5F5F7;
+    border: heavy #F38BA8;
+    border-title-color: #F38BA8;
+    text-style: bold;
+    align: center middle;
+}

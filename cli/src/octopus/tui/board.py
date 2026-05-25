@@ -79,7 +79,8 @@ class BoardScreen(Screen):
         Binding("n", "capture_inline", "capture", show=True),
         Binding("m", "move_next", "advance", show=True),
         Binding("M", "move_picker", "move…", show=False),
-        Binding("e", "edit_external", "edit", show=True),
+        Binding("e", "edit_inline", "edit", show=True),
+        Binding("E", "edit_external", "edit ($EDITOR)", show=False),
         Binding("d", "drop", "drop", show=True),
         Binding("p", "toggle_pin", "pin", show=True),
         Binding("H", "cycle_header_mode", "header size", show=False),
@@ -312,6 +313,15 @@ class BoardScreen(Screen):
     def _current_slug(self) -> str | None:
         item = self._current_item()
         return item.task_slug if item else None
+
+    def _current_bucket(self) -> str | None:
+        item = self._current_item()
+        if item is None:
+            return None
+        try:
+            return item.task_row["bucket"]
+        except (KeyError, IndexError):
+            return None
 
     def _has_real_tasks(self, c: str) -> bool:
         return any(isinstance(child, _TaskListItem) for child in self._lists[c].children)
@@ -568,12 +578,7 @@ class BoardScreen(Screen):
             _on_title,
         )
 
-    def action_edit_external(self) -> None:
-        slug = self._current_slug()
-        if slug is None:
-            self._toast.flash("nothing selected")
-            return
-
+    def _resolve_task_path(self, slug: str):
         from octopus.actions import find_task_file
         from octopus.fs.scaffold import read_storage_mode
 
@@ -582,9 +587,38 @@ class BoardScreen(Screen):
             path = find_task_file(self._activity_root / ".octopus", storage_mode, slug)
         except Exception as exc:
             self._toast.flash(f"✗ {exc}")
-            return
+            return None
         if path is None:
             self._toast.flash(f"✗ task file not found: {slug}")
+            return None
+        return path
+
+    def action_edit_inline(self) -> None:
+        slug = self._current_slug()
+        if slug is None:
+            self._toast.flash("nothing selected")
+            return
+        path = self._resolve_task_path(slug)
+        if path is None:
+            return
+        bucket = self._current_bucket() or "backlog"
+
+        from octopus.tui.edit_modal import EditModal
+
+        def _on_close(saved: bool | None) -> None:
+            if saved:
+                self._refresh_data()
+                self._toast.flash(f"✓ saved {slug}")
+
+        self.app.push_screen(EditModal(path, slug, bucket), _on_close)
+
+    def action_edit_external(self) -> None:
+        slug = self._current_slug()
+        if slug is None:
+            self._toast.flash("nothing selected")
+            return
+        path = self._resolve_task_path(slug)
+        if path is None:
             return
 
         editor = os.environ.get("EDITOR", "vi")
