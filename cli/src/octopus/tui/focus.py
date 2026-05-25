@@ -972,16 +972,13 @@ class FocusScreen(Screen):
             return
 
         editor = os.environ.get("EDITOR", "vi")
-        if hasattr(self.app, "suspend"):
-            with self.app.suspend():
-                try:
-                    subprocess.run([editor, str(path)], check=False)
-                except Exception as exc:
-                    print(f"editor failed: {exc}", flush=True)
-            self._refresh_data()
-            self._toast.flash(f"✓ edited {slug}")
-        else:
-            self._toast.flash(f"open: {path}  (e needs newer Textual)")
+        with self.app.suspend():
+            try:
+                subprocess.run([editor, str(path)], check=False)
+            except Exception as exc:
+                print(f"editor failed: {exc}", flush=True)
+        self._refresh_data()
+        self._toast.flash(f"✓ edited {slug}")
 
     def action_block(self) -> None:
         slug = self._current_slug()
