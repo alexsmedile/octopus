@@ -2,14 +2,25 @@
 
 Bound to `e`. The `E` binding keeps the legacy `$EDITOR` (vim) flow.
 
-Design:
+Visual language matches the main view:
+- Outer modal: lavender heavy border, panel-style background.
+- Inner panes (frontmatter, body) use the `.panel` idiom — heavy
+  `#2A2C36` resting border, bucket-color border on focus.
+- Footer chip strip styled like `#keymap-bar`.
+
+Layout flexes with terminal size — modal is 90% w × 90% h with sensible
+minimums; inner panes use fr units so they reflow.
+
+Editing model:
 - Body is focused by default.
 - `↑` at the top of the body jumps focus into the frontmatter pane.
 - `↓` at the bottom of the frontmatter brings focus back to the body.
-- Border color tracks the task's bucket (now=pink, next=cyan, …).
+- `Alt+Left`/`Alt+Right` jump by word (macOS-native shortcut).
+- `Alt+Backspace` deletes the previous word.
 - `Ctrl+S` saves. `Esc` on a dirty buffer asks before discarding.
-- The on-disk file is split → edited → recombined so the YAML and body
-  panes can be edited independently without one stomping the other.
+
+The on-disk file is split → edited → recombined so the YAML and body
+panes can be edited independently without one stomping the other.
 """
 
 from __future__ import annotations
@@ -41,31 +52,42 @@ class _Split:
     """Result of splitting a task file into its YAML and body parts."""
 
     has_frontmatter: bool
-    frontmatter: str  # without the leading/trailing `---` fences
+    frontmatter: str
     body: str
 
     @classmethod
     def parse(cls, raw: str) -> "_Split":
-        """Split a markdown file with optional YAML frontmatter.
-
-        Recognizes the standard `---\\nYAML\\n---\\n…` form. If the file has no
-        frontmatter, the whole content is treated as body.
-        """
         if not raw.startswith("---\n"):
             return cls(has_frontmatter=False, frontmatter="", body=raw)
         rest = raw[4:]
         end = rest.find("\n---\n")
         if end < 0:
-            # malformed — treat whole thing as body
             return cls(has_frontmatter=False, frontmatter="", body=raw)
         fm = rest[:end]
-        body = rest[end + 5 :]  # skip "\n---\n"
+        body = rest[end + 5 :]
         return cls(has_frontmatter=True, frontmatter=fm, body=body)
 
     def serialize(self) -> str:
         if not self.has_frontmatter:
             return self.body
         return f"---\n{self.frontmatter}\n---\n{self.body}"
+
+
+class _OctopusTextArea(TextArea):
+    """TextArea with macOS-native word navigation (alt+arrow).
+
+    Stock Textual binds word-jump to ctrl+arrow; we want alt+arrow as
+    well so it matches the terminal convention on macOS and the rest of
+    the OS shortcuts.
+    """
+
+    BINDINGS = [
+        Binding("alt+left", "cursor_word_left", "word left", show=False),
+        Binding("alt+right", "cursor_word_right", "word right", show=False),
+        Binding("alt+shift+left", "cursor_word_left(True)", "select word left", show=False),
+        Binding("alt+shift+right", "cursor_word_right(True)", "select word right", show=False),
+        Binding("alt+backspace", "delete_word_left", "delete word left", show=False),
+    ]
 
 
 class _ConfirmDiscard(ModalScreen[bool]):
@@ -81,9 +103,8 @@ class _ConfirmDiscard(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         yield Static(
-            "Discard unsaved changes?  (y / n)",
+            "Discard unsaved changes?   y / n",
             id="confirm-discard",
-            classes="overlay",
         )
 
     def action_accept(self) -> None:
@@ -94,10 +115,7 @@ class _ConfirmDiscard(ModalScreen[bool]):
 
 
 class EditModal(ModalScreen[bool]):
-    """Modal task editor — body + frontmatter panes.
-
-    Returns True if the file was saved, False otherwise.
-    """
+    """Modal task editor — body + frontmatter panes."""
 
     BINDINGS = [
         Binding("ctrl+s", "save", "save", show=False, priority=True),
@@ -114,45 +132,71 @@ class EditModal(ModalScreen[bool]):
         self._dirty = False
         self._color = _BUCKET_COLORS.get(bucket, "#CBA6F7")
 
-        self._fm_area = TextArea(self._split.frontmatter, id="edit-frontmatter")
+        self._fm_area = _OctopusTextArea(
+            self._split.frontmatter,
+            id="edit-frontmatter",
+            classes="edit-pane",
+        )
         self._fm_area.show_line_numbers = False
-        self._body_area = TextArea(self._split.body, id="edit-body")
+        self._body_area = _OctopusTextArea(
+            self._split.body,
+            id="edit-body",
+            classes="edit-pane",
+        )
         self._body_area.show_line_numbers = False
+        self._fm_panel = Container(
+            self._fm_area,
+            id="edit-frontmatter-panel",
+            classes="edit-panel",
+        )
+        self._body_panel = Container(
+            self._body_area,
+            id="edit-body-panel",
+            classes="edit-panel",
+        )
         self._dirty_static = Static("", id="edit-dirty")
 
     # ─── compose ──────────────────────────────────────────────────────
 
     def compose(self) -> ComposeResult:
-        title = Text()
-        title.append(f"{ACTIVITY} ", style="#CBA6F7")
-        title.append("edit · ", style="#F5F5F7")
-        title.append(self._slug, style="bold #F5F5F7")
-        right = Text(self._bucket, style=f"bold {self._color}")
-
-        with Container(id="edit-modal", classes="overlay"):
-            with Horizontal(id="edit-titlebar"):
-                yield Static(title, id="edit-title")
-                yield Static(right, id="edit-bucket")
+        with Container(id="edit-modal"):
             with Vertical(id="edit-panes"):
-                yield Static("▾ frontmatter  (↑ from body to edit)", classes="edit-section")
-                yield self._fm_area
-                yield Static("▾ body", classes="edit-section")
-                yield self._body_area
+                yield self._fm_panel
+                yield self._body_panel
             with Horizontal(id="edit-footer"):
-                yield Static(
-                    "Ctrl+S save · Esc cancel · ↑ frontmatter",
-                    id="edit-hint",
-                )
+                yield Static(self._hint_text(), id="edit-hint")
                 yield self._dirty_static
+
+    def _hint_text(self) -> Text:
+        out = Text()
+        # chip-styled hints, same vocabulary as keymap_bar
+        def chip(key: str, desc: str, color: str) -> None:
+            out.append(f" {key} ", style=f"bold {color} on #16171E")
+            out.append(" ", style="on #0F1014")
+            out.append(desc, style="#8A8D9A on #0F1014")
+            out.append("   ", style="on #0F1014")
+
+        chip("^S", "save", "#86EFAC")
+        chip("ESC", "cancel", "#3A3D48")
+        chip("↑", "frontmatter", "#CBA6F7")
+        chip("⌥←→", "word", "#3A3D48")
+        return out
 
     # ─── lifecycle ────────────────────────────────────────────────────
 
     def on_mount(self) -> None:
-        # Border color from the bucket. ModalScreen styles ride on #edit-modal.
         modal = self.query_one("#edit-modal")
-        modal.styles.border = ("heavy", self._color)
-        modal.styles.border_title_color = self._color
-        modal.border_title = f"edit · {self._slug}"
+        modal.styles.border = ("heavy", "#CBA6F7")
+        modal.styles.border_title_color = "#CBA6F7"
+        modal.styles.border_subtitle_color = self._color
+        modal.border_title = f"◇ edit · {self._slug}"
+        modal.border_subtitle = self._bucket
+
+        # Inner panel border colors set explicitly here so they track the
+        # bucket on focus and the resting grey otherwise.
+        self._fm_panel.border_title = "frontmatter"
+        self._body_panel.border_title = "body"
+
         # Body focused by default.
         self._body_area.focus()
 
@@ -164,25 +208,27 @@ class EditModal(ModalScreen[bool]):
         )
         if is_dirty != self._dirty:
             self._dirty = is_dirty
-            self._dirty_static.update(
-                Text("● modified", style=f"bold {self._color}") if is_dirty else Text("")
-            )
+            if is_dirty:
+                txt = Text()
+                txt.append("●", style=f"bold {self._color}")
+                txt.append(" modified", style="#8A8D9A")
+                self._dirty_static.update(txt)
+            else:
+                self._dirty_static.update(Text(""))
 
-    # ─── key handling — pane spill ────────────────────────────────────
+    # ─── pane spill ───────────────────────────────────────────────────
 
     def on_key(self, event) -> None:
-        """Up at top of body jumps to frontmatter; down at bottom of fm returns."""
         focused = self.focused
         if event.key == "up" and focused is self._body_area:
             if self._body_area.cursor_location[0] == 0 and self._split.has_frontmatter:
                 self._fm_area.focus()
-                # Land at the end of frontmatter for natural continuity.
-                last_row = len(self._fm_area.text.splitlines())
-                self._fm_area.cursor_location = (max(0, last_row - 1), 0)
+                last_row = max(0, len(self._fm_area.text.splitlines()) - 1)
+                self._fm_area.cursor_location = (last_row, 0)
                 event.stop()
         elif event.key == "down" and focused is self._fm_area:
-            last_row = len(self._fm_area.text.splitlines())
-            if self._fm_area.cursor_location[0] >= max(0, last_row - 1):
+            last_row = max(0, len(self._fm_area.text.splitlines()) - 1)
+            if self._fm_area.cursor_location[0] >= last_row:
                 self._body_area.focus()
                 self._body_area.cursor_location = (0, 0)
                 event.stop()
@@ -198,7 +244,6 @@ class EditModal(ModalScreen[bool]):
         try:
             self._path.write_text(new_split.serialize(), encoding="utf-8")
         except Exception as exc:
-            # Show in the dirty indicator slot — cheapest visible surface.
             self._dirty_static.update(Text(f"✗ save failed: {exc}", style="#F38BA8"))
             return
         self.dismiss(True)
