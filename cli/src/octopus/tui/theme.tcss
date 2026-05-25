@@ -247,6 +247,7 @@ ListView > ListItem.--highlight {
 
 /* ── Overlay (modal) ────────────────────────────────────────────────── */
 
+/* Legacy .overlay class — kept for back-compat with help overlay. */
 .overlay {
     border: round #F38BA8;
     background: #16171E;
@@ -265,6 +266,112 @@ ListView > ListItem.--highlight {
 .overlay-hint {
     color: #8A8D9A;
     padding: 1 0 0 0;
+}
+
+/* ── Prompt modals (Confirm / Input / Picker) ─────────────────────────
+   Same design language as EditModal — lavender heavy outer border,
+   border-title, docked footer chip strip, flexible sizing with floors. */
+
+ConfirmModal,
+InputModal,
+BucketPickerModal {
+    align: center middle;
+}
+
+.prompt-modal {
+    background: #0F1014;
+    border: heavy #CBA6F7;
+    border-title-color: #CBA6F7;
+    border-title-style: bold;
+    border-title-align: left;
+    padding: 1 1 0 1;
+    layout: vertical;
+}
+
+#confirm-modal {
+    width: 60%;
+    height: auto;
+    min-width: 40;
+    max-width: 80;
+    min-height: 7;
+}
+
+#confirm-message {
+    width: 1fr;
+    height: auto;
+    color: #F5F5F7;
+    text-style: bold;
+    padding: 1 1 1 1;
+    background: #0F1014;
+}
+
+#input-modal {
+    width: 70%;
+    height: auto;
+    min-width: 50;
+    max-width: 100;
+    min-height: 7;
+}
+
+#input-field {
+    width: 1fr;
+    height: 3;
+    background: #16171E;
+    color: #F5F5F7;
+    border: heavy #2A2C36;
+    padding: 0 1;
+}
+
+#input-field:focus {
+    border: heavy #CBA6F7;
+}
+
+#picker-modal {
+    width: 60%;
+    height: auto;
+    min-width: 40;
+    max-width: 80;
+    min-height: 12;
+    max-height: 80%;
+}
+
+#picker-list {
+    width: 1fr;
+    height: auto;
+    background: #0F1014;
+    border: heavy #2A2C36;
+    padding: 0 0;
+}
+
+#picker-list:focus {
+    border: heavy #CBA6F7;
+}
+
+#picker-list > ListItem {
+    background: #0F1014;
+    color: #F5F5F7;
+    height: 1;
+    padding: 0 1;
+}
+
+#picker-list > ListItem.--highlight {
+    background: #2A1E26;
+    color: #F5F5F7;
+}
+
+.prompt-footer {
+    dock: bottom;
+    width: 1fr;
+    height: 1;
+    padding: 0 1;
+    background: #0F1014;
+}
+
+.prompt-hint {
+    width: 1fr;
+    height: 1;
+    content-align: left middle;
+    background: #0F1014;
 }
 
 /* ── Empty-state hints ──────────────────────────────────────────────── */
