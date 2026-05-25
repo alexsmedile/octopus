@@ -5,6 +5,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.9] — 2026-05-25
+
+**Board view, refined.** The Board (`2`) now spans all five buckets via a sliding 3-column window, the inline detail pane drops down from the bottom on `,` (no more centered overlay), and the cursor follows you across Focus↔Board swaps. The Edit modal grows a third pane: a properties cheat-sheet that inserts the right YAML stub on Enter, so you stop guessing the schema.
+
+### Added
+
+- **Board sliding window** — `2` now pages across `backlog → next → now → done → dropped` in a 3-column window. Pages: `backlog|next|now`, `next|now|done`, `now|done|dropped`. Navigation: `→`/`Tab` past the rightmost slot slides; past the last page **jumps back to page 0** (no wrap-around loop). `←`/`Shift+Tab` hard-stops at page 0. `]` / `[` slide without moving the cursor slot.
+- **Inline detail pane on Board** (`cli/src/octopus/tui/board.py`) — `,` toggles a detail pane docked at the bottom (40% of board height); board columns stay visible above. `↓`/`↑` scroll the detail body. Re-renders as the highlight moves across columns. Matches the Focus screen's `,` behavior.
+- **Cross-view cursor restore** (`cli/src/octopus/tui/app.py`) — `App.shared_cursor: (bucket, slug)` is stashed before each mode swap. The incoming screen aligns its page to contain the bucket and restores the highlight to the same task.
+- **Edit modal: properties pane** (`cli/src/octopus/tui/edit_modal.py`) — read-only cheat-sheet of all 24 canonical task properties (from `SCHEMA-TASK.md`) with one-line descriptions. `F2` focuses the list; `Enter` inserts the YAML stub (`due: YYYY-MM-DD`, `priority: high`, etc.) into the frontmatter pane at the cursor row, then returns focus to the frontmatter.
+
+### Changed
+
+- **Edit modal redesigned** — matches the main-view design vocabulary: heavy lavender frame, bucket-color resting borders, flexible 90% × 90% sizing with floors, footer chip strip, and `_OctopusTextArea` subclass with macOS-native `Alt+←/→` word jump and `Alt+Backspace` word delete.
+- **Confirm/Input/Picker modals redesigned** (`cli/src/octopus/tui/prompts.py`) — title in the heavy lavender border, footer chip strip in the same color vocabulary as `KeymapBar`, flexible sizing with min/max floors, alt+arrow word nav in `_OctopusInput`. `BucketPickerModal` shows each row in its bucket color and lands the cursor on the current bucket.
+- **`Enter` no longer opens detail on Board** — `,` does (matches Focus). `Enter` is reserved for list-row selection inside ListView widgets.
+
+### Fixed
+
+- **Mode-switch crash on Textual 8.x** (`cli/src/octopus/tui/app.py`) — `switch_screen()` failed with `IndexError: pop from empty list` because root screens are pushed without a result callback. Pressing `1`/`2` crashed the TUI instantly. Replaced with a pop-then-push helper.
+- **`1`/`2`/`Enter`/`Esc` swallowed by ListView focus** — Textual 8.x propagation order changed; ListView consumed digit keys before the screen binding fired. Marked the screen-level bindings as `priority=True` on both Focus and Board.
+- **Edit modal `e`/`E` split** — `e` opens the in-app modal editor, `E` keeps the `$EDITOR` (vim) flow.
+
+### Notes
+
+- Test suite: 604/604 green.
+- `Ctrl+P` for properties pane was the natural binding but Textual 8.x reserves it for the command palette; we use `F2`.
+- Focus mode pagination across all 5 buckets is still pending — the current Focus layout is structurally different from the Board's column row and needs a separate design pass.
+
+---
+
 ## [0.9.8] — 2026-05-25
 
 **Textual upgrade 0.46 → 8.2.7.** The pinned Textual was three years behind. Crossing 1.0 + 8.x landed without code damage — every API we touch (composition, modal screens, reactive widgets, Static rendering, half-block pixels) stayed stable. Unlocks `App.suspend()`, which fixes the `e`/`E` edit binding that was silently no-oping on 0.46. Promotes v0.9.7-rc1 to a regular release in the same commit since the redesign was visually signed off.

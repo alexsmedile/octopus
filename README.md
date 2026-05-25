@@ -372,7 +372,7 @@ Full keymap, modes, mascot behavior, and scope rules in **[`docs/TUI.md`](docs/T
 
 ## Status & what's next
 
-Latest: **v0.9.8** (2026-05-25) — Textual upgrade 0.46 → 8.2.7 (unlocks `e`/`E` edit binding via `App.suspend()`). Bundled with the v0.9.7-rc1 TUI visual redesign (header modes, keymap bar, bucket-coherent panel colors, glyph vocabulary). Currently on phase **06 — adapter framework** (the path to v1). v1 ships when 06 + 07 (Obsidian bridge) are done.
+Latest: **v0.9.9** (2026-05-25) — Board view refined: sliding 3-column window across all 5 buckets (`backlog→next→now→done→dropped`), inline detail pane from the bottom, Focus↔Board cursor restore, redesigned Edit/Confirm/Input/Picker modals with macOS-native word nav, and a properties cheat-sheet in the Edit modal that inserts canonical YAML stubs on Enter. Currently on phase **06 — adapter framework** (the path to v1). v1 ships when 06 + 07 (Obsidian bridge) are done.
 
 Full release history, phase table, and what's queued in **[`docs/ROADMAP.md`](docs/ROADMAP.md)**. Per-release detail in [CHANGELOG.md](CHANGELOG.md).
 
