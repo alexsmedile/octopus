@@ -19,8 +19,8 @@ def test_icons_are_plain_unicode_no_emoji() -> None:
 
     glyphs = [
         icons.NOW, icons.NEXT, icons.DONE, icons.DROPPED,
-        icons.PINNED, icons.BLOCKED, icons.CURSOR, icons.SESSION,
-        icons.SPINNER, icons.HOME,
+        icons.PINNED, icons.BLOCKED, icons.CURSOR, icons.SESSION_RUN,
+        icons.SPINNER, icons.HOME, icons.ACTIVITY, icons.REPO,
     ]
     for g in glyphs:
         assert len(g) == 1, f"glyph {g!r} should be a single char"
@@ -54,7 +54,7 @@ def test_status_bar_setters() -> None:
     sb.set_session("12m")
     sb.set_state("reindexing…", busy=True)
     sb.set_counts(3, 7, 2)
-    assert sb.activity_name == "demo"
+    assert sb.activity_id == "demo"
     assert sb.session_label == "12m"
     assert sb.state_label == "reindexing…"
     assert sb.state_busy is True
@@ -83,10 +83,10 @@ def test_focus_row_rendering() -> None:
     assert "▸" in title_text, "cursor glyph missing on selected row"
     assert "ship the TUI" in title_text
     # Chips do NOT appear in title text — they're rendered separately.
-    assert "⚐" not in title_text
+    assert "*" not in title_text
 
     chips_text = _row_chips(row).plain
-    assert "⚐" in chips_text, "pinned chip missing from chips column"
+    assert "*" in chips_text, "pinned chip missing from chips column"
 
     unselected = _row_text(row, selected=False).plain
     assert "▸" not in unselected, "cursor glyph should be hidden when not selected"
