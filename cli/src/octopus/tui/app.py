@@ -41,11 +41,19 @@ class OctopusApp(App):
 
     def switch_to_focus(self) -> None:
         # Swap the top screen for a fresh FocusScreen. Pop any modals first.
-        while len(self.screen_stack) > 1:
-            self.pop_screen()
-        self.switch_screen(FocusScreen(self._activity_title, self._activity_root))
+        self._swap_top(FocusScreen(self._activity_title, self._activity_root))
 
     def switch_to_board(self) -> None:
+        self._swap_top(BoardScreen(self._activity_title, self._activity_root))
+
+    def _swap_top(self, new_screen) -> None:
+        """Pop any modals + the current root screen, then push a fresh one.
+
+        Textual 8.x's `switch_screen` requires a result callback on the
+        outgoing screen — our root screens are pushed without one (via
+        `push_screen` in `on_mount`), so `switch_screen` blows up with
+        `IndexError: pop from empty list`. Avoid by popping then pushing.
+        """
         while len(self.screen_stack) > 1:
             self.pop_screen()
-        self.switch_screen(BoardScreen(self._activity_title, self._activity_root))
+        self.push_screen(new_screen)
