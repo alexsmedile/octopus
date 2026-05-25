@@ -28,7 +28,6 @@ from octopus.db.sync import sync_delete_task, sync_task_after_write
 from octopus.fs.io import read_activity, read_task, write_task
 from octopus.fs.scaffold import BUCKET_FOLDERS, read_storage_mode
 
-
 # ── errors ─────────────────────────────────────────────────────────────
 
 
@@ -402,7 +401,7 @@ def promote_task(
         loaded: list[tuple[Path, Task, str, Path, str]] = []
         for slug in slugs:
             loaded.append(_load(activity_root, slug))
-        for slug, (path, task, body, octo, storage) in zip(slugs, loaded):
+        for slug, (path, task, body, octo, storage) in zip(slugs, loaded, strict=False):
             if task.promoted_to is None:
                 # Idempotent revert — nothing to clear, skip quietly.
                 continue
@@ -454,9 +453,9 @@ def promote_task(
         loaded.append(_load(activity_root, slug))
 
     if not force:
-        already = [s for s, l in zip(slugs, loaded) if l[1].promoted_to is not None]
+        already = [s for s, entry in zip(slugs, loaded, strict=False) if entry[1].promoted_to is not None]
         if already:
-            msg = "; ".join(f"{s} → {l[1].promoted_to}" for s, l in zip(slugs, loaded) if l[1].promoted_to is not None)
+            msg = "; ".join(f"{s} → {entry[1].promoted_to}" for s, entry in zip(slugs, loaded, strict=False) if entry[1].promoted_to is not None)
             raise ActionError(
                 f"task(s) already promoted: {msg}. Use --force to repoint or --revert to unlink."
             )
@@ -492,7 +491,7 @@ def promote_task(
     promoted: list[str] = []
     repointed: list[str] = []
 
-    for slug, (path, task, body, octo, storage) in zip(slugs, loaded):
+    for slug, (path, task, body, octo, storage) in zip(slugs, loaded, strict=False):
         was_promoted = task.promoted_to is not None
         task.promoted_to = canonical
         if task.start_date is None:

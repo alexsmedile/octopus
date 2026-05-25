@@ -21,7 +21,6 @@ from octopus.cli import app
 from octopus.fs.io import read_task
 from octopus.fs.scaffold import init_activity
 
-
 runner = CliRunner()
 
 

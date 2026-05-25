@@ -66,8 +66,9 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 # - E402: cli.py uses deferred imports inside command bodies for startup speed
 # - F841: a few intentional debug-trace assignments
 # - SIM108/SIM105: stylistic, low value
+# - SIM401: false positive on sqlite3.Row — it supports `in` but not `.get()`
 # - B008/B017/UP028/UP038: one-off edge cases in tests
-ignore = ["E501", "B904", "E402", "F841", "SIM108", "SIM105", "B008", "B017", "UP028", "UP038"]
+ignore = ["E501", "B904", "E402", "F841", "SIM108", "SIM105", "SIM401", "B008", "B017", "UP028", "UP038"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["E501", "F841", "B017"]

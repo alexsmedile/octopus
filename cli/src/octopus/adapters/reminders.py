@@ -27,9 +27,8 @@ from octopus.adapters.base import (
     PullResult,
     PushResult,
 )
-from octopus.adapters.journal import read_journal, update_journal
+from octopus.adapters.journal import read_journal
 from octopus.config import load_adapter_config
-
 
 _BREW_HINT = "install via `brew install steipete/tap/remindctl`"
 

@@ -43,7 +43,6 @@ from octopus.core.slug import collision_suffix, slugify
 from octopus.db.connection import get_db
 from octopus.db.queries import (
     count_by_bucket,
-    get_activity_by_id_or_prefix,
     tasks_all,
     tasks_for_activity,
     total_row_counts,
@@ -1721,10 +1720,10 @@ def bridge_add(
         )
         raise typer.Exit(EXIT_USER_ERROR)
     if state not in ("open", "in-progress"):
-        err_console.print(f"[red]✗[/] --state must be 'open' or 'in-progress'")
+        err_console.print("[red]✗[/] --state must be 'open' or 'in-progress'")
         raise typer.Exit(EXIT_USER_ERROR)
     if priority is not None and priority not in ("urgent", "low"):
-        err_console.print(f"[red]✗[/] --priority must be 'urgent' or 'low'")
+        err_console.print("[red]✗[/] --priority must be 'urgent' or 'low'")
         raise typer.Exit(EXIT_USER_ERROR)
 
     try:
@@ -1980,9 +1979,9 @@ def _handle_slug_rename(
         raise typer.Exit(EXIT_USER_ERROR) from exc
 
     # Build the preview output.
-    console.print(f"\n[bold]Rename slug:[/]")
+    console.print("\n[bold]Rename slug:[/]")
     console.print(f"  {old_slug}  →  {new_slug}")
-    console.print(f"\n[bold]Octopus-managed refs to update automatically:[/]")
+    console.print("\n[bold]Octopus-managed refs to update automatically:[/]")
     # Group actions by category for the preview.
     by_cat: dict[str, list] = {}
     for a in plan.actions:
@@ -1998,7 +1997,7 @@ def _handle_slug_rename(
                 console.print(f"    [dim]…and {len(items) - 6} more[/]")
 
     if plan.soft_warnings:
-        console.print(f"\n[bold yellow]Soft warnings (user-managed, not touched):[/]")
+        console.print("\n[bold yellow]Soft warnings (user-managed, not touched):[/]")
         for w in plan.soft_warnings:
             console.print(f"  [yellow]{w.category}[/] {w.description}")
         console.print(
@@ -2010,10 +2009,9 @@ def _handle_slug_rename(
             "residual references.[/]"
         )
 
-    if not yes:
-        if not typer.confirm("\nProceed?", default=False):
-            console.print("[dim]aborted[/]")
-            raise typer.Exit(EXIT_OK)
+    if not yes and not typer.confirm("\nProceed?", default=False):
+        console.print("[dim]aborted[/]")
+        raise typer.Exit(EXIT_OK)
 
     # Apply rewrites.
     try:
@@ -2083,7 +2081,6 @@ def _set_task_one(
 
     Errors print to stderr and return False (caller decides whether to continue).
     """
-    from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
 
     octopus_dir = activity_root / ".octopus"
     storage_mode = read_storage_mode(octopus_dir)

@@ -36,14 +36,13 @@ from octopus.db.connection import get_db
 from octopus.db.queries import tasks_for_activity
 from octopus.fs.io import read_activity
 from octopus.tui.filter_bar import FilterBar
-from octopus.tui.focus import _TaskListItem, _drop_zombies, _filter_rows
+from octopus.tui.focus import _drop_zombies, _filter_rows, _TaskListItem
 from octopus.tui.header_bar import HeaderBar
 from octopus.tui.help import HelpOverlay
 from octopus.tui.overlay import TaskDetailOverlay
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
 from octopus.tui.toast import Toast
-
 
 # Column ids — match real bucket names (used directly in captures + moves).
 C_BACKLOG = "backlog"
@@ -174,7 +173,7 @@ class BoardScreen(Screen):
                 rows_by_col[c] = list(tasks_for_activity(conn, self._activity_id, bucket=c))
             blocked = sum(
                 1 for rows in rows_by_col.values() for r in rows
-                if "run_state" in r.keys() and r["run_state"] == "blocked"
+                if "run_state" in r and r["run_state"] == "blocked"
             )
         finally:
             try:
@@ -230,7 +229,7 @@ class BoardScreen(Screen):
 
     def _set_active(self, col: str) -> None:
         # Strip cursor from every row in every column.
-        for c, lst in self._lists.items():
+        for _c, lst in self._lists.items():
             for child in lst.children:
                 if isinstance(child, _TaskListItem):
                     try:
@@ -290,10 +289,7 @@ class BoardScreen(Screen):
         return item.task_slug if item else None
 
     def _has_real_tasks(self, c: str) -> bool:
-        for child in self._lists[c].children:
-            if isinstance(child, _TaskListItem):
-                return True
-        return False
+        return any(isinstance(child, _TaskListItem) for child in self._lists[c].children)
 
     def action_nav_right(self) -> None:
         i = COLUMNS.index(self._active)
@@ -511,7 +507,7 @@ class BoardScreen(Screen):
             self._toast.flash("nothing selected")
             return
         item = self._current_item()
-        current = item.task_row["bucket"] if item and "bucket" in item.task_row.keys() else None
+        current = item.task_row["bucket"] if item and "bucket" in item.task_row else None
 
         def _on_choice(bucket: str | None) -> None:
             if bucket is None:

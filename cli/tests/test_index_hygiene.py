@@ -15,7 +15,6 @@ from octopus.core.identify import (
 )
 from octopus.fs.scaffold import init_activity
 
-
 runner = CliRunner()
 
 

@@ -26,12 +26,12 @@ from octopus.tui.mascot_frames import (
     CALM_A_SEQUENCE,
     DOUBLE_BLINK_PHASES,
     DOUBLE_BLINK_PROB,
-    H,
     POOL_FRAMES,
     SINGLE_BLINK_PHASES,
-    W,
     AnimFrame,
     BlinkPhase,
+    H,
+    W,
     apply_blink,
 )
 

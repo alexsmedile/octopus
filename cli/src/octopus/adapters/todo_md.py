@@ -34,7 +34,6 @@ from octopus.adapters.journal import read_journal
 from octopus.config import load_adapter_config
 from octopus.fs.discover import find_activity_root
 
-
 # ── parsing primitives (pure functions, testable in isolation) ────────
 
 

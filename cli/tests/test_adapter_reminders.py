@@ -11,24 +11,19 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import patch
 
-import pytest
-
 from octopus.adapters._reminders_io import (
     RemindctlError,
-    RemindctlNotInstalled,
     RemindersItem,
     RemindersList,
     _iso_to_date,
     _parse_item_row,
     _parse_list_row,
 )
-from octopus.adapters.base import ExternalTask, PullResult
 from octopus.adapters.reminders import (
     _PRIORITY_MAP,
     RemindersAdapter,
     _reminder_to_external_task,
 )
-
 
 # ── _iso_to_date (pure helper) ────────────────────────────────────────
 

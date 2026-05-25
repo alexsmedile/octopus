@@ -69,7 +69,7 @@ def _drop_zombies(activity_root: Path, rows):
     out = []
     octopus_dir = activity_root / ".octopus"
     for r in rows:
-        slug = r["slug"] if "slug" in r.keys() else None
+        slug = r["slug"] if "slug" in r else None
         if not slug:
             continue
         if find_task_file(octopus_dir, mode, slug) is not None:
@@ -84,7 +84,7 @@ def _filter_rows(rows, needle: str):
         return list(rows)
     out = []
     for r in rows:
-        title = (r["title"] if "title" in r.keys() else "") or ""
+        title = (r["title"] if "title" in r else "") or ""
         if n in title.lower():
             out.append(r)
     return out
@@ -114,18 +114,18 @@ def _row_chips(row: sqlite3.Row, *, provider_chips: dict[str, str] | None = None
     parts: list[tuple[str, str]] = []
 
     # kind chip (D46) — shown left-most among chips when present
-    kind = row["kind"] if "kind" in row.keys() else None
+    kind = row["kind"] if "kind" in row else None
     if kind:
         parts.append((f"[{kind}]", "#89DCEB"))
 
-    if "pinned" in row.keys() and row["pinned"]:
+    if "pinned" in row and row["pinned"]:
         parts.append((PINNED, "#CBA6F7"))
-    run_state = row["run_state"] if "run_state" in row.keys() else None
+    run_state = row["run_state"] if "run_state" in row else None
     if run_state == "blocked":
         parts.append((BLOCKED, "#FAB387"))
 
     # promotion arrow (D48) — right-most chip, dim
-    promoted_to = row["promoted_to"] if "promoted_to" in row.keys() else None
+    promoted_to = row["promoted_to"] if "promoted_to" in row else None
     if promoted_to:
         chip_label = _provider_chip(promoted_to, provider_chips or {})
         parts.append((f"→ {chip_label}", "#8A8D9A"))
@@ -166,7 +166,7 @@ def _row_text(
         strip = (title + gap) * 3
         title = strip[title_offset % period :][:period]
 
-    bucket = (row["bucket"] if "bucket" in row.keys() else "") or ""
+    bucket = (row["bucket"] if "bucket" in row else "") or ""
     if bucket in ("done", "dropped"):
         t.append(title, style="#8A8D9A strike")
     else:
@@ -392,7 +392,7 @@ class FocusScreen(Screen):
             next_rows = list(tasks_for_activity(conn, self._activity_id, bucket="next"))
             blocked = sum(
                 1 for r in backlog_rows + now_rows + next_rows
-                if "run_state" in r.keys() and r["run_state"] == "blocked"
+                if "run_state" in r and r["run_state"] == "blocked"
             )
         finally:
             try:
@@ -451,7 +451,7 @@ class FocusScreen(Screen):
     def _set_active(self, quadrant: str) -> None:
         # Strip the cursor from every row in every quadrant — only the active
         # quadrant's selected row should show "▸".
-        for q, lst in self._lists.items():
+        for _q, lst in self._lists.items():
             for child in lst.children:
                 if isinstance(child, _TaskListItem):
                     try:
@@ -518,10 +518,7 @@ class FocusScreen(Screen):
 
     def _has_real_tasks(self, q: str) -> bool:
         """True if this quadrant has at least one selectable task (not just empty-state)."""
-        for child in self._lists[q].children:
-            if isinstance(child, _TaskListItem):
-                return True
-        return False
+        return any(isinstance(child, _TaskListItem) for child in self._lists[q].children)
 
     def _is_at_first(self, q: str) -> bool:
         # An empty/empty-hint list is treated as "already past the top".
@@ -555,14 +552,13 @@ class FocusScreen(Screen):
 
     def action_nav_up(self) -> None:
         # If at top of NEXT (or NEXT empty), jump up to NOW.
-        if self._active == Q_NEXT and self._is_at_first(Q_NEXT):
-            if self._has_real_tasks(Q_NOW):
-                self._set_active(Q_NOW)
-                try:
-                    self._lists[Q_NOW].index = len(self._lists[Q_NOW].children) - 1
-                except Exception:
-                    pass
-                return
+        if self._active == Q_NEXT and self._is_at_first(Q_NEXT) and self._has_real_tasks(Q_NOW):
+            self._set_active(Q_NOW)
+            try:
+                self._lists[Q_NOW].index = len(self._lists[Q_NOW].children) - 1
+            except Exception:
+                pass
+            return
         # Otherwise move within the current list.
         try:
             self._current_list().action_cursor_up()
@@ -571,14 +567,13 @@ class FocusScreen(Screen):
 
     def action_nav_down(self) -> None:
         # If at bottom of NOW (or NOW empty), fall through to NEXT.
-        if self._active == Q_NOW and self._is_at_last(Q_NOW):
-            if self._has_real_tasks(Q_NEXT):
-                self._set_active(Q_NEXT)
-                try:
-                    self._lists[Q_NEXT].index = 0
-                except Exception:
-                    pass
-                return
+        if self._active == Q_NOW and self._is_at_last(Q_NOW) and self._has_real_tasks(Q_NEXT):
+            self._set_active(Q_NEXT)
+            try:
+                self._lists[Q_NEXT].index = 0
+            except Exception:
+                pass
+            return
         try:
             self._current_list().action_cursor_down()
         except Exception:
@@ -762,7 +757,7 @@ class FocusScreen(Screen):
 
         item = self._current_item()
         current = None
-        if item and "bucket" in item.task_row.keys():
+        if item and "bucket" in item.task_row:
             current = item.task_row["bucket"]
 
         def _on_choice(bucket: str | None) -> None:

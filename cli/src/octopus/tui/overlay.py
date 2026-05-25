@@ -21,7 +21,6 @@ from octopus.fs.scaffold import BUCKET_FOLDERS, read_storage_mode
 from octopus.sessions.io import list_sessions
 from octopus.tui.icons import BLOCKED, DONE, DROPPED, NEXT, NOW, PINNED
 
-
 _BUCKET_GLYPH = {
     "now": NOW,
     "next": NEXT,

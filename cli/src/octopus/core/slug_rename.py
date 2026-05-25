@@ -27,9 +27,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from octopus.core.refs import (
-    CATEGORY_SESSIONS,
-    CATEGORY_MEMORY,
     CATEGORY_HANDOFFS,
+    CATEGORY_MEMORY,
+    CATEGORY_SESSIONS,
     CATEGORY_SPEC,
     CATEGORY_TASKS,
     CATEGORY_TODO_MD,

@@ -27,7 +27,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-
 # Category tags surface in both the find output and the rename cascade preview.
 CATEGORY_TASKS = "tasks"
 CATEGORY_SPEC = "spectacular"

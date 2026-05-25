@@ -17,11 +17,9 @@ from octopus import actions
 from octopus.adapters.base import PullResult
 from octopus.adapters.journal import update_journal
 from octopus.config import load_config
-from octopus.core.slug import slugify
 from octopus.db.connection import get_db
 from octopus.db.queries import find_by_external_ref
 from octopus.fs.io import read_task, write_task
-
 
 # ── result shape ──────────────────────────────────────────────────────
 

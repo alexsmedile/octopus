@@ -14,7 +14,6 @@ from octopus.adapters.todo_md import (
     _slugify_heading,
 )
 
-
 # ── pure parser unit tests ────────────────────────────────────────────
 
 
@@ -295,15 +294,14 @@ def test_adapter_missing_file_is_no_op(tmp_path: Path, monkeypatch):
 
 
 from datetime import date as _date
+
 from octopus.adapters.base import Capability
 from octopus.adapters.todo_md import (
-    InlineMetadata,
     _annotate_pulled_line,
     _flip_marker,
     _insert_under_section,
     _parse_inline_metadata,
 )
-
 
 # Inline metadata parser ──
 

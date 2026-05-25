@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import frontmatter
+import pytest
 
 from octopus import actions
 from octopus.actions import ActionError
-from octopus.config import Config, REGISTERED_PROVIDERS
+from octopus.config import Config
 from octopus.fs.io import read_task
 from octopus.fs.scaffold import init_activity
 from octopus.promotion import (
