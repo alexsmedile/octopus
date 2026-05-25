@@ -33,6 +33,10 @@ class OctopusApp(App):
         activity_md = activity_root / ".octopus" / "activity.md"
         activity, _ = read_activity(activity_md)
         self._activity_title = activity.title or activity_root.name
+        # Shared cursor state across mode swaps: (bucket, slug).
+        # Set by each screen before it requests a swap; read by the
+        # incoming screen during on_mount to restore highlight.
+        self.shared_cursor: tuple[str | None, str | None] = (None, None)
 
     def on_mount(self) -> None:
         self.push_screen(FocusScreen(self._activity_title, self._activity_root))

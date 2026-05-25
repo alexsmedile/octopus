@@ -609,11 +609,44 @@ EditModal {
     layout: vertical;
 }
 
-#edit-panes {
+#edit-row {
     width: 1fr;
     height: 1fr;
-    padding: 1 1 0 1;
+    layout: horizontal;
+}
+
+#edit-panes {
+    width: 2fr;
+    height: 1fr;
+    padding: 1 0 0 1;
     layout: vertical;
+}
+
+#edit-properties-panel {
+    width: 1fr;
+    height: 1fr;
+    margin: 1 1 1 1;
+}
+
+#edit-properties-panel:focus-within {
+    border: heavy #CBA6F7;
+    border-title-color: #CBA6F7;
+}
+
+#edit-properties-list {
+    width: 1fr;
+    height: 1fr;
+    background: transparent;
+    scrollbar-size: 1 1;
+}
+
+#edit-properties-list > ListItem {
+    background: transparent;
+    padding: 0 1;
+}
+
+#edit-properties-list > ListItem.--highlight {
+    background: #1E2030;
 }
 
 .edit-panel {

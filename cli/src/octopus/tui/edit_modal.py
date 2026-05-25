@@ -33,7 +33,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Static, TextArea
+from textual.widgets import ListItem, ListView, Static, TextArea
 
 from octopus.tui.icons import ACTIVITY
 
@@ -45,6 +45,45 @@ _BUCKET_COLORS: dict[str, str] = {
     "done": "#A6E3A1",
     "dropped": "#F38BA8",
 }
+
+# Canonical Octopus task properties (from SCHEMA-TASK.md). Each entry:
+#   (yaml_key, default_value_stub, one_line_description)
+# Default value is a placeholder showing common syntax — not the actual default.
+_TASK_PROPERTIES: list[tuple[str, str, str]] = [
+    # identity (read-only — never inserted blindly)
+    ("title", "", "task title (required)"),
+    ("created", "YYYY-MM-DD", "creation date (required, ISO)"),
+    # pipeline
+    ("bucket", "backlog", "backlog | next | now | done | dropped"),
+    ("stage", "", "free-form sub-stage within the activity"),
+    # runtime
+    ("run_state", "queued", "queued | running | finished | failed"),
+    # attention
+    ("pinned", "true", "marks task as pinned (omit when false)"),
+    ("issue", "blocked", "blocked | waiting"),
+    ("blocked_by", "", "required when issue=blocked"),
+    ("waiting_for", "", "required when issue=waiting"),
+    ("archived", "true", "hide from board/focus (omit when false)"),
+    # dates
+    ("due", "YYYY-MM-DD", "due date (ISO)"),
+    ("scheduled", "YYYY-MM-DD", "scheduled date (ISO)"),
+    ("start_date", "YYYY-MM-DD", "set by `octopus start`"),
+    ("end_date", "YYYY-MM-DD", "set by `octopus finish`/`drop`"),
+    # prioritization
+    ("priority", "high", "low | high | urgent (absent = normal)"),
+    ("energy", "mid", "low | mid | high"),
+    # actors
+    ("actor", "human", "human | ai | automation"),
+    ("owner", "", "free-form owner / assignee"),
+    # taxonomy
+    ("kind", "feat", "feat | bug | spec | polish | test | chore"),
+    ("tags", "[]", "list of strings"),
+    # integrations
+    ("external_refs", "{}", "{ reminders: <id>, github: <url> }"),
+    ("import_date", "YYYY-MM-DD", "ISO date — set on import"),
+    ("imported_from", "", "string — source of import"),
+    ("promoted_to", "", "<provider>:<id> when promoted"),
+]
 
 
 @dataclass
@@ -115,11 +154,12 @@ class _ConfirmDiscard(ModalScreen[bool]):
 
 
 class EditModal(ModalScreen[bool]):
-    """Modal task editor — body + frontmatter panes."""
+    """Modal task editor — frontmatter, body, and a properties cheat-sheet."""
 
     BINDINGS = [
         Binding("ctrl+s", "save", "save", show=False, priority=True),
         Binding("escape", "close", "close", show=False, priority=True),
+        Binding("f2", "focus_properties", "properties", show=False, priority=True),
     ]
 
     def __init__(self, path: Path, slug: str, bucket: str) -> None:
@@ -156,13 +196,35 @@ class EditModal(ModalScreen[bool]):
         )
         self._dirty_static = Static("", id="edit-dirty")
 
+        # Properties cheat-sheet — read-only list, Enter inserts the YAML
+        # stub into the frontmatter pane at the cursor.
+        items: list[ListItem] = []
+        for key, stub, desc in _TASK_PROPERTIES:
+            row = Text()
+            row.append("  ", style="#0F1014")
+            row.append(key, style="bold #CBA6F7")
+            row.append("  ", style="#0F1014")
+            row.append(desc, style="#8A8D9A")
+            li = ListItem(Static(row))
+            li.props_key = key  # type: ignore[attr-defined]
+            li.props_stub = stub  # type: ignore[attr-defined]
+            items.append(li)
+        self._props_list = ListView(*items, id="edit-properties-list")
+        self._props_panel = Container(
+            self._props_list,
+            id="edit-properties-panel",
+            classes="edit-panel",
+        )
+
     # ─── compose ──────────────────────────────────────────────────────
 
     def compose(self) -> ComposeResult:
         with Container(id="edit-modal"):
-            with Vertical(id="edit-panes"):
-                yield self._fm_panel
-                yield self._body_panel
+            with Horizontal(id="edit-row"):
+                with Vertical(id="edit-panes"):
+                    yield self._fm_panel
+                    yield self._body_panel
+                yield self._props_panel
             with Horizontal(id="edit-footer"):
                 yield Static(self._hint_text(), id="edit-hint")
                 yield self._dirty_static
@@ -179,6 +241,7 @@ class EditModal(ModalScreen[bool]):
         chip("^S", "save", "#86EFAC")
         chip("ESC", "cancel", "#3A3D48")
         chip("↑", "frontmatter", "#CBA6F7")
+        chip("F2", "properties", "#CBA6F7")
         chip("⌥←→", "word", "#3A3D48")
         return out
 
@@ -196,6 +259,8 @@ class EditModal(ModalScreen[bool]):
         # bucket on focus and the resting grey otherwise.
         self._fm_panel.border_title = "frontmatter"
         self._body_panel.border_title = "body"
+        self._props_panel.border_title = "properties"
+        self._props_panel.border_subtitle = "CR insert · F2 focus"
 
         # Body focused by default.
         self._body_area.focus()
@@ -258,3 +323,43 @@ class EditModal(ModalScreen[bool]):
                 self.dismiss(False)
 
         self.app.push_screen(_ConfirmDiscard(), _on_confirm)
+
+    def action_focus_properties(self) -> None:
+        """Move focus into the properties cheat-sheet."""
+        try:
+            self.set_focus(self._props_list)
+        except Exception:
+            pass
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Insert the YAML stub for the highlighted property into frontmatter."""
+        item = event.item
+        if item is None or item.parent is not self._props_list:
+            return
+        key = getattr(item, "props_key", None)
+        stub = getattr(item, "props_stub", "")
+        if not key:
+            return
+        # Build the YAML line. Indentation matches Octopus convention: no leading spaces.
+        line = f"{key}: {stub}" if stub else f"{key}: "
+
+        # Ensure the file has a frontmatter block. If not, create one.
+        if not self._split.has_frontmatter:
+            self._split.has_frontmatter = True
+            self._fm_area.text = line
+        else:
+            current = self._fm_area.text
+            # Insert at cursor row. Defensive: append at end if cursor unknown.
+            try:
+                row, col = self._fm_area.cursor_location
+                lines = current.splitlines()
+                # Insert after the current row, or at end if past it.
+                insert_at = min(row + 1, len(lines))
+                lines.insert(insert_at, line)
+                self._fm_area.text = "\n".join(lines)
+                self._fm_area.cursor_location = (insert_at, len(line))
+            except Exception:
+                self._fm_area.text = current.rstrip("\n") + "\n" + line
+
+        # Move focus back to the frontmatter area, ready to edit the stub.
+        self._fm_area.focus()

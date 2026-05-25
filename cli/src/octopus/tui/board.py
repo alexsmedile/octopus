@@ -21,7 +21,8 @@ Same row widget, overlay, and mutation keymap as FocusScreen. Navigation:
   - Tab / Shift-Tab mirror →/←.
   - `↑`/`↓` move within the focused column.
   - `n` captures into the focused column.
-  - Hard stops at page 0 (left) and page 2 (right) — no wrap.
+  - Left hard-stops at page 0; right past page 2 jumps back to page 0
+    (explicit reset to start — not a circular loop).
 
 Mode switcher: `1` = Focus, `2` = Board (handled at App level).
 """
@@ -80,7 +81,7 @@ class BoardScreen(Screen):
         Binding("?", "help", "help", show=True),
         Binding("slash", "filter", "filter", show=True),
         Binding("r", "reindex", "refresh", show=True),
-        Binding("enter", "open_detail", "detail", show=False, priority=True),
+        Binding("comma", "open_detail", "detail", show=True, priority=True),
         Binding("right", "nav_right", "→", show=False),
         Binding("left", "nav_left", "←", show=False),
         Binding("up", "nav_up", "↑", show=False),
@@ -212,18 +213,47 @@ class BoardScreen(Screen):
         self._status_bar.set_activity_id(self._activity_id)
         self._status_bar.set_state("ready")
         self._refresh_data()
-        # Apply initial window visibility (backlog | next | now).
+        # Restore cursor from a prior view, if one was stashed.
+        shared = getattr(self.app, "shared_cursor", (None, None))
+        prev_bucket, prev_slug = shared if isinstance(shared, tuple) else (None, None)
+
+        # Pick window page: align to the page that contains prev_bucket if any.
+        if prev_bucket in COLUMNS:
+            idx = COLUMNS.index(prev_bucket)
+            # Window must contain idx and stay within bounds.
+            self._window_start = max(0, min(idx, self._MAX_START))
+        # else: default page 0
         self._apply_window()
-        # Prefer the first visible column with tasks; fall back to NOW (or last visible).
+
+        # Pick active column.
         visible = self._visible_columns()
         chosen: str | None = None
-        for c in (C_NOW, C_NEXT, C_BACKLOG):
-            if c in visible and self._has_real_tasks(c):
-                chosen = c
-                break
+        if prev_bucket in visible:
+            chosen = prev_bucket
+        else:
+            for c in (C_NOW, C_NEXT, C_BACKLOG):
+                if c in visible and self._has_real_tasks(c):
+                    chosen = c
+                    break
         if chosen is None:
             chosen = C_NOW if C_NOW in visible else visible[-1]
         self._set_active(chosen)
+
+        # Restore highlight to the previously selected slug, if still present.
+        if prev_slug:
+            self._highlight_slug(chosen, prev_slug)
+
+    def _highlight_slug(self, col: str, slug: str) -> None:
+        lst = self._lists.get(col)
+        if lst is None:
+            return
+        for i, child in enumerate(lst.children):
+            if isinstance(child, _TaskListItem) and child.task_slug == slug:
+                try:
+                    lst.index = i
+                except Exception:
+                    pass
+                return
         self._marquee_timer = self.set_interval(0.4, self._tick_marquee)
 
     # ── data ──────────────────────────────────────────────────────────
@@ -439,11 +469,13 @@ class BoardScreen(Screen):
     _MAX_START = len(COLUMNS) - WINDOW_SIZE
 
     def action_slide_right(self) -> None:
-        """Slide window +1. Hard stop at the last page (no wrap)."""
-        if self._window_start >= self._MAX_START:
-            return
+        """Slide window +1. Past the last page, jump back to page 0."""
         slot = self._cursor_slot()
-        self._window_start += 1
+        if self._window_start < self._MAX_START:
+            self._window_start += 1
+        else:
+            # Already at the rightmost page — jump back to the start.
+            self._window_start = 0
         self._apply_window()
         self._set_active(self._visible_columns()[slot])
 
@@ -467,7 +499,12 @@ class BoardScreen(Screen):
             self._window_start += 1
             self._apply_window()
             self._set_active(self._visible_columns()[WINDOW_SIZE - 1])
-        # else: at the rightmost slot of the last page — hard stop, no wrap.
+        else:
+            # At the rightmost slot of the last page — jump back to page 0
+            # and land the cursor on its leftmost bucket (backlog).
+            self._window_start = 0
+            self._apply_window()
+            self._set_active(self._visible_columns()[0])
 
     def action_nav_left(self) -> None:
         slot = self._cursor_slot()
@@ -501,6 +538,12 @@ class BoardScreen(Screen):
         self.action_nav_left()
 
     def action_focus_mode(self) -> None:
+        # Stash current (bucket, slug) so the incoming FocusScreen can
+        # restore the same row.
+        try:
+            self.app.shared_cursor = (self._active, self._current_slug())
+        except Exception:
+            pass
         if hasattr(self.app, "switch_to_focus"):
             self.app.switch_to_focus()
 
