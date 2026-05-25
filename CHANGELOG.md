@@ -5,6 +5,33 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.9.8] — 2026-05-25
+
+**Textual upgrade 0.46 → 8.2.7.** The pinned Textual was three years behind. Crossing 1.0 + 8.x landed without code damage — every API we touch (composition, modal screens, reactive widgets, Static rendering, half-block pixels) stayed stable. Unlocks `App.suspend()`, which fixes the `e`/`E` edit binding that was silently no-oping on 0.46. Promotes v0.9.7-rc1 to a regular release in the same commit since the redesign was visually signed off.
+
+### Changed
+
+- **Textual constraint** in `cli/pyproject.toml`: `>=0.46` → `>=8.2,<9`.
+- **`action_edit_external`** in `cli/src/octopus/tui/focus.py` and `board.py` — dropped the `if hasattr(self.app, "suspend"):` guard. `App.suspend()` is always present on 8.x, so `e`/`E` now opens `$EDITOR` directly, the user saves, control returns to the TUI, and the task list refreshes.
+
+### Fixed
+
+- **`e`/`E` edit-in-`$EDITOR`** — previously silent on 0.46 (toast `open: <path>  (e needs newer Textual)`); now functional.
+- **Three stale tests** from the v0.9.7-rc1 visual redesign that the previous release missed:
+  - `icons.SESSION` → `icons.SESSION_RUN`
+  - `status_bar.activity_name` → `status_bar.activity_id`
+  - pin glyph `⚐` → `*` (Slot 2 flag glyph per `TUI-GLYPHS.md`)
+
+### Notes
+
+- Test suite: 603/603 green on Textual 8.2.7.
+- Rich version bumped 13.x → 15.0.0 as a transitive of Textual. `rich-pixels` 3.0.1 (mascot renderer) is compatible — the suspected wildcard turned out fine.
+- CSS parser tightened in late 0.x — `theme.tcss` (444 lines) parses without changes because all colors are hex-inlined.
+- Plugin manifests still on `0.1.0` (independent track).
+- Documented in `.spectacular/requests/35-textual-upgrade-to-8/`.
+
+---
+
 ## [0.9.7-rc1] — 2026-05-25
 
 **TUI visual redesign — release candidate.** Header restructured into a real 3-column layout (mascot · left meta · right counts+tabs) with four height modes (Slim 1 · Compact 3 · Mid 5 · Full 7), an ASCII OCTOPUS wordmark in Full mode, and a smaller content-cropped mascot for Mid. Activity rows now carry `◇ <activity>   ⬡ <repo>` glyphs (lavender) with walk-up git detection bounded at `$HOME`. Panel borders + titles flip to the pane's bucket color on focus instead of universal pink. Replaced Textual's built-in Footer with a custom `KeymapBar` widget so each key chip renders in its mnemonic color per `TUI-KEYS.md`. Detail pane is scrollable, toggleable with `,`, and expands the backlog column when hidden.
