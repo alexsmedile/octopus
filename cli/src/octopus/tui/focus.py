@@ -207,6 +207,84 @@ def _row_text(
     return t
 
 
+# Per-bucket preview property pairs. Format: (label, column-name).
+_BUCKET_PREVIEW: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {
+    "backlog":  (("created",   "created"),     ("priority",  "priority")),
+    "next":     (("scheduled", "scheduled"),   ("priority",  "priority")),
+    "now":      (("started",   "start_date"),  ("due",       "due")),
+    "done":     (("ended",     "end_date"),    ("kind",      "kind")),
+    "dropped":  (("ended",     "end_date"),    ("kind",      "kind")),
+}
+
+
+def _block_reason(row: sqlite3.Row) -> tuple[str, str] | None:
+    """Return (label, value) for a blocked/waiting task, or None.
+
+    `issue` lives in its own column; `blocked_by` and `waiting_for` are
+    inside `raw_frontmatter` JSON. We extract them defensively so a
+    missing/malformed payload never breaks rendering.
+    """
+    issue = (row["issue"] if _row_has(row, "issue") else None) or ""
+    if issue not in ("blocked", "waiting"):
+        return None
+    key = "blocked_by" if issue == "blocked" else "waiting_for"
+    raw = row["raw_frontmatter"] if _row_has(row, "raw_frontmatter") else None
+    value = ""
+    if raw:
+        try:
+            import json
+            payload = json.loads(raw)
+            v = payload.get(key)
+            if v:
+                value = str(v).strip()
+        except Exception:
+            value = ""
+    return (key, value or issue)
+
+
+def _row_preview(row: sqlite3.Row) -> Text:
+    """Render the per-bucket two-property preview line.
+
+    A blocked/waiting task ALWAYS shows its `blocked_by` / `waiting_for`
+    reason in slot 2, regardless of bucket — that's load-bearing
+    information no matter which view the user is in.
+    """
+    bucket = (row["bucket"] if _row_has(row, "bucket") else "") or ""
+    pair = _BUCKET_PREVIEW.get(bucket, _BUCKET_PREVIEW["backlog"])
+
+    out = Text(no_wrap=True, overflow="ellipsis")
+    out.append("    ", style="#0F1014")
+
+    if _row_has(row, "pinned") and row["pinned"]:
+        out.append("★ pinned", style="#F38BA8")
+        out.append("   ·   ", style="#3A3D48")
+
+    def _chip(label: str, value, *, urgent: bool = False) -> None:
+        label_style = "#F38BA8 bold" if urgent else "#8A8D9A"
+        out.append(f"{label} ", style=label_style)
+        if value is None or value == "":
+            out.append("—", style="#3A3D48")
+        else:
+            out.append(str(value), style="#F5F5F7")
+
+    (l1, c1), (l2, c2) = pair
+    v1 = row[c1] if _row_has(row, c1) else None
+    _chip(l1, v1)
+    out.append("   ·   ", style="#3A3D48")
+
+    reason = _block_reason(row)
+    if reason is not None:
+        _chip(reason[0], reason[1], urgent=True)
+    else:
+        v2 = row[c2] if _row_has(row, c2) else None
+        _chip(l2, v2)
+
+    actor = (row["actor"] if _row_has(row, "actor") else "") or ""
+    if actor and actor != "human":
+        out.append(f"   ·   {actor}", style="#CBA6F7")
+    return out
+
+
 class _TaskListItem(ListItem):
     def __init__(
         self,
@@ -214,7 +292,6 @@ class _TaskListItem(ListItem):
         *,
         provider_chips: dict[str, str] | None = None,
     ) -> None:
-        # Two static columns inside a Horizontal: title (flex) + chips (right).
         self._provider_chips = provider_chips or {}
         self._title_static = Static(
             _row_text(row, selected=False), classes="row-title"
@@ -222,16 +299,34 @@ class _TaskListItem(ListItem):
         self._chips_static = Static(
             _row_chips(row, provider_chips=self._provider_chips), classes="row-chips"
         )
+        self._preview_static = Static("", classes="row-preview")
+        self._preview_static.styles.display = "none"
         super().__init__(
-            Horizontal(self._title_static, self._chips_static, classes="row-line")
+            Vertical(
+                Horizontal(self._title_static, self._chips_static, classes="row-line"),
+                self._preview_static,
+                classes="row-stack",
+            )
         )
         self.task_row = row
         self.task_slug = row["slug"]
+        self._expanded = False
 
     def render_title(self, *, selected: bool, title_offset: int = 0) -> None:
         self._title_static.update(
             _row_text(self.task_row, selected=selected, title_offset=title_offset)
         )
+
+    def set_expanded(self, expanded: bool) -> None:
+        """Show/hide the one-row property preview beneath the title."""
+        if expanded == self._expanded:
+            return
+        self._expanded = expanded
+        if expanded:
+            self._preview_static.update(_row_preview(self.task_row))
+            self._preview_static.styles.display = "block"
+        else:
+            self._preview_static.styles.display = "none"
 
 
 # Quadrant ids — used in focus tracking & captures.
@@ -295,7 +390,7 @@ class FocusScreen(Screen):
         Binding("?", "help", "help", show=True),
         Binding("slash", "filter", "filter", show=True),
         Binding("r", "reindex", "refresh", show=True),
-        Binding("enter", "open_detail", "detail", show=False),
+        Binding("enter", "open_detail", "preview", show=False, priority=True),
         Binding("right", "nav_right", "→", show=False),
         Binding("left", "nav_left", "←", show=False),
         Binding("up", "nav_up", "↑", show=False),
@@ -614,6 +709,7 @@ class FocusScreen(Screen):
         # Only the *active* quadrant's selected row should show "▸".
         # Strip the cursor from every row in every quadrant, then repaint the
         # one currently selected in the active list.
+        new_item = self._current_item()
         for lst in self._lists.values():
             for child in lst.children:
                 if isinstance(child, _TaskListItem):
@@ -621,9 +717,13 @@ class FocusScreen(Screen):
                         child.render_title(selected=False, title_offset=0)
                     except Exception:
                         pass
+                    if child._expanded and child is not new_item:
+                        try:
+                            child.set_expanded(False)
+                        except Exception:
+                            pass
         self._marquee_item = None
         self._marquee_offset = 0
-        new_item = self._current_item()
         if new_item is not None:
             try:
                 new_item.render_title(selected=True, title_offset=0)
@@ -825,11 +925,26 @@ class FocusScreen(Screen):
             self._refresh_detail()
 
     def action_open_detail(self) -> None:
+        """Enter toggles a one-row property preview beneath the highlighted
+        task. Edit lives on `e` — Enter is preview-only."""
         slug = self._current_slug()
         if slug is None:
             self._toast.flash("nothing selected")
             return
-        self.app.push_screen(TaskDetailOverlay(self._activity_root, slug))
+        item = self._current_item()
+        if item is None:
+            return
+        if item._expanded:
+            item.set_expanded(False)
+            return
+        self._collapse_all_previews()
+        item.set_expanded(True)
+
+    def _collapse_all_previews(self) -> None:
+        for lst in self._lists.values():
+            for child in lst.children:
+                if isinstance(child, _TaskListItem) and child._expanded:
+                    child.set_expanded(False)
 
     # ── mutation actions ──────────────────────────────────────────────
 

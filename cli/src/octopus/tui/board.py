@@ -81,7 +81,8 @@ class BoardScreen(Screen):
         Binding("?", "help", "help", show=True),
         Binding("slash", "filter", "filter", show=True),
         Binding("r", "reindex", "refresh", show=True),
-        Binding("comma", "open_detail", "detail", show=True, priority=True),
+        Binding("comma", "toggle_detail_pane", "detail", show=True, priority=True),
+        Binding("enter", "preview", "preview", show=False, priority=True),
         Binding("right", "nav_right", "→", show=False),
         Binding("left", "nav_left", "←", show=False),
         Binding("up", "nav_up", "↑", show=False),
@@ -366,6 +367,7 @@ class BoardScreen(Screen):
                 pass
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        new_item = self._current_item()
         for lst in self._lists.values():
             for child in lst.children:
                 if isinstance(child, _TaskListItem):
@@ -373,15 +375,18 @@ class BoardScreen(Screen):
                         child.render_title(selected=False, title_offset=0)
                     except Exception:
                         pass
+                    if child._expanded and child is not new_item:
+                        try:
+                            child.set_expanded(False)
+                        except Exception:
+                            pass
         self._marquee_item = None
         self._marquee_offset = 0
-        new_item = self._current_item()
         if new_item is not None:
             try:
                 new_item.render_title(selected=True, title_offset=0)
             except Exception:
                 pass
-        # Keep detail in sync if the inline pane is open.
         if self._detail_visible:
             self._refresh_detail()
 
@@ -602,9 +607,13 @@ class BoardScreen(Screen):
     # ── actions ───────────────────────────────────────────────────────
 
     def action_noop(self) -> None:
-        # If the detail pane is open, Esc closes it; otherwise no-op.
+        # Esc cascades: collapse expanded preview → close detail pane → no-op.
+        item = self._current_item()
+        if item is not None and item._expanded:
+            item.set_expanded(False)
+            return
         if self._detail_visible:
-            self.action_open_detail()
+            self.action_toggle_detail_pane()
 
     def action_quit(self) -> None:
         try:
@@ -637,7 +646,28 @@ class BoardScreen(Screen):
         self._header.set_state("ready", busy=False)
         self._toast.flash("⟳ refreshed · filter cleared" if had_filter else "⟳ refreshed")
 
-    def action_open_detail(self) -> None:
+    def action_preview(self) -> None:
+        """Enter toggles a one-row property preview beneath the highlighted task."""
+        slug = self._current_slug()
+        if slug is None:
+            self._toast.flash("nothing selected")
+            return
+        item = self._current_item()
+        if item is None:
+            return
+        if item._expanded:
+            item.set_expanded(False)
+            return
+        self._collapse_all_previews()
+        item.set_expanded(True)
+
+    def _collapse_all_previews(self) -> None:
+        for lst in self._lists.values():
+            for child in lst.children:
+                if isinstance(child, _TaskListItem) and child._expanded:
+                    child.set_expanded(False)
+
+    def action_toggle_detail_pane(self) -> None:
         """Toggle the inline detail pane (docks at the bottom of the board)."""
         slug = self._current_slug()
         if slug is None and not self._detail_visible:

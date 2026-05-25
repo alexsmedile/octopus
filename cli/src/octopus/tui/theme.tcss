@@ -141,6 +141,36 @@ ListView > ListItem {
     scrollbar-size: 0 0;
 }
 
+.row-stack {
+    width: 100%;
+    height: auto;
+    overflow: hidden;
+    scrollbar-size: 0 0;
+}
+
+.row-preview {
+    height: 1;
+    width: 100%;
+    background: transparent;
+    color: #8A8D9A;
+    overflow: hidden;
+    scrollbar-size: 0 0;
+}
+
+/* Task list rows (Focus + Board) need to grow when the inline preview
+   row is expanded beneath the title. Picker/properties lists stay
+   single-line via the default `height: 1` on `ListView > ListItem`. */
+#backlog-list > ListItem,
+#now-list > ListItem,
+#next-list > ListItem,
+#board-backlog-list > ListItem,
+#board-next-list > ListItem,
+#board-now-list > ListItem,
+#board-done-list > ListItem,
+#board-dropped-list > ListItem {
+    height: auto;
+}
+
 ListView > ListItem.--highlight {
     background: #2A1E26;
     color: #F5F5F7;
