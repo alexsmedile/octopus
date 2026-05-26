@@ -506,7 +506,10 @@ class FocusScreen(Screen):
         self._panels[Q_NOW] = now_panel
         self._panels[Q_NEXT] = next_panel
 
-        right_column = Vertical(now_panel, next_panel, id="right-column")
+        # NEXT on top, NOW on bottom — pipeline funnels downward into "what
+        # you're working on now". Header chip row keeps backlog → next → now
+        # → done order separately (D-entry preserved).
+        right_column = Vertical(next_panel, now_panel, id="right-column")
 
         detail_panel = Vertical(
             self._detail_scroll,
@@ -893,11 +896,12 @@ class FocusScreen(Screen):
             self._set_active(Q_BACKLOG)
 
     def action_nav_up(self) -> None:
-        # If at top of NEXT (or NEXT empty), jump up to NOW.
-        if self._active == Q_NEXT and self._is_at_first(Q_NEXT) and self._has_real_tasks(Q_NOW):
-            self._set_active(Q_NOW)
+        # Right column is now NEXT (top) / NOW (bottom). At top of NOW
+        # (bottom panel) → jump up to NEXT (top panel, last row).
+        if self._active == Q_NOW and self._is_at_first(Q_NOW) and self._has_real_tasks(Q_NEXT):
+            self._set_active(Q_NEXT)
             try:
-                self._lists[Q_NOW].index = len(self._lists[Q_NOW].children) - 1
+                self._lists[Q_NEXT].index = len(self._lists[Q_NEXT].children) - 1
             except Exception:
                 pass
             return
@@ -908,11 +912,11 @@ class FocusScreen(Screen):
             pass
 
     def action_nav_down(self) -> None:
-        # If at bottom of NOW (or NOW empty), fall through to NEXT.
-        if self._active == Q_NOW and self._is_at_last(Q_NOW) and self._has_real_tasks(Q_NEXT):
-            self._set_active(Q_NEXT)
+        # At bottom of NEXT (top panel) → fall through to NOW (bottom panel).
+        if self._active == Q_NEXT and self._is_at_last(Q_NEXT) and self._has_real_tasks(Q_NOW):
+            self._set_active(Q_NOW)
             try:
-                self._lists[Q_NEXT].index = 0
+                self._lists[Q_NOW].index = 0
             except Exception:
                 pass
             return

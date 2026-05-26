@@ -42,8 +42,9 @@ Authoritative spec for the Octopus TUI keybindings (Focus + Board modes). Locked
 
 ### Pane spill rules (Focus)
 
-- `↑` at the top of NEXT jumps into NOW (last row).
-- `↓` at the bottom of NOW jumps into NEXT (first row).
+- Right column stacks **NEXT (top) → NOW (bottom)** — pipeline funnels downward.
+- `↑` at the top of NOW jumps into NEXT (last row).
+- `↓` at the bottom of NEXT jumps into NOW (first row).
 - `←` from any pane walks toward BACKLOG.
 - `→` from any pane walks toward DETAIL (if visible).
 

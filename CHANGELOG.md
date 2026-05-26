@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+### Changed
+
+- **Focus right column: NEXT (top) ↔ NOW (bottom)** — swapped from the prior order. Reads as a pipeline funneling downward: BACKLOG (left) → NEXT (top-right) → NOW (bottom-right). Spill rules invert accordingly: `↑` at top of NOW jumps to last row of NEXT; `↓` at bottom of NEXT jumps to first row of NOW. Header chip row order (`backlog → next → now → done`) unchanged.
+
 ### Added
 
 - **`octopus lint` — corpus hygiene audit** (request #42). Read-only verb that walks task files in the cwd activity (or `--all` indexed activities, or a named activity) and reports drift between filename, slug, bucket, schema, and dates. Eight starter rules covering slug ↔ filename match, slug shape, bucket ↔ folder match, frontmatter parse + legacy-field detection, `start_date` without `bucket=now`, dangling `blocked_by` references, stale `done` items (>30d), and `issue=blocked|waiting` in NOW/NEXT (info-only per D100). Optional `--fix` applies safe auto-repairs with per-file confirmation (`--yes` to skip prompts). `--json` for machine output. `--rule CODE` / `--severity LEVEL` filters. Exit codes: `0` clean, `1` info/warn only, `2` ≥1 error. Rules are independently registered under `cli/src/octopus/lint/rules/` — adding a rule is one file + one registry entry.

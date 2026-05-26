@@ -43,8 +43,9 @@ Mirror of `.spectacular/specs/TUI-KEYS.md` — operational subset. Keep in sync.
 
 ### Pane spill rules (Focus)
 
-- `↑` at top of NEXT jumps to NOW (last row)
-- `↓` at bottom of NOW jumps to NEXT (first row)
+- Right column: **NEXT (top) → NOW (bottom)** — pipeline funnels downward
+- `↑` at top of NOW jumps to NEXT (last row)
+- `↓` at bottom of NEXT jumps to NOW (first row)
 - `←` walks toward BACKLOG
 - `→` walks toward DETAIL (if visible)
 
