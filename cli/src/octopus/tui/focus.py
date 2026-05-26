@@ -543,13 +543,27 @@ class FocusScreen(Screen):
             term_width = 120
         self._header.set_display_mode(self._header.auto_mode_for_width(term_width))
         self._refresh_data()
+        # Restore cursor from ViewState if any (req #44). Returns silently
+        # if no state for this activity exists yet — falls through to the
+        # default landing logic below.
+        self._restore_from_view_state()
         # Land on whichever quadrant has tasks, preferring NOW → NEXT → BACKLOG.
-        for q in (Q_NOW, Q_NEXT, Q_BACKLOG):
-            if self._lists[q].index is not None and len(self._lists[q].children) > 0:
-                self._set_active(q)
-                break
-        else:
-            self._set_active(Q_NOW)
+        # Skipped if _restore_from_view_state already set an active quadrant
+        # (we detect by checking whether _active was reassigned from its
+        # initial Q_NOW default — but that's racy; safest is to only run the
+        # default landing when no per-bucket cursors were restored).
+        vs = getattr(self.app, "view_state", None)
+        has_restored = bool(
+            vs and vs.get_tab(self._view_state_key())
+            and vs.get_tab(self._view_state_key()).cursors
+        )
+        if not has_restored:
+            for q in (Q_NOW, Q_NEXT, Q_BACKLOG):
+                if self._lists[q].index is not None and len(self._lists[q].children) > 0:
+                    self._set_active(q)
+                    break
+            else:
+                self._set_active(Q_NOW)
         # Start the marquee tick.
         self._marquee_timer = self.set_interval(0.4, self._tick_marquee)
 
@@ -759,6 +773,60 @@ class FocusScreen(Screen):
             return item.task_row["bucket"]
         except (KeyError, IndexError):
             return None
+
+    # ── view-state integration (req #44) ─────────────────────────────
+
+    def _view_state_key(self) -> str:
+        return f"focus:{self._activity_id}"
+
+    def _restore_from_view_state(self) -> None:
+        """Read this screen's TabState and restore active bucket + cursor.
+        Silent on any failure."""
+        try:
+            vs = getattr(self.app, "view_state", None)
+            if vs is None:
+                return
+            ts = vs.get_tab(self._view_state_key())
+            if ts is None:
+                return
+            # Per-bucket cursor: scan list children and match on task_slug.
+            for bucket, lst in self._lists.items():
+                target = ts.cursors.get(bucket)
+                if not target:
+                    continue
+                for idx, child in enumerate(lst.children):
+                    if isinstance(child, _TaskListItem) and child.task_slug == target:
+                        lst.index = idx
+                        break
+            # Active quadrant
+            if ts.active_panel in self._lists:
+                self._set_active(ts.active_panel)
+        except Exception:
+            return
+
+    def capture_view_state(self, vs) -> None:
+        """Write current screen state into the app-wide ViewState."""
+        from octopus.tui.state import TabState
+
+        cursors: dict[str, str] = {}
+        scroll_offsets: dict[str, int] = {}
+        for bucket, lst in self._lists.items():
+            item = lst.highlighted_child
+            if isinstance(item, _TaskListItem) and item.task_slug:
+                cursors[bucket] = item.task_slug
+            try:
+                scroll_offsets[bucket] = int(lst.scroll_offset.y)
+            except Exception:
+                pass
+        ts = TabState(
+            tab_id="focus",
+            activity_id=self._activity_id,
+            cursors=cursors,
+            active_panel=self._active,
+            scroll_offsets=scroll_offsets,
+        )
+        vs.set_tab(self._view_state_key(), ts)
+        vs.active_tab = self._view_state_key()
 
     def _has_real_tasks(self, q: str) -> bool:
         """True if this quadrant has at least one selectable task (not just empty-state)."""

@@ -316,7 +316,68 @@ class ActivitiesScreen(Screen):
         for p in self._panels:
             p.set_count(0)
         self._refresh_all()
+        # Restore from ViewState if available (req #44).
+        self._restore_from_view_state()
         self._focus_panel(self._active_panel_idx)
+
+    # ── view-state integration (req #44) ─────────────────────────────
+
+    def _restore_from_view_state(self) -> None:
+        """Read this screen's TabState (if any) and restore active panel +
+        cursor per panel. Silent on any failure."""
+        try:
+            vs = getattr(self.app, "view_state", None)
+            if vs is None:
+                return
+            ts = vs.get_tab("activities")
+            if ts is None:
+                return
+            # Active panel
+            panel_ids = ["index", "current", "nested"]
+            if ts.active_panel in panel_ids:
+                self._active_panel_idx = panel_ids.index(ts.active_panel)
+            # Per-panel cursors
+            for panel, pid in zip(self._panels, panel_ids, strict=False):
+                target = ts.cursors.get(pid)
+                if not target:
+                    continue
+                # Find the matching ActivityBlock by activity_id.
+                for idx, child in enumerate(panel.list_view.children):
+                    if isinstance(child, ActivityBlock) and child.activity_id == target:
+                        panel.list_view.index = idx
+                        break
+            # Collapsed state
+            for panel, pid in zip(self._panels, panel_ids, strict=False):
+                want_collapsed = pid in (ts.collapsed_panels or [])
+                if want_collapsed != panel.collapsed:
+                    panel.toggle_collapsed()
+        except Exception:
+            return
+
+    def capture_view_state(self, vs) -> None:
+        """Write current screen state into the app-wide ViewState."""
+        from octopus.tui.state import TabState
+
+        panel_ids = ["index", "current", "nested"]
+        cursors: dict[str, str] = {}
+        scroll_offsets: dict[str, int] = {}
+        for panel, pid in zip(self._panels, panel_ids, strict=False):
+            item = panel.list_view.highlighted_child
+            if isinstance(item, ActivityBlock) and item.activity_id:
+                cursors[pid] = item.activity_id
+            try:
+                scroll_offsets[pid] = int(panel.list_view.scroll_offset.y)
+            except Exception:
+                pass
+        ts = TabState(
+            tab_id="activities",
+            cursors=cursors,
+            active_panel=panel_ids[self._active_panel_idx],
+            scroll_offsets=scroll_offsets,
+            collapsed_panels=[pid for p, pid in zip(self._panels, panel_ids, strict=False) if p.collapsed],
+        )
+        vs.set_tab("activities", ts)
+        vs.active_tab = "activities"
 
     # ── data loading ─────────────────────────────────────────────────
 

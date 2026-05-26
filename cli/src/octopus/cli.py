@@ -212,17 +212,32 @@ def where(
 
 
 @app.command()
-def tui() -> None:
+def tui(
+    no_restore: bool = typer.Option(
+        False, "--no-restore",
+        help="Skip view-state restore for this run (does not change config).",
+    ),
+    reset_view: bool = typer.Option(
+        False, "--reset-view",
+        help="Delete the cached UI state before launching.",
+    ),
+) -> None:
     """Launch the Textual TUI.
 
     Inside an activity → boots Focus mode for that activity.
-    Outside any activity → boots the Activities tab (cross-activity view).
+    Outside any activity → boots the Activities view (cross-activity).
     """
     root = find_activity_root(Path.cwd())
     # Defer Textual import — keeps cold-start fast for every other command.
     from octopus.tui.app import OctopusApp
+    from octopus.tui.state.persistence import reset as reset_view_cache
 
-    OctopusApp(root).run()
+    if reset_view:
+        reset_view_cache()
+
+    # If --no-restore, force the L3 toggle off for this run regardless of config.
+    restore: bool | None = False if no_restore else None
+    OctopusApp(root, restore_last_view=restore).run()
 
 
 # ── lint ─────────────────────────────────────────────────────────────

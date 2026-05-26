@@ -563,6 +563,24 @@ octopus lint [<activity>] [--all] [--rule CODE] [--severity LEVEL]
 
 ---
 
+## TUI launcher
+
+```
+octopus tui [--no-restore] [--reset-view]
+  intent : launch the Textual TUI.
+           Inside an activity  → boots Focus mode for that activity.
+           Outside any activity → boots the Activities view (cross-activity).
+  flags  : --no-restore   skip view-state restore for this run only
+                          (does not change config)
+           --reset-view   delete the cached UI state before launching
+  config : `[ui] restore_last_view = bool` in ~/.config/octopus/config.toml
+           controls whether L3 (cross-session) view state is read/written
+           to `~/.cache/octopus/ui-state.json`. Default `false`. L1+L2
+           (in-memory cursor + last-active tab) are always on regardless.
+```
+
+---
+
 ## Bridge verbs (v1) — adapter framework
 
 External integrations (Obsidian, Apple Reminders, TODO.md, future GitHub) are reached via **adapters**. The `octopus bridge` subcommand group operates them generically. See `SCHEMA-ADAPTER.md` for protocol, data types, and registry mechanism.

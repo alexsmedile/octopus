@@ -45,6 +45,9 @@ class Config:
         default_factory=lambda: {"spectacular": "spec"}
     )
     spectacular_auto_number: bool = True
+    # UI persistence — request #44. Opt-in for L3 (disk-backed view state).
+    # L1 + L2 (in-memory cursor + last-active tab) are always-on regardless.
+    restore_last_view: bool = False
 
 
 # Registered providers — extend here when new adapters land.
@@ -102,6 +105,9 @@ def _merge(base: Config, data: dict) -> Config:
     spec_block = providers_block.get("spectacular", {})
     auto_number = bool(spec_block.get("auto_number", base.spectacular_auto_number))
 
+    ui_block = data.get("ui", {})
+    restore_last_view = bool(ui_block.get("restore_last_view", base.restore_last_view))
+
     return Config(
         storage_mode=storage_mode,
         noise_words=noise_words,
@@ -112,6 +118,7 @@ def _merge(base: Config, data: dict) -> Config:
         provider_default=default_provider,
         provider_chips=chips,
         spectacular_auto_number=auto_number,
+        restore_last_view=restore_last_view,
     )
 
 

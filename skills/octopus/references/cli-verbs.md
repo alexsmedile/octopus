@@ -533,6 +533,23 @@ D100: human-set `blocked`/`waiting` is allowed in any bucket — `bucket-blocked
 stays info-only. AI-actor enforcement is a separate future request.
 ```
 
+## TUI launcher
+
+```
+octopus tui [--no-restore] [--reset-view]
+  Launch the Textual TUI.
+  Inside an activity  → Focus mode for that activity.
+  Outside any activity → Activities view (cross-activity).
+
+  --no-restore  Skip view-state restore for this run (does not change config).
+  --reset-view  Delete the cached UI state before launching.
+
+  Config: `[ui] restore_last_view = true` in ~/.config/octopus/config.toml
+  enables L3 cross-session persistence (cursor + last-active tab survive quit).
+  L1+L2 (in-memory state during one session) are always on.
+  Cache file: ~/.cache/octopus/ui-state.json (disposable).
+```
+
 ## Flag conventions
 
 - `<slug>` arguments always refer to task slugs unless under `session`/`handoff` subcommands.

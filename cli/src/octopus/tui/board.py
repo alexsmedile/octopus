@@ -215,9 +215,12 @@ class BoardScreen(Screen):
         self._status_bar.set_activity_id(self._activity_id)
         self._status_bar.set_state("ready")
         self._refresh_data()
-        # Restore cursor from a prior view, if one was stashed.
-        shared = getattr(self.app, "shared_cursor", (None, None))
-        prev_bucket, prev_slug = shared if isinstance(shared, tuple) else (None, None)
+        # Restore cursor: prefer ViewState (req #44), fall back to legacy
+        # `shared_cursor` set by mode-swap from Focus.
+        prev_bucket, prev_slug = self._read_view_state_cursor()
+        if prev_bucket is None and prev_slug is None:
+            shared = getattr(self.app, "shared_cursor", (None, None))
+            prev_bucket, prev_slug = shared if isinstance(shared, tuple) else (None, None)
 
         # Pick window page: align to the page that contains prev_bucket if any.
         if prev_bucket in COLUMNS:
@@ -415,6 +418,44 @@ class BoardScreen(Screen):
 
     def _has_real_tasks(self, c: str) -> bool:
         return any(isinstance(child, _TaskListItem) for child in self._lists[c].children)
+
+    # ── view-state integration (req #44) ─────────────────────────────
+
+    def _view_state_key(self) -> str:
+        return f"board:{self._activity_id}"
+
+    def _read_view_state_cursor(self) -> tuple[str | None, str | None]:
+        """Return (bucket, slug) from ViewState, or (None, None) if absent."""
+        try:
+            vs = getattr(self.app, "view_state", None)
+            if vs is None:
+                return (None, None)
+            ts = vs.get_tab(self._view_state_key())
+            if ts is None:
+                return (None, None)
+            bucket = ts.active_panel
+            slug = ts.cursors.get(bucket) if bucket else None
+            return (bucket, slug)
+        except Exception:
+            return (None, None)
+
+    def capture_view_state(self, vs) -> None:
+        """Write current screen state into the app-wide ViewState."""
+        from octopus.tui.state import TabState
+
+        cursors: dict[str, str] = {}
+        for col, lst in self._lists.items():
+            item = lst.highlighted_child
+            if isinstance(item, _TaskListItem) and item.task_slug:
+                cursors[col] = item.task_slug
+        ts = TabState(
+            tab_id="board",
+            activity_id=self._activity_id,
+            cursors=cursors,
+            active_panel=self._active,
+        )
+        vs.set_tab(self._view_state_key(), ts)
+        vs.active_tab = self._view_state_key()
 
     # ── window ────────────────────────────────────────────────────────
 
