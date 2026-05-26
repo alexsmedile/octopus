@@ -45,6 +45,7 @@ This is the foundation feature that makes Tab 0 (request #43) genuinely usable a
 | 8 | "Position" includes: active tab, active panel (Tab 0), cursor target (task slug for Focus/Board, activity id for Tab 0), scroll offset within the panel, filter string if any, collapse state of panels (Tab 0). |
 | 9 | State is per-activity-context for Focus/Board (the cursor in Focus is the cursor in *this* activity's Focus) and global for Tab 0 (Index/Current/Nested are global views). |
 | 10 | Writes to disk happen on quit + on tab switch (so a `kill -9` doesn't lose more than one transition). No write-on-every-keystroke. |
+| 11 | **Per-activity shared cursor (bucket, slug)** — Focus and Board share a single cursor per activity. Switch Focus → Board → Focus for the same activity and the cursor follows by slug. Each view keeps its own scroll/active-pane state, but the *selected task* is shared. Encoded as `ViewState.activity_cursors[<activity_id>] = ActivityCursor(bucket, slug)`. |
 
 ## Scope
 

@@ -780,32 +780,55 @@ class FocusScreen(Screen):
         return f"focus:{self._activity_id}"
 
     def _restore_from_view_state(self) -> None:
-        """Read this screen's TabState and restore active bucket + cursor.
-        Silent on any failure."""
+        """Restore cursor + active bucket.
+
+        Two-stage:
+        1. Per-view state (`focus:<id>`) — per-bucket cursors + active quadrant.
+        2. Per-activity shared cursor — overrides (bucket, slug) if present
+           and the slug exists, so switching from Board to Focus lands you
+           on the same task.
+
+        Silent on any failure.
+        """
         try:
             vs = getattr(self.app, "view_state", None)
             if vs is None:
                 return
+
+            # Stage 1: per-view state.
             ts = vs.get_tab(self._view_state_key())
-            if ts is None:
+            if ts is not None:
+                for bucket, lst in self._lists.items():
+                    target = ts.cursors.get(bucket)
+                    if not target:
+                        continue
+                    for idx, child in enumerate(lst.children):
+                        if isinstance(child, _TaskListItem) and child.task_slug == target:
+                            lst.index = idx
+                            break
+                if ts.active_panel in self._lists:
+                    self._set_active(ts.active_panel)
+
+            # Stage 2: shared activity cursor overrides if the slug exists.
+            shared = vs.get_activity_cursor(self._activity_id)
+            if shared is None or not shared.slug:
                 return
-            # Per-bucket cursor: scan list children and match on task_slug.
             for bucket, lst in self._lists.items():
-                target = ts.cursors.get(bucket)
-                if not target:
-                    continue
                 for idx, child in enumerate(lst.children):
-                    if isinstance(child, _TaskListItem) and child.task_slug == target:
+                    if isinstance(child, _TaskListItem) and child.task_slug == shared.slug:
                         lst.index = idx
-                        break
-            # Active quadrant
-            if ts.active_panel in self._lists:
-                self._set_active(ts.active_panel)
+                        self._set_active(bucket)
+                        return
         except Exception:
             return
 
     def capture_view_state(self, vs) -> None:
-        """Write current screen state into the app-wide ViewState."""
+        """Write current screen state into the app-wide ViewState.
+
+        Writes both the per-view TabState (per-bucket cursors, active quadrant)
+        AND the per-activity shared cursor (bucket + slug) so the next view
+        for this activity can land on the same task.
+        """
         from octopus.tui.state import TabState
 
         cursors: dict[str, str] = {}
@@ -827,6 +850,13 @@ class FocusScreen(Screen):
         )
         vs.set_tab(self._view_state_key(), ts)
         vs.active_tab = self._view_state_key()
+
+        # Per-activity shared cursor — what the user is currently looking at.
+        current_item = self._current_item()
+        if isinstance(current_item, _TaskListItem) and current_item.task_slug:
+            vs.set_activity_cursor(
+                self._activity_id, self._active, current_item.task_slug
+            )
 
     def _has_real_tasks(self, q: str) -> bool:
         """True if this quadrant has at least one selectable task (not just empty-state)."""

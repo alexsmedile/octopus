@@ -425,11 +425,19 @@ class BoardScreen(Screen):
         return f"board:{self._activity_id}"
 
     def _read_view_state_cursor(self) -> tuple[str | None, str | None]:
-        """Return (bucket, slug) from ViewState, or (None, None) if absent."""
+        """Return (bucket, slug) to restore. Prefers per-activity shared
+        cursor (so switching from Focus to Board carries the selection),
+        falls back to Board's own per-view state.
+        """
         try:
             vs = getattr(self.app, "view_state", None)
             if vs is None:
                 return (None, None)
+            # Shared activity cursor wins — same-activity continuity across views.
+            shared = vs.get_activity_cursor(self._activity_id)
+            if shared is not None and shared.slug:
+                return (shared.bucket, shared.slug)
+            # Fall back to Board's own per-view state.
             ts = vs.get_tab(self._view_state_key())
             if ts is None:
                 return (None, None)
@@ -440,7 +448,11 @@ class BoardScreen(Screen):
             return (None, None)
 
     def capture_view_state(self, vs) -> None:
-        """Write current screen state into the app-wide ViewState."""
+        """Write current screen state into the app-wide ViewState.
+
+        Writes both the per-view TabState AND the per-activity shared cursor
+        so the next view for this activity lands on the same task.
+        """
         from octopus.tui.state import TabState
 
         cursors: dict[str, str] = {}
@@ -456,6 +468,13 @@ class BoardScreen(Screen):
         )
         vs.set_tab(self._view_state_key(), ts)
         vs.active_tab = self._view_state_key()
+
+        # Per-activity shared cursor — what the user is currently looking at.
+        current_item = self._current_item()
+        if isinstance(current_item, _TaskListItem) and current_item.task_slug:
+            vs.set_activity_cursor(
+                self._activity_id, self._active, current_item.task_slug
+            )
 
     # ── window ────────────────────────────────────────────────────────
 

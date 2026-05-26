@@ -19,6 +19,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
   - **L2 (always-on)** — last-active tab tracked in memory.
   - **L3 (opt-in)** — enable `[ui] restore_last_view = true` in `~/.config/octopus/config.toml` to persist cursor + last-active tab across quit/relaunch via `~/.cache/octopus/ui-state.json` (cache-class, disposable).
   - Per-panel cursors (Activities's 3 panels, Focus's 3 buckets, Board's columns) tracked independently. Focus/Board state is namespaced by activity id so project A's cursor never pollutes project B.
+  - **Per-activity shared cursor across views.** Focus and Board share a single (bucket, slug) cursor per activity. Switching Focus → Board → Focus for the same activity carries the selected task by slug, even if the user moves cursor in one view before switching.
   - Stale-target fallback: when the previously-hovered task/activity is gone (deleted/moved/archived), nearest-sibling silent fallback.
   - New flags: `octopus tui --no-restore` (skip L3 for one run), `octopus tui --reset-view` (delete cache before launching).
   - Atomic writes (`.tmp` + `os.replace`). Cache corruption → cold-start, no crash. Unknown future schema fields are preserved on round-trip.

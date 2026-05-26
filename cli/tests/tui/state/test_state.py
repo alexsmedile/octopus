@@ -200,3 +200,42 @@ def test_resolve_with_index_target_present_returns_target():
 
 def test_resolve_with_index_no_previous_index():
     assert resolve_cursor_with_index("gone", ["a", "b"], previous_index=None) == "a"
+
+
+# ── per-activity shared cursor (Focus ↔ Board continuity) ─────────────
+
+
+def test_activity_cursor_round_trip():
+    v = ViewState()
+    v.set_activity_cursor("octopus-aaaa", "now", "do-thing")
+    data = v.to_dict()
+    v2 = ViewState.from_dict(data)
+    cursor = v2.get_activity_cursor("octopus-aaaa")
+    assert cursor is not None
+    assert cursor.bucket == "now"
+    assert cursor.slug == "do-thing"
+
+
+def test_activity_cursor_missing_returns_none():
+    v = ViewState()
+    assert v.get_activity_cursor("nope") is None
+
+
+def test_activity_cursor_overwrites():
+    v = ViewState()
+    v.set_activity_cursor("x", "now", "first")
+    v.set_activity_cursor("x", "next", "second")
+    cur = v.get_activity_cursor("x")
+    assert cur.bucket == "next"
+    assert cur.slug == "second"
+
+
+def test_activity_cursor_persists_to_disk(_isolated_cache: Path):
+    v = ViewState()
+    v.set_activity_cursor("octopus-aaaa", "now", "shared-task")
+    assert save(v) is True
+    v2 = load()
+    cur = v2.get_activity_cursor("octopus-aaaa")
+    assert cur is not None
+    assert cur.bucket == "now"
+    assert cur.slug == "shared-task"

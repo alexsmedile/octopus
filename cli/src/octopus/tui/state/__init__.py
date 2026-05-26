@@ -7,12 +7,18 @@ Three layers:
   so state survives quitting and relaunching.
 """
 
-from octopus.tui.state.model import SCHEMA_VERSION, TabState, ViewState
+from octopus.tui.state.model import (
+    SCHEMA_VERSION,
+    ActivityCursor,
+    TabState,
+    ViewState,
+)
 from octopus.tui.state.persistence import cache_path, load, save
 from octopus.tui.state.resolve import resolve_cursor
 
 __all__ = [
     "SCHEMA_VERSION",
+    "ActivityCursor",
     "TabState",
     "ViewState",
     "cache_path",

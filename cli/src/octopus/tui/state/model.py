@@ -66,9 +66,33 @@ class TabState:
 
 
 @dataclass
+class ActivityCursor:
+    """Per-activity shared cursor — survives view swaps (Focus ↔ Board).
+
+    Both Focus and Board show the same tasks bucketed identically, so a
+    (bucket, slug) pair is portable between them. When you select a row
+    in Focus and switch to Board, Board lands on the same row.
+    """
+
+    bucket: str | None = None
+    slug: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"bucket": self.bucket, "slug": self.slug}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ActivityCursor:
+        return cls(bucket=data.get("bucket"), slug=data.get("slug"))
+
+
+@dataclass
 class ViewState:
     active_tab: str = "activities"
     per_tab: dict[str, TabState] = field(default_factory=dict)
+    # Per-activity shared cursor — keyed by activity id.
+    # Read+written by both FocusScreen and BoardScreen so cursor-by-slug
+    # carries across view swaps for the same activity.
+    activity_cursors: dict[str, ActivityCursor] = field(default_factory=dict)
     schema_version: int = SCHEMA_VERSION
     # Catch-all for top-level unknown fields.
     extra: dict[str, Any] = field(default_factory=dict)
@@ -79,11 +103,20 @@ class ViewState:
     def set_tab(self, key: str, state: TabState) -> None:
         self.per_tab[key] = state
 
+    def get_activity_cursor(self, activity_id: str) -> ActivityCursor | None:
+        return self.activity_cursors.get(activity_id)
+
+    def set_activity_cursor(self, activity_id: str, bucket: str | None, slug: str | None) -> None:
+        self.activity_cursors[activity_id] = ActivityCursor(bucket=bucket, slug=slug)
+
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "schema_version": self.schema_version,
             "active_tab": self.active_tab,
             "per_tab": {k: v.to_dict() for k, v in self.per_tab.items()},
+            "activity_cursors": {
+                k: v.to_dict() for k, v in self.activity_cursors.items()
+            },
         }
         for k, v in self.extra.items():
             if k not in out:
@@ -92,16 +125,22 @@ class ViewState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ViewState:
-        known = {"schema_version", "active_tab", "per_tab"}
+        known = {"schema_version", "active_tab", "per_tab", "activity_cursors"}
         extra = {k: v for k, v in data.items() if k not in known}
         per_tab_raw = data.get("per_tab") or {}
         per_tab = {
             k: TabState.from_dict(v) for k, v in per_tab_raw.items()
             if isinstance(v, dict)
         }
+        cursors_raw = data.get("activity_cursors") or {}
+        activity_cursors = {
+            k: ActivityCursor.from_dict(v) for k, v in cursors_raw.items()
+            if isinstance(v, dict)
+        }
         return cls(
             active_tab=str(data.get("active_tab", "activities")),
             per_tab=per_tab,
+            activity_cursors=activity_cursors,
             schema_version=int(data.get("schema_version", SCHEMA_VERSION)),
             extra=extra,
         )
