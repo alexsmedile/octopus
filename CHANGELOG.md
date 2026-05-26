@@ -5,7 +5,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-## [Unreleased]
+## [1.1.0] — 2026-05-26
+
+**v1.1 — Activities view, lint, and a remembered cursor.** Three months ago, v1.0 locked the per-activity TUI vocabulary. v1.1 makes the system multi-activity: `octopus tui` from anywhere lands on a cross-activity navigation surface (view 0). Cursor and view position survive tab switches and (optionally) restarts. `octopus lint` formalizes corpus hygiene as a first-class verb so drift surfaces before it bites.
 
 ### Changed
 

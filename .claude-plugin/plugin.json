@@ -1,6 +1,6 @@
 {
   "name": "octopus",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Folder-native task and continuity system. Captures tasks, sessions, memory, and handoffs as plain markdown next to your work.",
   "author": {
     "name": "Alessandro Smedile"
