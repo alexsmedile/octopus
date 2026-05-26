@@ -5,6 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`octopus lint` — corpus hygiene audit** (request #42). Read-only verb that walks task files in the cwd activity (or `--all` indexed activities, or a named activity) and reports drift between filename, slug, bucket, schema, and dates. Eight starter rules covering slug ↔ filename match, slug shape, bucket ↔ folder match, frontmatter parse + legacy-field detection, `start_date` without `bucket=now`, dangling `blocked_by` references, stale `done` items (>30d), and `issue=blocked|waiting` in NOW/NEXT (info-only per D100). Optional `--fix` applies safe auto-repairs with per-file confirmation (`--yes` to skip prompts). `--json` for machine output. `--rule CODE` / `--severity LEVEL` filters. Exit codes: `0` clean, `1` info/warn only, `2` ≥1 error. Rules are independently registered under `cli/src/octopus/lint/rules/` — adding a rule is one file + one registry entry.
+- **D100 — bucket × blocked/waiting policy.** Human-set `issue: blocked|waiting` is allowed in any bucket (NOW / NEXT / BACKLOG); the TUI's slot-1 resolver already makes the block visibly distinct. `bucket-blocked` lint rule surfaces these as info-only, never auto-fixes. AI-actor enforcement (force-demote to NEXT) is a separate future request.
+
+### Fixed
+
+- **Corrupted `slug:` fields** in two backlog tasks (`clarify-n-sessions-output-in-reindex`, `fix-duplicate-timestamps-in-rapid-session-log-entries`). Both were created during the 2026-05-23 F1-naming housekeeping pass with hand-pasted notes that bled into the YAML `slug:` field. Fixed by hand; `octopus lint --rule=slug-match --fix` would have caught both in seconds.
+
+### Housekeeping
+
+- Archived 9 stale task records to `_archive/tasks-pre-v1/` (7 pre-v1 done entries + 2 dropped smoke-tests). `.octopus/tasks/done/` is now empty; `dropped/` retains only the real decision artifact (`link-tasks-to-requests-via-tags`).
+
+---
+
 ## [1.0.0] — 2026-05-25
 
 **v1 — the symbolic milestone.** A year-plus of folder-first task design finally crosses the line. Visual vocabulary is locked, slot-1 has a real resolver, and every glyph in the TUI traces back to a single source of truth.

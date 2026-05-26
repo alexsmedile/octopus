@@ -533,6 +533,36 @@ octopus config root remove <path>
 
 ---
 
+## Lint verb (v1) — corpus hygiene audit
+
+```
+octopus lint [<activity>] [--all] [--rule CODE] [--severity LEVEL]
+             [--fix] [--yes] [--json]
+  intent : audit task corpus for drift between filename, slug, bucket, schema,
+           and dates. Read-only by default.
+  scope  : bare → cwd activity; --all → every indexed activity;
+           <activity> → one activity by path or id (same resolver as forget)
+  flags  : --rule CODE     run one rule only (repeatable)
+           --severity LVL  filter output: info | warn | error
+           --fix           apply auto-fixable findings (prompts per file)
+           --yes / -y      skip prompts when --fix is used
+           --json          machine-readable output (mutually exclusive with --fix)
+  exit   : 0 = clean, 1 = info/warn only, 2 = at least one error
+  rules  :
+    slug-match           error   fix   slug field equals filename stem
+    slug-shape           error   —     slug uses [a-z0-9-] only
+    bucket-match         error   fix   bucket field equals parent folder
+    corrupt-frontmatter  error   —     YAML parses and uses only canonical fields
+    start-without-now    warn    —     start_date set but bucket ≠ now
+    dangling-blocker     warn    —     blocked_by points to non-existent local slug
+    stale-done           info    fix   bucket=done with end_date >30d old → archive
+    bucket-blocked       info    —     issue=blocked|waiting in NOW/NEXT (per D100)
+  policy : `bucket-blocked` stays INFO per D100 (human-set blocked/waiting
+           allowed anywhere). AI-actor enforcement is a separate request.
+```
+
+---
+
 ## Bridge verbs (v1) — adapter framework
 
 External integrations (Obsidian, Apple Reminders, TODO.md, future GitHub) are reached via **adapters**. The `octopus bridge` subcommand group operates them generically. See `SCHEMA-ADAPTER.md` for protocol, data types, and registry mechanism.

@@ -287,3 +287,20 @@ For sessions and handoffs: slugs are never renamed (timestamps in the slug make 
 
 - `capture --now` sets `bucket: now` but does NOT auto-pin. `pinned` stays orthogonal to bucket. For pinned-and-now, run `pin` after.
 - `capture` writes an empty body by default. No more hardcoded `## References` section.
+
+### Rule X13 — Lint rule registry (request #42)
+
+`octopus lint` rules coupled to schema fields. Update both the rule file and this list when schema changes.
+
+| Rule | Severity | Fix | Coupled to |
+|---|---|---|---|
+| `slug-match` | error | yes | filename ⇄ raw `slug:` |
+| `slug-shape` | error | — | `^[a-z0-9-]+$` |
+| `bucket-match` | error | yes | parent folder ⇄ `bucket:` |
+| `corrupt-frontmatter` | error | — | `TASK_FIELDS` + `LEGACY_FIELDS` |
+| `start-without-now` | warn | — | `start_date` + `bucket` |
+| `dangling-blocker` | warn | — | `blocked_by` + local slugs |
+| `stale-done` | info | yes | `bucket=done` + `end_date` (>30d) |
+| `bucket-blocked` | info | — | `issue` + `bucket` (locked at info per D100) |
+
+Exit codes: 0 clean, 1 info/warn, 2 errors.

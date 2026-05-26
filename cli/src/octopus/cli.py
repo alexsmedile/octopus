@@ -221,6 +221,121 @@ def tui() -> None:
     OctopusApp(root).run()
 
 
+# ── lint ─────────────────────────────────────────────────────────────
+
+
+@app.command()
+def lint(
+    activity: str | None = typer.Argument(None, help="Activity token (path or id). Default: cwd."),
+    all_activities: bool = typer.Option(False, "--all", help="Lint every indexed activity."),
+    rule: list[str] | None = typer.Option(None, "--rule", help="Run only this rule (repeatable)."),
+    severity: str | None = typer.Option(None, "--severity", help="Filter: info | warn | error."),
+    fix_findings: bool = typer.Option(False, "--fix", help="Apply auto-fixable findings (prompts)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip prompts when --fix is used."),
+    json_output: bool = typer.Option(False, "--json", help="Emit findings as JSON."),
+) -> None:
+    """Audit task corpus hygiene. Read-only by default."""
+    from octopus.lint import lint_activity
+    from octopus.lint.cli_output import print_human, print_json
+    from octopus.lint.findings import Severity
+    from octopus.lint.registry import get as _get_rule
+    from octopus.lint.runner import apply_fix
+
+    # Validate --rule entries early.
+    if rule:
+        for code in rule:
+            if _get_rule(code) is None:
+                err_console.print(f"[red]✗[/] unknown rule: {code}")
+                raise typer.Exit(EXIT_USER_ERROR)
+
+    # Validate --severity.
+    min_sev: Severity | None = None
+    if severity is not None:
+        try:
+            min_sev = Severity(severity)
+        except ValueError as exc:
+            err_console.print("[red]✗[/] --severity must be one of: info, warn, error")
+            raise typer.Exit(EXIT_USER_ERROR) from exc
+
+    # Resolve scope.
+    roots: list[Path] = []
+    if all_activities:
+        if activity is not None:
+            err_console.print("[red]✗[/] --all and <activity> are mutually exclusive")
+            raise typer.Exit(EXIT_USER_ERROR)
+        from octopus.config import load_config
+        cfg = load_config()
+        from octopus.fs.discover import find_all_activities
+        roots = find_all_activities(cfg.roots)
+        if not roots:
+            err_console.print("[yellow]⚠[/] no activities found in configured roots")
+            raise typer.Exit(EXIT_OK)
+    elif activity is not None:
+        from octopus.core.identify import (
+            ActivityAmbiguous,
+            ActivityNotFound,
+            resolve_activity,
+        )
+        try:
+            row = resolve_activity(activity)
+        except (ActivityNotFound, ActivityAmbiguous) as exc:
+            err_console.print(f"[red]✗[/] {exc}")
+            raise typer.Exit(EXIT_USER_ERROR) from exc
+        roots = [Path(row["path"])]
+    else:
+        roots = [_require_activity()]
+
+    # Run.
+    from octopus.lint.runner import LintReport
+    combined = LintReport()
+    for r in roots:
+        rep = lint_activity(r, rule_codes=rule)
+        combined.findings.extend(rep.findings)
+        combined.scanned += rep.scanned
+
+    # --fix path.
+    if fix_findings:
+        if json_output:
+            err_console.print("[red]✗[/] --fix and --json are mutually exclusive")
+            raise typer.Exit(EXIT_USER_ERROR)
+        fixable = [f for f in combined.findings if f.auto_fixable]
+        if not fixable:
+            console.print("[green]✓[/] nothing to fix")
+            print_human(combined, console=console, base=Path.cwd(), min_severity=min_sev)
+            raise typer.Exit(combined.exit_code())
+        applied = 0
+        skipped = 0
+        for f in fixable:
+            preview = ", ".join(f"{k}={v!r}" for k, v in f.fix_preview.items()) or "(no preview)"
+            console.print(f"[cyan]{f.code}[/]  {f.path}")
+            console.print(f"  → would change: {preview}")
+            if not yes and not typer.confirm("apply?", default=False):
+                skipped += 1
+                continue
+            if apply_fix(f):
+                applied += 1
+                console.print("  [green]✓ applied[/]")
+            else:
+                skipped += 1
+                console.print("  [yellow]⚠ skipped (no-op)[/]")
+        console.print()
+        console.print(f"[green]✓[/] {applied} fix(es) applied, {skipped} skipped")
+        # Re-lint to report final state.
+        combined = LintReport()
+        for r in roots:
+            rep = lint_activity(r, rule_codes=rule)
+            combined.findings.extend(rep.findings)
+            combined.scanned += rep.scanned
+
+    # Output.
+    if json_output:
+        print_json(combined, console=console, min_severity=min_sev)
+    else:
+        print_human(combined, console=console, base=Path.cwd(), min_severity=min_sev)
+
+    raise typer.Exit(combined.exit_code())
+
+
 def _task_counts(activity_root: Path, storage_mode: str) -> dict[str, int]:
     """Count tasks per bucket. In folder mode, count by directory."""
     tasks_dir = activity_root / ".octopus" / "tasks"

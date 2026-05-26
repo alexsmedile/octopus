@@ -503,6 +503,36 @@ octopus config set <section>.<key> <value>
   Edit ~/.config/octopus/config.toml.
 ```
 
+## Lint
+
+```
+octopus lint [<activity>] [--all] [--rule CODE] [--severity LEVEL]
+             [--fix] [--yes] [--json]
+  Audit task corpus hygiene. Read-only by default.
+  Default scope: cwd activity. --all walks every indexed activity.
+  Pass <activity> (path or id) to scope to one.
+
+  --rule CODE     Run only this rule (repeatable).
+  --severity LVL  Filter output: info | warn | error.
+  --fix           Apply auto-fixable findings; prompts per file unless --yes.
+  --json          Machine output (mutually exclusive with --fix).
+
+  Exit: 0 clean, 1 info/warn only, 2 errors present.
+
+Rules:
+  slug-match           error   fix   slug field equals filename stem
+  slug-shape           error   —     slug is [a-z0-9-] only
+  bucket-match         error   fix   bucket field equals parent folder
+  corrupt-frontmatter  error   —     YAML parses; no legacy fields
+  start-without-now    warn    —     start_date set but bucket ≠ now
+  dangling-blocker     warn    —     blocked_by has no matching local slug
+  stale-done           info    fix   done >30d → move to _archive/tasks-YYYY-MM/
+  bucket-blocked       info    —     issue=blocked|waiting in NOW/NEXT (D100)
+
+D100: human-set `blocked`/`waiting` is allowed in any bucket — `bucket-blocked`
+stays info-only. AI-actor enforcement is a separate future request.
+```
+
 ## Flag conventions
 
 - `<slug>` arguments always refer to task slugs unless under `session`/`handoff` subcommands.

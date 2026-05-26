@@ -430,6 +430,27 @@ The SQLite index is derived; the filesystem is the source of truth (see `SCHEMA-
 
 ---
 
+## P — Lint rule invariants (`octopus lint`, request #42)
+
+`octopus lint` is the corpus-side hygiene audit (compare with `octopus diagnose`, which is runtime-side). Each rule is independently registered and may declare an auto-fix. The rules below are coupled to schema fields — any schema change must update the matching rule.
+
+| Rule | Severity | Auto-fix | Coupled to |
+|---|---|---|---|
+| `slug-match` | error | yes | filename ⇄ raw `slug:` YAML field |
+| `slug-shape` | error | — | slug regex `^[a-z0-9-]+$` |
+| `bucket-match` | error | yes | parent folder ⇄ `bucket:` field; depends on folder-storage invariants (§F) |
+| `corrupt-frontmatter` | error | — | `TASK_FIELDS` + `LEGACY_FIELDS` in `fs/io.py` |
+| `start-without-now` | warn | — | `start_date` + `bucket` |
+| `dangling-blocker` | warn | — | `blocked_by` field + local slug set |
+| `stale-done` | info | yes (move) | `bucket=done` + `end_date`; threshold 30 days |
+| `bucket-blocked` | info | — | `issue ∈ {blocked, waiting}` + `bucket ∈ {now, next}`; severity locked at info per D100 |
+
+**Coupling rule:** if a SCHEMA-TASK field is added, renamed, or removed, audit `cli/src/octopus/lint/rules/` for any rule that names it and update both the rule and this table in the same commit. `corrupt-frontmatter` enforces the `TASK_FIELDS` set automatically; the others reference fields directly.
+
+**Exit code contract:** lint exits `0` (clean), `1` (info/warn present), `2` (≥1 error). External tooling (pre-commit, CI) gates on exit 2.
+
+---
+
 ## Reference
 
 For full field meanings, see the `SCHEMA-*.md` files.
