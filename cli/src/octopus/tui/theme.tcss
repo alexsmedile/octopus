@@ -167,7 +167,10 @@ ListView > ListItem {
 #board-next-list > ListItem,
 #board-now-list > ListItem,
 #board-done-list > ListItem,
-#board-dropped-list > ListItem {
+#board-dropped-list > ListItem,
+#index-list > ListItem,
+#current-list > ListItem,
+#nested-list > ListItem {
     height: auto;
 }
 
@@ -785,6 +788,15 @@ EditModal {
     height: auto;
 }
 
+/* Active-panel highlight in Activities view — neutral grey (matches the
+   backlog panel's focused state), not the pink-on-pink of NOW/NEXT.
+   Specificity beats the plain .act-panel rule above. */
+.act-panel.panel--focused {
+    border: heavy #8A8D9A;
+    border-title-color: #8A8D9A;
+    background: #16171E;
+}
+
 .act-list {
     background: transparent;
     height: auto;
@@ -792,8 +804,18 @@ EditModal {
 }
 
 .act-block {
+    height: 1;
+    color: #F5F5F7;
+}
+
+/* Property-rich CURRENT row (request #45). Variable height since rows
+   are conditionally rendered — give it room to grow but cap so the
+   panel doesn't dominate the screen. */
+.act-overview {
     padding: 0 0 1 0;
-    height: 4;
+    height: auto;
+    min-height: 6;
+    max-height: 14;
     color: #F5F5F7;
 }
 

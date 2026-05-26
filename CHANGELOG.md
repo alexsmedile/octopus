@@ -5,6 +5,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [1.1.1] — 2026-05-26
+
+**Activities view polish + cross-view yank.** v1.1.0 introduced the Activities view; v1.1.1 fills in the gaps that surfaced under daily use: a property-rich CURRENT overview, panel-spill navigation, dropped-bucket counts in headers, and yank-slug parity with Focus.
+
+### Added
+
+- **Activities view: CURRENT panel on top with property-rich overview** (request #45). Panel order is now `CURRENT → INDEX → NESTED` (was `INDEX → CURRENT → NESTED`). The CURRENT panel renders a new `ActivityOverview` block — multi-row with title, type · status · priority · area, four-bucket counts (NOW/NEXT/BACKLOG/DONE in pipeline colors), attention chips (◆ pinned / ⊘ blocked N / ◷ due≤7d N / ↔ links N), the pinned task title (or top-of-NOW as fallback), active session title + start time, tags, created/touched/reviewed dates, and path. Empty rows are omitted. INDEX and NESTED keep the standard 1-row `ActivityBlock` with inline bucket chips.
+- **Activities view: `y` yanks the selected activity slug to clipboard** (via `pbcopy` on macOS). Mirrors Focus-view yank — works across CURRENT / INDEX / NESTED panels. Toast confirms `✓ yanked <slug>`; falls back to slug-in-toast if `pbcopy` is unavailable.
+- **Header chips: dropped count.** Focus and Board header chip rows now include `✕ N` for the dropped bucket alongside backlog/next/now/done. Chip order matches the pipeline: `backlog → next → now → done → dropped`.
+- **Activities bucket chips follow pipeline order** in every list item: `· backlog · □ next · ▣ now · ● done · ✕ dropped`. Empty buckets render dim.
+- **Spec breakouts in `.spectacular/requests/`** for forthcoming TUI work: #36 custom keymap, #37 focus pagination, #38 expand controls, #39 quick-edit mode, #40 anchored popovers, #45 activities-current-on-top (the request driving this release).
+- **Tests**: `cli/tests/tui/test_activities_overview.py` covers the new `ActivityOverview` rendering, `prefer_current` kwarg behavior, and the gathered-extras SQL helpers (9 cases).
+
+### Changed
+
+- **Activities view: smart fallback focus.** When no current activity is detected (e.g. `octopus tui` from `~`), initial focus falls back to INDEX instead of an empty CURRENT panel. When returning from a drilled activity via Esc (`switch_to_activities`), focus prefers CURRENT — matching the "I just left this, take me back to it" mental model. Saved view-state (req #44) still takes precedence on cold-boot.
+- **Activities view: ↑/↓ spill across panels.** ↓ at the bottom of one panel jumps into the first item of the next populated panel (CURRENT → INDEX → NESTED); ↑ at the top spills to the last item of the previous panel. Falls back to in-panel wrap when there are no populated neighbors.
+- **Activities view: panel focus highlight uses neutral grey `#8A8D9A`** (matching Focus's backlog panel) when Tab moves between CURRENT / INDEX / NESTED — replaces the pink-on-pink default that was hard to read against bucket colors.
+- **Dogfood activity (`.octopus/activity.md`)**: added `priority: high`, `last_reviewed: 2026-05-26`, and `tags: [tui, cli, infra, dogfood]` so the new CURRENT overview has data to display.
+
+### Fixed
+
+- **Manifest version drift**: `cli/pyproject.toml` (was 1.0.0) and `.agents/plugins/marketplace.json` (was 1.0.0) are now aligned with the other plugin manifests at 1.1.1.
+
+---
+
 ## [1.1.0] — 2026-05-26
 
 **v1.1 — Activities view, lint, and a remembered cursor.** Three months ago, v1.0 locked the per-activity TUI vocabulary. v1.1 makes the system multi-activity: `octopus tui` from anywhere lands on a cross-activity navigation surface (view 0). Cursor and view position survive tab switches and (optionally) restarts. `octopus lint` formalizes corpus hygiene as a first-class verb so drift surfaces before it bites.

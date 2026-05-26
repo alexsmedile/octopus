@@ -38,6 +38,7 @@ class HeaderCounts:
     now: int = 0
     next_: int = 0
     done: int = 0
+    dropped: int = 0
     blocked: int = 0
 
 
@@ -104,11 +105,13 @@ def _tabs_text(active_mode: str) -> Text:
 def _counts_cells(counts: HeaderCounts) -> list[tuple[str, str, str]]:
     """Return [(glyph_chunk, label, color), …] in display order.
     `glyph_chunk` already includes the number (e.g. "· 12")."""
+    # Pipeline order: backlog → next → now → done → dropped.
     cells = [
         (f"· {counts.backlog}", "backlog", "#8A8D9A"),
         (f"□ {counts.next_}", "next",    "#89DCEB"),
         (f"▣ {counts.now}", "now",     "#F38BA8"),
         (f"● {counts.done}", "done",    "#A6E3A1"),
+        (f"✕ {counts.dropped}", "dropped", "#6B5562"),
     ]
     if counts.blocked:
         cells.append((f"! {counts.blocked}", "blocked", "#FAB387"))
@@ -328,9 +331,15 @@ class HeaderBar(Widget):
         blocked: int,
         backlog: int = 0,
         done: int = 0,
+        dropped: int = 0,
     ) -> None:
         counts = HeaderCounts(
-            backlog=backlog, now=now, next_=next_, done=done, blocked=blocked
+            backlog=backlog,
+            now=now,
+            next_=next_,
+            done=done,
+            dropped=dropped,
+            blocked=blocked,
         )
         self._right.counts = counts
         self._left.counts = counts  # for slim-mode inline render

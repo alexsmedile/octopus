@@ -106,7 +106,15 @@ class OctopusApp(App):
     # ── mode switching (called by screens) ──────────────────────────────
 
     def switch_to_activities(self) -> None:
-        self._swap_top(ActivitiesScreen(cwd=self._activity_root or Path.cwd()))
+        # prefer_current: we're coming back from a drilled activity, so the
+        # CURRENT panel is the natural landing spot. ActivitiesScreen falls
+        # back to its default-focus rule if CURRENT is empty.
+        self._swap_top(
+            ActivitiesScreen(
+                cwd=self._activity_root or Path.cwd(),
+                prefer_current=True,
+            )
+        )
 
     def switch_to_focus(self) -> None:
         if self._activity_root is None:

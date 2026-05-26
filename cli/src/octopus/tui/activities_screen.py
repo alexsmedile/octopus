@@ -25,6 +25,7 @@ apps.
 from __future__ import annotations
 
 import sqlite3
+import subprocess
 from pathlib import Path
 
 from rich.text import Text
@@ -159,11 +160,10 @@ def _short_id(activity_id: str) -> str:
 
 
 class ActivityBlock(ListItem):
-    """A single activity rendered as 3 logical rows in one Static.
+    """A single activity rendered as one compact line.
 
-    Single-Static implementation (instead of Vertical of 3 Statics) avoids
-    a Textual visual-cache edge case where nested empty Statics inside a
-    ListItem can produce visual=None on first render.
+    Used by INDEX + NESTED. CURRENT uses the richer ActivityOverview.
+    Layout: `▸ id  title   · type · status · NOW n NEXT n BACKLOG n`.
     """
 
     def __init__(
@@ -186,39 +186,238 @@ class ActivityBlock(ListItem):
         self._body.update(self._build_content())
 
     def _build_content(self) -> str:
+        # Single-line row: cursor + id + full title, then inline bucket
+        # chips. Locked bucket glyphs per D6: now ▣ · next □ · backlog · · done ●.
         short = _short_id(self.activity_id)
         title = self._row.get("title") or short
         cursor = GLYPH_CURSOR if self._selected else " "
-        if self._selected:
-            row1 = f"[bold]{cursor}[/] [bold cyan]{short}[/]  [bold]{title}[/]"
-        else:
-            row1 = f"{cursor} [cyan]{short}[/]  {title}"
 
-        t = self._row.get("type") or "—"
-        st = self._row.get("status") or "—"
-        n_now = self._counts.get("now", 0)
-        n_next = self._counts.get("next", 0)
         n_bk = self._counts.get("backlog", 0)
+        n_next = self._counts.get("next", 0)
+        n_now = self._counts.get("now", 0)
+        n_done = self._counts.get("done", 0)
+        n_drop = self._counts.get("dropped", 0)
 
-        def _chip(label: str, n: int) -> str:
-            return f"{label} {n}" if n else f"[dim]{label} {n}[/]"
+        def _chip(glyph: str, n: int, color: str) -> str:
+            if n:
+                return f"[{color}]{glyph} {n}[/]"
+            return f"[dim]{glyph} {n}[/]"
 
-        row2 = (
-            f"    [dim]{t} · {st}[/]   "
-            f"{_chip('NOW', n_now)}  "
-            f"{_chip('NEXT', n_next)}  "
-            f"{_chip('BACKLOG', n_bk)}"
+        # Pipeline order: backlog → next → now → done → dropped.
+        chips = (
+            f"{_chip('·', n_bk,   '#8A8D9A')}  "
+            f"{_chip('□', n_next, '#89DCEB')}  "
+            f"{_chip('▣', n_now,  '#F38BA8')}  "
+            f"{_chip('●', n_done, '#A6E3A1')}  "
+            f"{_chip('✕', n_drop, '#F38BA8')}"
         )
 
-        path = _short_path(Path(self.activity_path)) if self.activity_path else ""
-        row3 = f"[dim]    {path}[/]"
-
-        return f"{row1}\n{row2}\n{row3}"
+        if self._selected:
+            head = f"[bold]{cursor}[/] [bold cyan]{short}[/]  [bold]{title}[/]"
+        else:
+            head = f"{cursor} [cyan]{short}[/]  {title}"
+        return f"{head}   {chips}"
 
 
 class _EmptyHint(ListItem):
     def __init__(self, message: str) -> None:
         super().__init__(Static(f"    {message}", classes="act-empty"))
+
+
+# Anything carrying an activity_id + activity_path + set_selected.
+# Used by isinstance() checks across the screen so ActivityOverview is
+# treated identically to ActivityBlock by cursor-restore + drill actions.
+ACTIVITY_ITEM_TYPES: tuple[type, ...]  # filled in below
+
+
+class ActivityOverview(ListItem):
+    """Property-rich render of a single activity.
+
+    Used only by the CURRENT panel — it always holds exactly one item and
+    has more vertical room than INDEX/NESTED rows, so surface more than
+    the 3-row ActivityBlock: identity, classification, four bucket counts,
+    attention signals (pinned / active session / blocked / due-soon),
+    "what's playing now," metadata (tags, dates), and path.
+    """
+
+    def __init__(
+        self,
+        activity_row: dict,
+        bucket_counts: dict[str, int] | None = None,
+        extras: dict | None = None,
+    ) -> None:
+        self._row = dict(activity_row)
+        self._counts = bucket_counts or {}
+        # extras keys (all optional):
+        #   pinned_task: str | None        — title of the single pinned task
+        #   top_now_task: str | None       — title of first NOW task (slot-0)
+        #   active_session: dict | None    — {"title": str, "started": str}
+        #   blocked_count: int             — tasks with issue=blocked|waiting
+        #   due_soon_count: int            — tasks with due ≤ today + 7d
+        #   linked_count: int              — len(activity.linked_activities)
+        self._extras = extras or {}
+        self.activity_id = self._row.get("id", "")
+        self.activity_path = self._row.get("path", "")
+        self._selected = False
+        self._body = Static(self._build_content(), classes="act-overview")
+        super().__init__(self._body)
+
+    def set_selected(self, selected: bool) -> None:
+        if selected == self._selected:
+            return
+        self._selected = selected
+        self._body.update(self._build_content())
+
+    # ── builders ────────────────────────────────────────────────────────
+
+    def _build_content(self) -> str:
+        rows: list[str] = []
+        rows.append(self._row_title())
+        meta = self._row_meta()
+        if meta:
+            rows.append(meta)
+        rows.append(self._row_counts())
+        attn = self._row_attention()
+        if attn:
+            rows.append(attn)
+        now_line = self._row_now_playing()
+        if now_line:
+            rows.append(now_line)
+        session_line = self._row_session()
+        if session_line:
+            rows.append(session_line)
+        tags = self._row_tags()
+        if tags:
+            rows.append(tags)
+        dates = self._row_dates()
+        if dates:
+            rows.append(dates)
+        path = self._row_path()
+        if path:
+            rows.append(path)
+        return "\n".join(rows)
+
+    def _row_title(self) -> str:
+        short = _short_id(self.activity_id)
+        title = self._row.get("title") or short
+        cursor = GLYPH_CURSOR if self._selected else " "
+        if self._selected:
+            return f"[bold]{cursor}[/] [bold cyan]{short}[/]  [bold]{title}[/]"
+        return f"{cursor} [cyan]{short}[/]  {title}"
+
+    def _row_meta(self) -> str | None:
+        # type · status · priority · area
+        parts: list[str] = []
+        for key, style in (
+            ("type", None),
+            ("status", None),
+            ("priority", "yellow"),
+            ("area", None),
+        ):
+            v = self._row.get(key)
+            if not v:
+                continue
+            v = str(v)
+            if style:
+                parts.append(f"[{style}]{v}[/]")
+            else:
+                parts.append(v)
+        return f"    [dim]{' · '.join(parts)}[/]" if parts else None
+
+    def _row_counts(self) -> str:
+        n_bk = self._counts.get("backlog", 0)
+        n_next = self._counts.get("next", 0)
+        n_now = self._counts.get("now", 0)
+        n_done = self._counts.get("done", 0)
+        n_drop = self._counts.get("dropped", 0)
+
+        def _chip(label: str, n: int, color: str | None = None) -> str:
+            if not n:
+                return f"[dim]{label} {n}[/]"
+            if color:
+                return f"[{color}]{label} {n}[/]"
+            return f"{label} {n}"
+
+        # Pipeline order: backlog → next → now → done → dropped.
+        return (
+            f"    {_chip('BACKLOG', n_bk)}  "
+            f"{_chip('NEXT', n_next, '#5EEAD4')}  "
+            f"{_chip('NOW', n_now, '#FACC15')}  "
+            f"{_chip('DONE', n_done, '#86EFAC')}  "
+            f"{_chip('DROPPED', n_drop)}"
+        )
+
+    def _row_attention(self) -> str | None:
+        """Chips for signals that need attention: pinned, blocked, due-soon."""
+        blocked = int(self._extras.get("blocked_count") or 0)
+        due_soon = int(self._extras.get("due_soon_count") or 0)
+        pinned = self._extras.get("pinned_task")
+        linked = int(self._extras.get("linked_count") or 0)
+        chips: list[str] = []
+        if pinned:
+            chips.append("[#CBA6F7]◆ pinned[/]")
+        if blocked:
+            chips.append(f"[#F38BA8]⊘ blocked {blocked}[/]")
+        if due_soon:
+            chips.append(f"[#FACC15]◷ due≤7d {due_soon}[/]")
+        if linked:
+            chips.append(f"[dim]↔ links {linked}[/]")
+        return f"    {'  '.join(chips)}" if chips else None
+
+    def _row_now_playing(self) -> str | None:
+        """Show pinned task title if present, else the top NOW task."""
+        pinned = self._extras.get("pinned_task")
+        if pinned:
+            return f"    [#CBA6F7]◆[/] [bold]{pinned}[/]"
+        top = self._extras.get("top_now_task")
+        if top:
+            return f"    [#FACC15]▶[/] [bold]{top}[/]"
+        return None
+
+    def _row_session(self) -> str | None:
+        sess = self._extras.get("active_session")
+        if not sess:
+            return None
+        title = sess.get("title") or "session"
+        started = sess.get("started") or ""
+        if started:
+            return f"    [#86EFAC]● session:[/] {title} [dim]({started})[/]"
+        return f"    [#86EFAC]● session:[/] {title}"
+
+    def _row_tags(self) -> str | None:
+        tags = self._row.get("tags")
+        if not tags:
+            return None
+        if isinstance(tags, (list, tuple)):
+            tag_str = ", ".join(str(x) for x in tags if x)
+        else:
+            tag_str = str(tags)
+        return f"    [dim]tags:[/] {tag_str}" if tag_str else None
+
+    def _row_dates(self) -> str | None:
+        created = self._row.get("created")
+        last_reviewed = self._row.get("last_reviewed")
+        last_touched = self._row.get("last_touched_at")
+        parts: list[str] = []
+        if created:
+            parts.append(f"[dim]created:[/] {created}")
+        if last_touched:
+            # Trim time component if present.
+            s = str(last_touched).split("T")[0].split(" ")[0]
+            parts.append(f"[dim]touched:[/] {s}")
+        if last_reviewed:
+            parts.append(f"[dim]reviewed:[/] {last_reviewed}")
+        return f"    {'   '.join(parts)}" if parts else None
+
+    def _row_path(self) -> str | None:
+        if not self.activity_path:
+            return None
+        # Labelled + un-dimmed so the path reads as a first-class property
+        # of the activity, not a footer.
+        return f"    [dim]path:[/] {_short_path(Path(self.activity_path))}"
+
+
+ACTIVITY_ITEM_TYPES = (ActivityBlock, ActivityOverview)
 
 
 # ── Panel containers ───────────────────────────────────────────────────
@@ -272,16 +471,28 @@ class ActivitiesScreen(Screen):
         Binding("enter", "drill", "drill", show=True, priority=True),
         Binding("space", "toggle_panel", "collapse", show=True),
         Binding("r", "refresh", "refresh", show=True),
+        Binding("y", "yank_slug", "yank slug", show=False),
         Binding("A", "toggle_archived", "archived", show=False),
     ]
 
-    def __init__(self, cwd: Path | None = None) -> None:
+    def __init__(
+        self,
+        cwd: Path | None = None,
+        *,
+        prefer_current: bool = False,
+    ) -> None:
         super().__init__()
         self._cwd = cwd or Path.cwd()
+        # When returning from a drilled activity (Esc → "Back to Activities?"),
+        # the caller sets prefer_current=True so the focus rule prioritizes
+        # the CURRENT panel over any saved active_panel — matches the user
+        # mental model: "I just left an activity, take me back to it."
+        self._prefer_current = bool(prefer_current)
         self._index = _Panel("index", GLYPH_INDEX, "INDEX")
         self._current = _Panel("current", GLYPH_CURRENT, "CURRENT")
         self._nested = _Panel("nested", GLYPH_NESTED, "NESTED")
-        self._panels = [self._index, self._current, self._nested]
+        # Visual + cycle order: CURRENT (top) → INDEX → NESTED (req #45).
+        self._panels = [self._current, self._index, self._nested]
         self._active_panel_idx = 0
         self._include_archived = False
         self._header = HeaderBar()
@@ -293,8 +504,8 @@ class ActivitiesScreen(Screen):
     def compose(self) -> ComposeResult:
         yield self._header
         yield Vertical(
-            self._index,
             self._current,
+            self._index,
             self._nested,
             id="activities-root",
         )
@@ -317,53 +528,104 @@ class ActivitiesScreen(Screen):
             p.set_count(0)
         self._refresh_all()
         # Restore from ViewState if available (req #44).
-        self._restore_from_view_state()
+        restored = self._restore_from_view_state()
+        # prefer_current overrides saved state — used when returning from a
+        # drilled activity (req #45 follow-up): land back on CURRENT, not
+        # wherever the user happened to be before drilling.
+        if self._prefer_current:
+            idx = self._current_panel_idx_if_populated()
+            if idx is not None:
+                self._active_panel_idx = idx
+            else:
+                self._active_panel_idx = self._default_focus_idx()
+        elif not restored:
+            # Fallback focus: CURRENT when populated, else INDEX.
+            self._active_panel_idx = self._default_focus_idx()
         self._focus_panel(self._active_panel_idx)
+
+    def _current_panel_idx_if_populated(self) -> int | None:
+        for idx, panel in enumerate(self._panels):
+            if panel.panel_id != "current":
+                continue
+            has_activity = any(
+                isinstance(c, ACTIVITY_ITEM_TYPES)
+                for c in panel.list_view.children
+            )
+            return idx if has_activity else None
+        return None
+
+    def _default_focus_idx(self) -> int:
+        """Pick the initial active panel when there's no saved state.
+
+        CURRENT if it has an ActivityOverview child; else INDEX.
+        """
+        for idx, panel in enumerate(self._panels):
+            if panel.panel_id == "current":
+                has_activity = any(
+                    isinstance(c, ACTIVITY_ITEM_TYPES)
+                    for c in panel.list_view.children
+                )
+                if has_activity:
+                    return idx
+                break
+        for idx, panel in enumerate(self._panels):
+            if panel.panel_id == "index":
+                return idx
+        return 0
 
     # ── view-state integration (req #44) ─────────────────────────────
 
-    def _restore_from_view_state(self) -> None:
+    def _restore_from_view_state(self) -> bool:
         """Read this screen's TabState (if any) and restore active panel +
-        cursor per panel. Silent on any failure."""
+        cursor per panel. Silent on any failure.
+
+        Returns True if active_panel was restored from saved state, False
+        otherwise — callers use this to decide whether to apply the
+        fallback-focus rule (req #45).
+        """
+        restored_active_panel = False
         try:
             vs = getattr(self.app, "view_state", None)
             if vs is None:
-                return
+                return False
             ts = vs.get_tab("activities")
             if ts is None:
-                return
-            # Active panel
-            panel_ids = ["index", "current", "nested"]
+                return False
+            # Active panel — match by panel.panel_id, not list position
+            # (req #45 changed visual order; per-panel keys are the SoT).
+            panel_ids = [p.panel_id for p in self._panels]
             if ts.active_panel in panel_ids:
                 self._active_panel_idx = panel_ids.index(ts.active_panel)
+                restored_active_panel = True
             # Per-panel cursors
-            for panel, pid in zip(self._panels, panel_ids, strict=False):
-                target = ts.cursors.get(pid)
+            for panel in self._panels:
+                target = ts.cursors.get(panel.panel_id)
                 if not target:
                     continue
-                # Find the matching ActivityBlock by activity_id.
+                # Find the matching activity item by activity_id.
                 for idx, child in enumerate(panel.list_view.children):
-                    if isinstance(child, ActivityBlock) and child.activity_id == target:
+                    if isinstance(child, ACTIVITY_ITEM_TYPES) and child.activity_id == target:
                         panel.list_view.index = idx
                         break
             # Collapsed state
-            for panel, pid in zip(self._panels, panel_ids, strict=False):
-                want_collapsed = pid in (ts.collapsed_panels or [])
+            for panel in self._panels:
+                want_collapsed = panel.panel_id in (ts.collapsed_panels or [])
                 if want_collapsed != panel.collapsed:
                     panel.toggle_collapsed()
         except Exception:
-            return
+            return restored_active_panel
+        return restored_active_panel
 
     def capture_view_state(self, vs) -> None:
         """Write current screen state into the app-wide ViewState."""
         from octopus.tui.state import TabState
 
-        panel_ids = ["index", "current", "nested"]
         cursors: dict[str, str] = {}
         scroll_offsets: dict[str, int] = {}
-        for panel, pid in zip(self._panels, panel_ids, strict=False):
+        for panel in self._panels:
+            pid = panel.panel_id
             item = panel.list_view.highlighted_child
-            if isinstance(item, ActivityBlock) and item.activity_id:
+            if isinstance(item, ACTIVITY_ITEM_TYPES) and item.activity_id:
                 cursors[pid] = item.activity_id
             try:
                 scroll_offsets[pid] = int(panel.list_view.scroll_offset.y)
@@ -372,9 +634,9 @@ class ActivitiesScreen(Screen):
         ts = TabState(
             tab_id="activities",
             cursors=cursors,
-            active_panel=panel_ids[self._active_panel_idx],
+            active_panel=self._panels[self._active_panel_idx].panel_id,
             scroll_offsets=scroll_offsets,
-            collapsed_panels=[pid for p, pid in zip(self._panels, panel_ids, strict=False) if p.collapsed],
+            collapsed_panels=[p.panel_id for p in self._panels if p.collapsed],
         )
         vs.set_tab("activities", ts)
         vs.active_tab = "activities"
@@ -393,7 +655,7 @@ class ActivitiesScreen(Screen):
         except sqlite3.Error:
             return []
 
-    def _load_current(self) -> list[ActivityBlock]:
+    def _load_current(self) -> list[ListItem]:
         root = find_activity_root(self._cwd)
         if root is None:
             return []
@@ -403,21 +665,117 @@ class ActivitiesScreen(Screen):
             return []
         conn = get_db()
         try:
-            row = conn.execute(
+            db_row = conn.execute(
                 "SELECT * FROM activities WHERE path = ?", (str(root),)
             ).fetchone()
         except sqlite3.Error:
-            row = None
-        if row is None:
-            row = {
-                "id": activity.id,
-                "title": activity.title,
-                "type": activity.type,
-                "status": activity.status,
-                "path": str(root),
-            }
-        counts = count_by_bucket(conn, row["id"]) if row else {}
-        return [ActivityBlock(row, counts)]
+            db_row = None
+        # Start with DB row (if any), then overlay properties from the
+        # parsed activity.md so we get tags / priority / area / last_reviewed
+        # which the index table doesn't surface.
+        row: dict = dict(db_row) if db_row else {}
+        row.setdefault("id", activity.id)
+        row.setdefault("title", activity.title)
+        row.setdefault("type", activity.type)
+        row.setdefault("status", activity.status)
+        row["path"] = str(root)
+        if getattr(activity, "priority", None):
+            row["priority"] = activity.priority
+        if getattr(activity, "area", None):
+            row["area"] = activity.area
+        if getattr(activity, "tags", None):
+            row["tags"] = activity.tags
+        if getattr(activity, "last_reviewed", None):
+            row["last_reviewed"] = activity.last_reviewed
+        if getattr(activity, "created", None) and not row.get("created"):
+            row["created"] = activity.created
+        linked = getattr(activity, "linked_activities", None) or []
+        counts = count_by_bucket(conn, row["id"]) if row.get("id") else {}
+        extras = self._gather_current_extras(conn, row.get("id"))
+        extras["linked_count"] = len(linked)
+        return [ActivityOverview(row, counts, extras)]
+
+    def _gather_current_extras(self, conn: "sqlite3.Connection", activity_id: str | None) -> dict:
+        """Collect attention-surface signals for the CURRENT panel overview."""
+        if not activity_id:
+            return {}
+        from datetime import date, timedelta
+        extras: dict = {}
+        # Pinned task (slot-0 attention).
+        try:
+            pinned = conn.execute(
+                "SELECT title FROM tasks "
+                "WHERE activity_id = ? AND pinned = 1 "
+                "AND (archived IS NULL OR archived = 0) "
+                "ORDER BY bucket, slug LIMIT 1",
+                (activity_id,),
+            ).fetchone()
+            if pinned and pinned["title"]:
+                extras["pinned_task"] = pinned["title"]
+        except sqlite3.Error:
+            pass
+        # Top of NOW.
+        try:
+            top_now = conn.execute(
+                "SELECT title FROM tasks "
+                "WHERE activity_id = ? AND bucket = 'now' "
+                "AND (archived IS NULL OR archived = 0) "
+                "ORDER BY CASE WHEN pinned = 1 THEN 0 ELSE 1 END, slug LIMIT 1",
+                (activity_id,),
+            ).fetchone()
+            if top_now and top_now["title"]:
+                extras["top_now_task"] = top_now["title"]
+        except sqlite3.Error:
+            pass
+        # Active session = started but not ended.
+        try:
+            sess = conn.execute(
+                "SELECT title, started FROM sessions "
+                "WHERE activity_id = ? AND ended IS NULL "
+                "ORDER BY started DESC LIMIT 1",
+                (activity_id,),
+            ).fetchone()
+            if sess:
+                started_val = sess["started"]
+                started_str = ""
+                if started_val:
+                    s = str(started_val)
+                    # Compact: keep date + HH:MM
+                    started_str = s.replace("T", " ")[:16]
+                extras["active_session"] = {
+                    "title": sess["title"] or "session",
+                    "started": started_str,
+                }
+        except sqlite3.Error:
+            pass
+        # Blocked/waiting count (visible in NOW + NEXT).
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM tasks "
+                "WHERE activity_id = ? "
+                "AND issue IN ('blocked', 'waiting') "
+                "AND (archived IS NULL OR archived = 0)",
+                (activity_id,),
+            ).fetchone()
+            if row:
+                extras["blocked_count"] = int(row["n"] or 0)
+        except sqlite3.Error:
+            pass
+        # Due within 7 days.
+        try:
+            soon = (date.today() + timedelta(days=7)).isoformat()
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM tasks "
+                "WHERE activity_id = ? AND due IS NOT NULL AND due <= ? "
+                "AND bucket != 'done' "
+                "AND (archived IS NULL OR archived = 0)",
+                (activity_id, soon),
+            ).fetchone()
+            if row:
+                extras["due_soon_count"] = int(row["n"] or 0)
+        except sqlite3.Error:
+            pass
+        return extras
 
     def _load_nested(self) -> list[ActivityBlock]:
         # Bail on $HOME / fs-root cwd to avoid walking huge trees (including
@@ -481,7 +839,7 @@ class ActivitiesScreen(Screen):
         for i, panel in enumerate(self._panels):
             is_active = i == self._active_panel_idx
             for child in panel.list_view.children:
-                if isinstance(child, ActivityBlock):
+                if isinstance(child, ACTIVITY_ITEM_TYPES):
                     selected = is_active and child is panel.list_view.highlighted_child
                     child.set_selected(selected)
         # Toggle panel-focused class for the border highlight (uses existing .panel--focused).
@@ -507,7 +865,7 @@ class ActivitiesScreen(Screen):
     @property
     def _selected_block(self) -> ActivityBlock | None:
         item = self._active_panel.list_view.highlighted_child
-        return item if isinstance(item, ActivityBlock) else None
+        return item if isinstance(item, ACTIVITY_ITEM_TYPES) else None
 
     # ── actions ──────────────────────────────────────────────────────
 
@@ -521,9 +879,15 @@ class ActivitiesScreen(Screen):
         lv = self._active_panel.list_view
         n = len(lv.children)
         if n == 0:
+            # Empty panel — spill to previous panel that has items.
+            self._spill_to_neighbor(direction=-1)
             return
         current = lv.index if lv.index is not None else 0
-        # Wrap-around: top of list → bottom.
+        if current <= 0:
+            # Top of list — spill into previous populated panel (lands on
+            # its last item). Falls through to wrap if no neighbor has items.
+            if self._spill_to_neighbor(direction=-1):
+                return
         lv.index = (current - 1) % n
         self._update_selection_highlights()
 
@@ -531,11 +895,55 @@ class ActivitiesScreen(Screen):
         lv = self._active_panel.list_view
         n = len(lv.children)
         if n == 0:
+            self._spill_to_neighbor(direction=1)
             return
         current = lv.index if lv.index is not None else -1
-        # Wrap-around: bottom of list → top.
+        if current >= n - 1:
+            # Bottom of list — spill into next populated panel (lands on
+            # its first item). Falls through to wrap if no neighbor has items.
+            if self._spill_to_neighbor(direction=1):
+                return
         lv.index = (current + 1) % n
         self._update_selection_highlights()
+
+    def _spill_to_neighbor(self, *, direction: int) -> bool:
+        """Move active panel to the next/previous panel that has activity
+        items, landing on the first item (down) or last item (up).
+
+        Returns True if a spill happened, False if no neighbor qualified
+        (caller can then wrap within the current panel as before).
+        """
+        n_panels = len(self._panels)
+        # Walk neighbors, skipping the current panel; stop before completing
+        # a full loop so we don't spill back to ourselves.
+        for step in range(1, n_panels):
+            idx = (self._active_panel_idx + direction * step) % n_panels
+            if idx == self._active_panel_idx:
+                break
+            cand = self._panels[idx]
+            has_items = any(
+                isinstance(c, ACTIVITY_ITEM_TYPES)
+                for c in cand.list_view.children
+            )
+            if not has_items:
+                continue
+            self._focus_panel(idx)
+            lv = cand.list_view
+            children = list(lv.children)
+            # Find first/last child that is an ACTIVITY item.
+            if direction > 0:
+                for j, c in enumerate(children):
+                    if isinstance(c, ACTIVITY_ITEM_TYPES):
+                        lv.index = j
+                        break
+            else:
+                for j in range(len(children) - 1, -1, -1):
+                    if isinstance(children[j], ACTIVITY_ITEM_TYPES):
+                        lv.index = j
+                        break
+            self._update_selection_highlights()
+            return True
+        return False
 
     def action_next_panel(self) -> None:
         self._focus_panel(self._active_panel_idx + 1)
@@ -563,6 +971,22 @@ class ActivitiesScreen(Screen):
             return
         if hasattr(self.app, "drill_into_activity"):
             self.app.drill_into_activity(path)
+
+    def action_yank_slug(self) -> None:
+        block = self._selected_block
+        if block is None or not block.activity_id:
+            self._toast.flash("nothing selected")
+            return
+        slug = _short_id(block.activity_id)
+        try:
+            proc = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+            proc.communicate(input=slug.encode("utf-8"), timeout=2)
+            if proc.returncode == 0:
+                self._toast.flash(f"✓ yanked {slug}")
+                return
+        except Exception:
+            pass
+        self._toast.flash(f"slug: {slug}")
 
     def action_go_focus(self) -> None:
         block = self._selected_block

@@ -629,6 +629,7 @@ class FocusScreen(Screen):
             now_rows = list(tasks_for_activity(conn, self._activity_id, bucket="now"))
             next_rows = list(tasks_for_activity(conn, self._activity_id, bucket="next"))
             done_count = len(list(tasks_for_activity(conn, self._activity_id, bucket="done")))
+            dropped_count = len(list(tasks_for_activity(conn, self._activity_id, bucket="dropped")))
             blocked = sum(
                 1 for r in backlog_rows + now_rows + next_rows
                 if _row_has(r, "run_state") and r["run_state"] == "blocked"
@@ -669,6 +670,7 @@ class FocusScreen(Screen):
             blocked=blocked,
             backlog=len(backlog_rows),
             done=done_count,
+            dropped=dropped_count,
         )
 
     def _fill(self, quadrant: str, rows: list[sqlite3.Row], *, empty_msg: str) -> None:

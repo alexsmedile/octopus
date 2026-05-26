@@ -315,6 +315,7 @@ class BoardScreen(Screen):
             blocked=blocked,
             backlog=len(rows_by_col[C_BACKLOG]),
             done=len(rows_by_col[C_DONE]),
+            dropped=len(rows_by_col[C_DROPPED]),
         )
 
     def _fill(self, col: str, rows: list[sqlite3.Row], *, empty_msg: str) -> None:
