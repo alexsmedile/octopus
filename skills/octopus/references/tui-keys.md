@@ -17,15 +17,29 @@ Mirror of `.spectacular/specs/TUI-KEYS.md` — operational subset. Keep in sync.
 
 | Key | Action |
 |---|---|
+| `0` | Activities view (cross-activity) |
 | `1` | Focus mode |
 | `2` | Board mode |
 | `←` `→` | Move between panes (Focus) / columns (Board) |
 | `↑` `↓` | Move within list; edge presses spill across panes |
 | `Tab` `S-Tab` | Cycle panes forward / back |
 | `Enter` | If Detail visible: focus it. If collapsed: open it (= `,`). |
-| `Esc` | Close overlay / clear filter |
+| `Esc` | Close overlay / clear filter. From Focus/Board root: confirm "Back to Activities?" |
 | `,` | Toggle Detail pane |
 | `g` | Go-to slug (prompts) |
+
+### Activities view (`0`)
+
+| Key | Action |
+|---|---|
+| `Tab` `S-Tab` | Cycle panel focus: INDEX → CURRENT → NESTED (wraps) |
+| `↑` `↓` | Move cursor; wraps top↔bottom within panel |
+| `Enter` | Drill into highlighted activity → Focus mode for it |
+| `Space` | Collapse / expand active panel |
+| `r` | Refresh |
+| `/` | Filter INDEX |
+| `A` | Toggle include-archived in INDEX |
+| `1` `2` | Drill into highlighted activity → Focus or Board |
 
 ### Pane spill rules (Focus)
 

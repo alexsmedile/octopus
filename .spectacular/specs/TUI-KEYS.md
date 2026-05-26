@@ -15,15 +15,30 @@ Authoritative spec for the Octopus TUI keybindings (Focus + Board modes). Locked
 
 | Key | Action |
 |---|---|
+| `0` | Switch to Activities view |
 | `1` | Switch to Focus mode |
 | `2` | Switch to Board mode |
 | `←` `→` | Move between panes (Focus) / columns (Board) |
 | `↑` `↓` | Move within list; edge presses spill into the adjacent pane |
 | `Tab` `S-Tab` | Cycle panes forward / backward |
 | `Enter` | If Detail pane is visible: focus it. If collapsed: open it (= `,`). |
-| `Esc` | Close overlay / clear filter |
+| `Esc` | Close overlay / clear filter. From Focus/Board root: prompt "Back to Activities?" |
 | `,` | Toggle Detail pane (open ↔ collapsed) |
 | `g` | Go-to slug (prompts) |
+
+### Activities view (`0`)
+
+| Key | Action |
+|---|---|
+| `Tab` `S-Tab` | Cycle panel focus: INDEX → CURRENT → NESTED → INDEX (wraps) |
+| `↑` `↓` | Move cursor within the active panel (wraps top↔bottom) |
+| `Enter` | Drill into the highlighted activity → push Focus mode for it |
+| `Space` | Collapse / expand the active panel |
+| `r` | Refresh (re-query index + walk-down NESTED) |
+| `/` | Filter INDEX by title/path substring |
+| `A` | Toggle include-archived in INDEX |
+| `0` | No-op (already in Activities) |
+| `1` `2` | Drill into the highlighted activity → Focus or Board mode |
 
 ### Pane spill rules (Focus)
 

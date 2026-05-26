@@ -1,6 +1,8 @@
 """OctopusApp — Textual app shell.
 
-Boots into FocusScreen. `1`/`2` switch between Focus and Board modes.
+Boots into ActivitiesScreen when launched without an activity context;
+otherwise boots into FocusScreen for that activity. `0/1/2` switch
+between Activities / Focus / Board modes.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ from textual.app import App
 from textual.binding import Binding
 
 from octopus.fs.io import read_activity
+from octopus.tui.activities_screen import ActivitiesScreen
 from octopus.tui.board import BoardScreen
 from octopus.tui.focus import FocusScreen
 
@@ -27,28 +30,58 @@ class OctopusApp(App):
         Binding("q", "quit", "quit"),
     ]
 
-    def __init__(self, activity_root: Path) -> None:
+    def __init__(self, activity_root: Path | None = None) -> None:
         super().__init__()
         self._activity_root = activity_root
-        activity_md = activity_root / ".octopus" / "activity.md"
-        activity, _ = read_activity(activity_md)
-        self._activity_title = activity.title or activity_root.name
+        if activity_root is not None:
+            activity_md = activity_root / ".octopus" / "activity.md"
+            activity, _ = read_activity(activity_md)
+            self._activity_title = activity.title or activity_root.name
+        else:
+            self._activity_title = None
         # Shared cursor state across mode swaps: (bucket, slug).
-        # Set by each screen before it requests a swap; read by the
-        # incoming screen during on_mount to restore highlight.
         self.shared_cursor: tuple[str | None, str | None] = (None, None)
 
     def on_mount(self) -> None:
-        self.push_screen(FocusScreen(self._activity_title, self._activity_root))
+        if self._activity_root is None:
+            self.push_screen(ActivitiesScreen())
+        else:
+            self.push_screen(
+                FocusScreen(self._activity_title, self._activity_root)
+            )
 
     # ── mode switching (called by screens) ──────────────────────────────
 
+    def switch_to_activities(self) -> None:
+        self._swap_top(ActivitiesScreen(cwd=self._activity_root or Path.cwd()))
+
     def switch_to_focus(self) -> None:
-        # Swap the top screen for a fresh FocusScreen. Pop any modals first.
-        self._swap_top(FocusScreen(self._activity_title, self._activity_root))
+        if self._activity_root is None:
+            return
+        self._swap_top(
+            FocusScreen(self._activity_title, self._activity_root)
+        )
 
     def switch_to_board(self) -> None:
-        self._swap_top(BoardScreen(self._activity_title, self._activity_root))
+        if self._activity_root is None:
+            return
+        self._swap_top(
+            BoardScreen(self._activity_title, self._activity_root)
+        )
+
+    def drill_into_activity(self, activity_root: Path, *, mode: str = "focus") -> None:
+        """Enter a per-activity TUI for the given activity (Activities → Focus/Board)."""
+        activity_md = activity_root / ".octopus" / "activity.md"
+        if not activity_md.is_file():
+            return
+        activity, _ = read_activity(activity_md)
+        title = activity.title or activity_root.name
+        self._activity_root = activity_root
+        self._activity_title = title
+        if mode == "board":
+            self._swap_top(BoardScreen(title, activity_root))
+        else:
+            self._swap_top(FocusScreen(title, activity_root))
 
     def _swap_top(self, new_screen) -> None:
         """Pop any modals + the current root screen, then push a fresh one.

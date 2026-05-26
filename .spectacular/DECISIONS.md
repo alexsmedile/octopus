@@ -1817,3 +1817,25 @@ See `.spectacular/specs/TUI-GLYPHS.md` Slot 3 for the full spec.
 - The TUI / renderers surface the block visibly (slot-1 glyph per D96) — the data structure stays sharp, the display does the work.
 - **AI-driven flow (deferred):** when an agent (`actor != human`) sets `issue: blocked|waiting`, the agent must demote the task to NEXT or BACKLOG before saving. Enforcement spec is a separate request — not in scope for v1.x.
 - `octopus lint` (request 42) emits **info**, not warn/error, on blocked/waiting in NOW or NEXT — visibility only, never auto-fix.
+
+---
+
+## 2026-05-26 — Activities view + diamond family activation
+
+### D101 — View 0 "Activities" joins Focus (1) and Board (2)
+- The TUI now has three top-level views, not two: **0 Activities**, **1 Focus**, **2 Board**. Digits `0/1/2` switch between them from anywhere.
+- Boot rule: outside any activity → land on Activities (view 0). Inside an activity → land on Focus (view 1, unchanged from v1.0.0).
+- Activities is a per-screen view, not a tab widget — implemented as `ActivitiesScreen` alongside `FocusScreen` / `BoardScreen`. Same chrome (HeaderBar, StatusBar, KeymapBar) so all three views feel like one app.
+- Activities has its own `ActivitiesKeymapBar` (chips: `CR drill`, `TAB panel`, `␣ collapse`, `/ filter`, `r refresh`, `1 focus`, `2 board`, `? help`, `q quit`). Mutation chips from Focus/Board don't apply.
+- Body: three vertically stacked, collapsible panels — `◇ INDEX` / `◆ CURRENT` / `◈ NESTED` (see D102).
+- Drill: `Enter` on an activity → replaces screen with FocusScreen for that activity. `Esc` from Focus/Board → confirm modal "Back to Activities?" → `y` returns. `0` is the direct shortcut (no prompt) from anywhere.
+- Cursor wraps both directions: `↑` from top → bottom; `↓` from bottom → top. Per-panel, not cross-panel.
+
+### D102 — Diamond family fully activated for activity scope
+- The reserved `◆` filled-diamond slot from D95 is now lit. New `◈` (white-diamond-with-black-diamond-inside, U+25C8) added for "containment / nested."
+- Full diamond vocabulary:
+  - `◇` outline — **label**: the existing activity-name prefix (D95). Used as the INDEX panel header in Activities view.
+  - `◆` filled — **active state**: "the activity I'm in." Used as the CURRENT panel header.
+  - `◈` outline-with-interior — **containment**: "sub-activities live inside this one." Used as the NESTED panel header.
+- Scope strictly limited to **activities**. Diamond family stays activity-only; hexagon family stays git/repo-only (D95).
+- `◆` outside the Activities view (e.g. inline on a task row) still reserved for future "activity state" encoding — this D-entry activates one specific use, not all of them.

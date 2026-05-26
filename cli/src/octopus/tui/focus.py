@@ -405,6 +405,7 @@ class FocusScreen(Screen):
         Binding("shift+tab", "nav_shift_tab", "prev pane", show=False),
         Binding("escape", "noop", "close", show=False),
         # Mode switch. priority=True so ListView focus doesn't swallow the digit.
+        Binding("0", "activities_mode", "activities", show=True, priority=True),
         Binding("1", "focus_mode", "focus", show=True, priority=True),
         Binding("2", "board_mode", "board", show=True, priority=True),
         # Mutations
@@ -835,7 +836,18 @@ class FocusScreen(Screen):
     # ── nav actions ───────────────────────────────────────────────────
 
     def action_noop(self) -> None:
-        pass
+        # Esc with no modal/preview to close → prompt "back to Activities?".
+        if hasattr(self.app, "switch_to_activities"):
+            from octopus.tui.prompts import ConfirmModal
+
+            def _on_confirm(confirmed: bool | None) -> None:
+                if confirmed:
+                    self.app.switch_to_activities()
+
+            self.app.push_screen(
+                ConfirmModal("Back to Activities?", title="back"),
+                _on_confirm,
+            )
 
     def action_quit(self) -> None:
         # Quit-confirm if the activity has an active session — avoids stranding
@@ -863,6 +875,10 @@ class FocusScreen(Screen):
     def action_focus_mode(self) -> None:
         # Already in Focus — no-op.
         pass
+
+    def action_activities_mode(self) -> None:
+        if hasattr(self.app, "switch_to_activities"):
+            self.app.switch_to_activities()
 
     def action_help(self) -> None:
         self.app.push_screen(HelpOverlay())

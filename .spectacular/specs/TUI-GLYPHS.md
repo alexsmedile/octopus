@@ -116,7 +116,8 @@ Glyphs in the top header bar. Static labels for the kind of line you're looking 
 | `⌂` | U+2302 | dim `#8A8D9A` | Path row | active |
 | `◇` | U+25C7 | lavender `#CBA6F7` | Activity row prefix | **active — reserved for activity** |
 | `⬡` | U+2B21 | lavender `#CBA6F7` | Repo row prefix (when activity root is inside a git repo) | **active — reserved for git** |
-| `◆` | U+25C6 | lavender (future) | Activity row variant | **reserved** — filled variant for future activity-state encoding |
+| `◆` | U+25C6 | lavender `#CBA6F7` | Activities view — CURRENT panel header | **active** (D102) — "the activity I'm in" |
+| `◈` | U+25C8 | lavender `#CBA6F7` | Activities view — NESTED panel header | **active** (D102) — "sub-activities live inside this one" |
 | `⬢` | U+2B22 | lavender (future) | Repo row variant | **reserved** — filled variant for future repo-state encoding |
 | `▶` | U+25B6 | cyan `#89DCEB` | State row + slot-1 override | active — human session running |
 | `»` | U+00BB | cyan `#89DCEB` | State row + slot-1 override | **reserved** — agent session running |
@@ -130,7 +131,14 @@ Single-line form: `◇ <activity-name>   ⬡ <repo-name>` — both glyphs lavend
 
 **Why walk up.** Activity folders are commonly subfolders of a larger repo (e.g. `~/repo/projects/foo/`) — walking up catches this without the user having to flag it. The `$HOME` ceiling prevents accidentally surfacing a parent repo when the activity actually lives in a non-git location.
 
-**Reserved filled variants.** `◆` (filled diamond) and `⬢` (filled hexagon) are defined but not rendered. They are reserved for future state encodings on the same row (e.g. "activity has unread alerts," "repo has uncommitted changes"). Color stays lavender for any future variant — only the fill changes. **Diamond and hexagon are permanently reserved for activity and git respectively** — never reassign.
+**Diamond family — fully activated for activity scope (D102).** The diamond family now has three meanings, all activity-scoped:
+- `◇` outline — **label**: activity-name prefix (existing, D95).
+- `◆` filled — **active state**: "the activity I'm in." Used as the CURRENT panel header in the Activities view (D101).
+- `◈` outline-with-interior — **containment**: "sub-activities live inside this one." Used as the NESTED panel header.
+
+`◆` outside Activities (e.g. inline on a task row) remains reserved for future "activity has unread alerts" / per-task activity-state encoding — D102 activates one specific use, not all of them.
+
+**Hexagon family stays git-only.** `⬡` outline = repo row prefix (active); `⬢` filled = future repo-state encoding (reserved). Diamond and hexagon stay strictly in their lanes — never cross-assign.
 
 ### Session vs agent
 

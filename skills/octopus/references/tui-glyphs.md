@@ -83,9 +83,10 @@ Top header bar. Static — never per-task state.
 | Glyph | Color | Where | Status |
 |---|---|---|---|
 | `⌂` | `#8A8D9A` | path row prefix | active |
-| `◇` | `#CBA6F7` lavender | activity row prefix | **active — reserved for activity** |
+| `◇` | `#CBA6F7` lavender | activity row prefix · Activities view INDEX header | **active** — activity label |
+| `◆` | `#CBA6F7` lavender | Activities view CURRENT header | **active** (D102) — "the activity I'm in" |
+| `◈` | `#CBA6F7` lavender | Activities view NESTED header | **active** (D102) — "sub-activities live inside this one" |
 | `⬡` | `#CBA6F7` lavender | repo row prefix (in git) | **active — reserved for git** |
-| `◆` | lavender | activity variant | reserved (D91) |
 | `⬢` | lavender | repo variant | reserved (D91) |
 | `▶` | `#89DCEB` cyan | state row + slot-1 override | active — human session |
 | `»` | `#89DCEB` cyan | state row + slot-1 override | reserved — agent session |
@@ -103,8 +104,8 @@ Both glyphs lavender. Activity name white. Repo name dim grey. Repo segment omit
 
 ### Reserved permanently
 
-- `◇` `◆` — diamond family, reserved for **activity** state encoding.
-- `⬡` `⬢` — hexagon family, reserved for **git/repo** state encoding.
+- `◇` `◆` `◈` — diamond family, **activity scope only** (D95, D102). `◇` label, `◆` active state, `◈` containment.
+- `⬡` `⬢` — hexagon family, **git/repo scope only** (D95). Never cross-assign with diamond.
 - `▶` `»` — session indicators (human active, agent reserved).
 
 Never reassign.

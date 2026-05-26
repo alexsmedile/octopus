@@ -94,6 +94,7 @@ class BoardScreen(Screen):
         Binding("escape", "noop", "close", show=False, priority=True),
         # Mode switch (App-level alias). priority=True so ListView focus
         # doesn't swallow the digit on Textual 8.x.
+        Binding("0", "activities_mode", "activities", show=True, priority=True),
         Binding("1", "focus_mode", "focus", show=True, priority=True),
         Binding("2", "board_mode", "board", show=True, priority=True),
         # Mutations
@@ -556,6 +557,10 @@ class BoardScreen(Screen):
         # Already in Board — no-op.
         pass
 
+    def action_activities_mode(self) -> None:
+        if hasattr(self.app, "switch_to_activities"):
+            self.app.switch_to_activities()
+
     def action_help(self) -> None:
         self.app.push_screen(HelpOverlay())
 
@@ -607,13 +612,26 @@ class BoardScreen(Screen):
     # ── actions ───────────────────────────────────────────────────────
 
     def action_noop(self) -> None:
-        # Esc cascades: collapse expanded preview → close detail pane → no-op.
+        # Esc cascades: collapse expanded preview → close detail pane →
+        # prompt "back to Activities?".
         item = self._current_item()
         if item is not None and item._expanded:
             item.set_expanded(False)
             return
         if self._detail_visible:
             self.action_toggle_detail_pane()
+            return
+        if hasattr(self.app, "switch_to_activities"):
+            from octopus.tui.prompts import ConfirmModal
+
+            def _on_confirm(confirmed: bool | None) -> None:
+                if confirmed:
+                    self.app.switch_to_activities()
+
+            self.app.push_screen(
+                ConfirmModal("Back to Activities?", title="back"),
+                _on_confirm,
+            )
 
     def action_quit(self) -> None:
         try:

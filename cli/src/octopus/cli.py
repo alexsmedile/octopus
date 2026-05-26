@@ -213,8 +213,12 @@ def where(
 
 @app.command()
 def tui() -> None:
-    """Launch the Textual TUI (Focus + Board modes) for the current activity."""
-    root = _require_activity()
+    """Launch the Textual TUI.
+
+    Inside an activity → boots Focus mode for that activity.
+    Outside any activity → boots the Activities tab (cross-activity view).
+    """
+    root = find_activity_root(Path.cwd())
     # Defer Textual import — keeps cold-start fast for every other command.
     from octopus.tui.app import OctopusApp
 

@@ -764,3 +764,40 @@ EditModal {
     border: heavy #F38BA8;
     text-style: bold;
 }
+
+/* ── Activities tab (request #43) ─────────────────────────────────── */
+
+#activities-root {
+    height: 100%;
+    width: 100%;
+    padding: 0 1;
+}
+
+.act-panel {
+    border: heavy #2A2C36;
+    border-title-color: #8A8D9A;
+    border-title-style: bold;
+    border-title-align: left;
+    padding: 0 1;
+    background: #0F1014;
+    color: #F5F5F7;
+    margin: 0 0 1 0;
+    height: auto;
+}
+
+.act-list {
+    background: transparent;
+    height: auto;
+    max-height: 16;
+}
+
+.act-block {
+    padding: 0 0 1 0;
+    height: 4;
+    color: #F5F5F7;
+}
+
+.act-empty {
+    color: #5A5C68;
+    text-style: italic;
+}
