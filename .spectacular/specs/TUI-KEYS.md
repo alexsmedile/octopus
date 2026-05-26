@@ -45,8 +45,8 @@ Authoritative spec for the Octopus TUI keybindings (Focus + Board modes). Locked
 - Right column stacks **NEXT (top) → NOW (bottom)** — pipeline funnels downward.
 - `↑` at the top of NOW jumps into NEXT (last row).
 - `↓` at the bottom of NEXT jumps into NOW (first row).
-- `←` from any pane walks toward BACKLOG.
-- `→` from any pane walks toward DETAIL (if visible).
+- `→` / `Tab` walks the pipeline forward: **BACKLOG → NEXT → NOW → BACKLOG** (circular).
+- `←` / `Shift+Tab` walks the pipeline backward: **NOW → NEXT → BACKLOG → NOW** (circular).
 
 ### Detail pane visibility (Focus)
 

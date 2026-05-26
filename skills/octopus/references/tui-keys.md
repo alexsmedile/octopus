@@ -46,8 +46,8 @@ Mirror of `.spectacular/specs/TUI-KEYS.md` — operational subset. Keep in sync.
 - Right column: **NEXT (top) → NOW (bottom)** — pipeline funnels downward
 - `↑` at top of NOW jumps to NEXT (last row)
 - `↓` at bottom of NEXT jumps to NOW (first row)
-- `←` walks toward BACKLOG
-- `→` walks toward DETAIL (if visible)
+- `→` / `Tab` walks pipeline forward: **BACKLOG → NEXT → NOW → BACKLOG** (circular)
+- `←` / `Shift+Tab` walks pipeline backward: **NOW → NEXT → BACKLOG → NOW** (circular)
 
 ### Detail pane visibility
 

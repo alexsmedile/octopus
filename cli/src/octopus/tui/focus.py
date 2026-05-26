@@ -881,19 +881,16 @@ class FocusScreen(Screen):
         return idx is None or n == 0 or idx >= n - 1
 
     def action_nav_right(self) -> None:
-        # Linear walk: BACKLOG → NOW → NEXT. Right from NEXT is a no-op.
-        if self._active == Q_BACKLOG:
-            self._set_active(Q_NOW)
-        elif self._active == Q_NOW:
-            self._set_active(Q_NEXT)
-        # Already in NEXT: no-op (rightmost)
+        # Circular pipeline walk: BACKLOG → NEXT (planned) → NOW (current) → BACKLOG.
+        order = [Q_BACKLOG, Q_NEXT, Q_NOW]
+        i = order.index(self._active) if self._active in order else 0
+        self._set_active(order[(i + 1) % len(order)])
 
     def action_nav_left(self) -> None:
-        # Linear walk back: NEXT → NOW → BACKLOG. Left from BACKLOG is a no-op.
-        if self._active == Q_NEXT:
-            self._set_active(Q_NOW)
-        elif self._active == Q_NOW:
-            self._set_active(Q_BACKLOG)
+        # Reverse circular: NOW → NEXT → BACKLOG → NOW.
+        order = [Q_BACKLOG, Q_NEXT, Q_NOW]
+        i = order.index(self._active) if self._active in order else 0
+        self._set_active(order[(i - 1) % len(order)])
 
     def action_nav_up(self) -> None:
         # Right column is now NEXT (top) / NOW (bottom). At top of NOW
@@ -926,13 +923,14 @@ class FocusScreen(Screen):
             pass
 
     def action_nav_tab(self) -> None:
-        order = [Q_BACKLOG, Q_NOW, Q_NEXT]
-        i = order.index(self._active)
+        # Pipeline order: BACKLOG → NEXT → NOW → BACKLOG (circular).
+        order = [Q_BACKLOG, Q_NEXT, Q_NOW]
+        i = order.index(self._active) if self._active in order else 0
         self._set_active(order[(i + 1) % len(order)])
 
     def action_nav_shift_tab(self) -> None:
-        order = [Q_BACKLOG, Q_NOW, Q_NEXT]
-        i = order.index(self._active)
+        order = [Q_BACKLOG, Q_NEXT, Q_NOW]
+        i = order.index(self._active) if self._active in order else 0
         self._set_active(order[(i - 1) % len(order)])
 
     # ── nav actions ───────────────────────────────────────────────────

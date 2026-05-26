@@ -10,6 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Changed
 
 - **Focus right column: NEXT (top) ↔ NOW (bottom)** — swapped from the prior order. Reads as a pipeline funneling downward: BACKLOG (left) → NEXT (top-right) → NOW (bottom-right). Spill rules invert accordingly: `↑` at top of NOW jumps to last row of NEXT; `↓` at bottom of NEXT jumps to first row of NOW. Header chip row order (`backlog → next → now → done`) unchanged.
+- **Focus pane walk is circular + follows pipeline order.** `→` / `Tab` walks `BACKLOG → NEXT → NOW → BACKLOG` (wraps). `←` / `Shift+Tab` is the reverse. Previously the walk was linear (`BACKLOG → NOW → NEXT`, dead-end at NEXT) and matched the old visual column order; now it matches the pipeline (planned → current) and matches the header chip row.
 
 ### Added
 
