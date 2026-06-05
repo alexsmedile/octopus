@@ -44,18 +44,45 @@ class ExternalTask:
     The framework never mutates the external system in response to these
     fields — adapters provide *suggestions* (suggested_*) and the pipeline
     materializes Octopus tasks using sensible defaults (see SCHEMA-ADAPTER §7.3).
+
+    suggested_* fields mirror Task frontmatter 1-to-1 (D103). All optional;
+    absent means "use the Task default." The pipeline applies them in the
+    re-open pass after capture_task().
     """
 
     external_id: str                              # becomes external_refs.<adapter>
     title: str
     body: str | None = None
-    suggested_bucket: str | None = None
-    suggested_kind: str | None = None
+
+    # ── workflow ──────────────────────────────────────────────────────
+    suggested_bucket: str | None = None           # backlog | next | now | done | dropped
+    suggested_stage: str | None = None            # free-form domain workflow marker
+
+    # ── attention / impediment ────────────────────────────────────────
+    suggested_pinned: bool | None = None          # True → pinned: true
+    suggested_issue: str | None = None            # blocked | waiting
+    suggested_blocked_by: str | None = None
+    suggested_waiting_for: str | None = None
+
+    # ── dates ─────────────────────────────────────────────────────────
+    suggested_due: date | None = None
+    suggested_scheduled: date | None = None
+
+    # ── prioritization ────────────────────────────────────────────────
+    suggested_priority: str | None = None         # low | high | urgent (absent = normal)
+    suggested_energy: str | None = None           # low | mid | high
+
+    # ── actors ────────────────────────────────────────────────────────
+    suggested_actor: str | None = None            # human | ai | automation (absent = human)
+    suggested_owner: str | None = None
+
+    # ── taxonomy ──────────────────────────────────────────────────────
+    suggested_kind: str | None = None             # feat | bug | spec | polish | test | chore
     suggested_tags: list[str] = field(default_factory=list)
-    suggested_priority: str | None = None         # low | high | urgent (Octopus enum)
-    suggested_due: date | None = None             # YYYY-MM-DD
+
+    # ── provenance ────────────────────────────────────────────────────
     created_external: datetime | None = None
-    source_group: str | None = None               # which list/repo this came from
+    source_group: str | None = None               # which list/section/repo this came from
 
 
 @dataclass

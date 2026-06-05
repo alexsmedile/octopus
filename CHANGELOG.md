@@ -5,6 +5,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **TODO.md Layer 2 extended format** (request #46, D103). The `todo-md` bridge now reads two layers on top of plain GFM (Layer 1):
+  - **Shorthand sigils** inline on the checkbox line: `@owner`, `~bucket` (`~b` `~n` `~!`), `!priority` (`!l` `!h` `!!`). Calendar emoji aliases `🗓️` and `📆` accepted as `due` alongside the existing `📅`. Date formats `DD-MM-YYYY` and `DD/MM/YYYY` accepted everywhere a date is expected.
+  - **Body block**: `> text` lines immediately after a checkbox are captured as the task body and written into the imported task file.
+  - **YAML expansion block**: fenced ` ```yaml ``` ` after the checkbox (or body block) sets any Task field not covered by sigils — `kind`, `energy`, `actor`, `stage`, `issue`, `blocked_by`, `waiting_for`, `pinned`, `scheduled`, `tags`, and more. Unknown keys silently ignored; malformed YAML silently skipped.
+  - **Section map config**: per-activity `.octopus/config.toml` `[bridges.todo-md.section_map.<section>]` sets field defaults for all tasks in that heading section (e.g. `## Skills` → `kind = "feat"`).
+  - **Precedence**: sigils/emoji > YAML block > section_map defaults.
+- **`ExternalTask` field parity** (`adapters/base.py`): 9 new `suggested_*` fields — `stage`, `pinned`, `issue`, `blocked_by`, `waiting_for`, `scheduled`, `energy`, `actor`, `owner` — mirror every non-provenance Task frontmatter field. The pull pipeline wires them all into the materialized task in the re-open pass.
+- **28 new tests** in `cli/tests/test_adapter_todo_md.py`; 98 total passing.
+- **`octopus-migrate` skill** (`skills/octopus-migrate/`): a dedicated 9-step Claude Code skill for migrating any existing project folder to the Octopus standard — `octopus init`, rewriting `TODO.md` to Layer 2, writing `.octopus/config.toml` section_map, enabling the todo-md bridge, peek → pull, and archiving the old `vault/tasks` entry. Symlinked into `.claude/skills/octopus-migrate` for project-local activation.
+- **`specs/TODO-MD-FORMAT.md`**: formal Layer 2 spec document — full Layer 1 + Layer 2 tables, sigil reference, body/YAML/section_map syntax, precedence table, render-compatibility notes, and a complete annotated example.
+
+### Fixed
+
+- **Global `section_filter` in `~/.config/octopus/bridges/todo-md.toml` suppressed all items** when pulling from an activity that had no matching section heading. Cleared the hardcoded `section_filter = ["friction"]` default; per-activity filtering is now done exclusively through `.octopus/config.toml` `section_map`.
+
+---
+
 ## [1.1.1] — 2026-05-26
 
 **Activities view polish + cross-view yank.** v1.1.0 introduced the Activities view; v1.1.1 fills in the gaps that surfaced under daily use: a property-rich CURRENT overview, panel-spill navigation, dropped-bucket counts in headers, and yank-slug parity with Focus.

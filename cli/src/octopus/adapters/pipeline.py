@@ -152,14 +152,37 @@ def materialize_pull_result(
             task.imported_from = adapter_name
             task.import_date = today
             task.external_refs[adapter_name] = et.external_id
-            if et.suggested_kind:
-                task.kind = et.suggested_kind
-            if et.suggested_priority:
-                task.priority = et.suggested_priority
+            # ── workflow ──────────────────────────────────────────────
+            if et.suggested_stage:
+                task.stage = et.suggested_stage
+            # ── attention / impediment ────────────────────────────────
+            if et.suggested_pinned:
+                task.pinned = True
+            if et.suggested_issue:
+                task.issue = et.suggested_issue
+            if et.suggested_blocked_by:
+                task.blocked_by = et.suggested_blocked_by
+            if et.suggested_waiting_for:
+                task.waiting_for = et.suggested_waiting_for
+            # ── dates ─────────────────────────────────────────────────
             if et.suggested_due:
                 task.due = et.suggested_due
+            if et.suggested_scheduled:
+                task.scheduled = et.suggested_scheduled
+            # ── prioritization ────────────────────────────────────────
+            if et.suggested_priority:
+                task.priority = et.suggested_priority
+            if et.suggested_energy:
+                task.energy = et.suggested_energy
+            # ── actors ────────────────────────────────────────────────
+            if et.suggested_actor:
+                task.actor = et.suggested_actor
+            if et.suggested_owner:
+                task.owner = et.suggested_owner
+            # ── taxonomy ──────────────────────────────────────────────
+            if et.suggested_kind:
+                task.kind = et.suggested_kind
             if et.suggested_tags:
-                # Merge — don't overwrite anything the body template added.
                 existing_tags = set(task.tags)
                 for t in et.suggested_tags:
                     if t not in existing_tags:

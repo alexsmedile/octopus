@@ -143,6 +143,7 @@ When the user's request crosses any threshold below, read the named reference **
 | Choose a CLI verb or flag, or interpret an exit code | `references/cli-verbs.md` |
 | Debug a CLI validation error or check an invariant before writing | `references/critical-dependencies.md` |
 | Set up, peek into, pull from, or search a bridge/adapter | `references/adapter-framework.md` |
+| Migrate an existing project folder to Octopus (init + TODO.md rewrite + pull) | use `/octopus-migrate` skill |
 
 Triggers:
 

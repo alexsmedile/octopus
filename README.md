@@ -11,6 +11,7 @@
 *Octopus reaches into each folder, understands what it is, smartly organizes the tasks inside it — and also acts as the central system that ties them all together. One brain, eight arms. Backed by a CLI and a Claude Code skill.*
 
 ![Status](https://img.shields.io/badge/status-active%20build-CBA6F7)
+![Version](https://img.shields.io/badge/version-v1.1.1-CBA6F7)
 ![Spec](https://img.shields.io/badge/spec-v1-5EEAD4)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Local-first](https://img.shields.io/badge/local--first-yes-success)
@@ -97,6 +98,7 @@ We tried the alternatives. Each one solved one slice and broke three others:
 | Apple Reminders | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Obsidian | ⚠️ | ✅ | ⚠️ | ⚠️ | ⚠️ |
 | Random `TODO.md` | ✅ | ⚠️ | ✅ | ✅ | ⚠️ |
+| TODO.md via Octopus bridge | ✅ | ✅ | ✅ | ✅ | ✅ |
 | SaaS task apps | ✅ | ✅ | ❌ | ❌ | ⚠️ |
 | **Octopus** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
@@ -372,7 +374,7 @@ Full keymap, modes, mascot behavior, and scope rules in **[`docs/TUI.md`](docs/T
 
 ## Status & what's next
 
-Latest: **v1.0.0** (2026-05-25) — **the symbolic v1**. Visual vocabulary locked: slot-1 is now a single hybrid resolver (exception → session → progress → bucket-idle), bucket idle glyphs are `· □ ▣ ● ✕`, the progress ladder `○ ◐ ◑ ●` is reserved for tasks with explicit progress, pin is `*` in octopus-brand lavender, and every glyph traces back to `TUI-GLYPHS.md`. Also lands the inline preview row on Enter that always surfaces `blocked_by` / `waiting_for` in matching glyph color. Currently on phase **06 — adapter framework**; v1.x continues with the Obsidian bridge.
+Latest: **v1.1.1** (2026-05-26) — **Activities polish + TODO.md Layer 2**. The TUI Activities view gained a property-rich CURRENT panel, cross-panel spill navigation, dropped-bucket counts, and yank-slug parity. The `todo-md` bridge now reads Layer 2 format: shorthand sigils (`@owner ~bucket !priority 🗓️ date`), body blocks (`> text`), YAML expansion blocks (` ```yaml ``` `), and per-activity `section_map` config — every Task frontmatter field is now importable from a TODO.md. A new `octopus-migrate` Claude Code skill automates the full project-migration workflow (init → rewrite → pull → archive). Currently on phase **07 — adapter implementations**; next up: Obsidian and Apple Reminders bridges.
 
 Full release history, phase table, and what's queued in **[`docs/ROADMAP.md`](docs/ROADMAP.md)**. Per-release detail in [CHANGELOG.md](CHANGELOG.md).
 

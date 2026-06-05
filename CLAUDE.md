@@ -47,8 +47,10 @@ octopus/
 │   └── requests/                   # one folder per request (PLAN.md, TASKS.md)
 │
 ├── skills/                         # standalone skills
-│   └── octopus/
-│       └── SKILL.md                # agent-facing compressed operating skill
+│   ├── octopus/
+│   │   └── SKILL.md                # agent-facing compressed operating skill
+│   └── octopus-migrate/
+│       └── SKILL.md                # project-migration skill (init + TODO.md → Layer 2 + pull)
 │
 └── _archive/                       # legacy design docs (read-only, kept for history)
 ```
@@ -71,6 +73,7 @@ All design specs live under `.spectacular/`. There is no separate `specs/` or `d
 | TUI glyph dictionary | `.spectacular/specs/TUI-GLYPHS.md` |
 | TUI keybinding schema | `.spectacular/specs/TUI-KEYS.md` |
 | Validation rules across all schemas | `.spectacular/specs/CRITICAL-DEPENDENCIES.md` |
+| TODO.md Layer 1 + Layer 2 format contract | `.spectacular/specs/TODO-MD-FORMAT.md` |
 | Language/library choices | `.spectacular/STACK.md` |
 | Locked decisions log | `.spectacular/DECISIONS.md` |
 
@@ -102,8 +105,8 @@ If you find a conflict, surface it to Alessandro before resolving. Do not silent
 - Keep live user tasks in `/Users/alex/vault/tasks`.
 - Preserve links and old-path compatibility when moving docs.
 - Prefer small, explicit changes over broad rewrites.
-- If changing routing or schema, update **both** the schema doc and `DECISIONS.md`.
-- **Skill-reference sync rule**: when editing any spec under `.spectacular/specs/SCHEMA-*.md`, `CLI-VERBS.md`, or `CRITICAL-DEPENDENCIES.md`, also update the matching file under `skills/octopus/references/` (or `references/schemas/` for schema specs). The skill must remain self-contained — agents installing the plugin do not get access to `.spectacular/`. Mapping:
+- If changing routing or schema, update the authoritative spec document(s) and `DECISIONS.md`.
+- **Skill-reference sync rule**: when editing any spec under `.spectacular/specs/SCHEMA-*.md`, `CLI-VERBS.md`, `TUI-GLYPHS.md`, `TUI-KEYS.md`, or `CRITICAL-DEPENDENCIES.md`, also update the matching file under `skills/octopus/references/` (or `references/schemas/` for schema specs). The skill must remain self-contained — agents installing the plugin do not get access to `.spectacular/`. Mapping:
   | Spec changed | Update |
   |---|---|
   | `SCHEMA-TASK.md` | `skills/octopus/references/schemas/task.md` |
@@ -115,6 +118,7 @@ If you find a conflict, surface it to Alessandro before resolving. Do not silent
   | `TUI-GLYPHS.md` | `skills/octopus/references/tui-glyphs.md` |
   | `TUI-KEYS.md` | `skills/octopus/references/tui-keys.md` |
   | `CRITICAL-DEPENDENCIES.md` | `skills/octopus/references/critical-dependencies.md` |
+  | `TODO-MD-FORMAT.md` | `skills/octopus/references/adapter-framework.md` (TODO.md section) |
   References are *rewritten for the skill context* (operational, terse), not verbatim copies. Update both files in the same commit when content overlaps. If drift becomes recurrent, escalate to a pre-commit hook.
 - Do not run install/sync/deploy commands unless Alessandro explicitly asks.
 - Never delete files. Move to `_archive/` instead.

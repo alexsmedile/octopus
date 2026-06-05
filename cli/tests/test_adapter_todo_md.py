@@ -609,6 +609,206 @@ def test_mark_open_reverts_and_strips_arrow(activity_with_todo: Path):
     assert "→ octopus:" not in content
 
 
+# ── D103: Layer 2 — shorthand sigils ─────────────────────────────────
+
+
+def test_inline_meta_owner_sigil():
+    m = _parse_inline_metadata("fix login @alex")
+    assert m.owner == "alex"
+    assert "alex" not in m.title
+    assert "@" not in m.title
+
+
+def test_inline_meta_bucket_sigil_full():
+    m = _parse_inline_metadata("do it ~next")
+    assert m.bucket == "next"
+    assert "~" not in m.title
+
+
+def test_inline_meta_bucket_sigil_shorthand():
+    assert _parse_inline_metadata("x ~b").bucket == "backlog"
+    assert _parse_inline_metadata("x ~n").bucket == "next"
+    assert _parse_inline_metadata("x ~!").bucket == "now"
+
+
+def test_inline_meta_priority_sigil_full():
+    m = _parse_inline_metadata("do it !low")
+    assert m.priority == "low"
+    assert "!" not in m.title
+
+
+def test_inline_meta_priority_sigil_shorthand():
+    assert _parse_inline_metadata("x !l").priority == "low"
+    assert _parse_inline_metadata("x !h").priority == "high"
+    assert _parse_inline_metadata("x !!").priority == "urgent"
+
+
+def test_inline_meta_priority_sigil_overrides_emoji():
+    # Sigil takes precedence; emoji is not applied when sigil already set.
+    m = _parse_inline_metadata("x !low 🔺")
+    assert m.priority == "low"
+
+
+def test_inline_meta_calendar_alias_emoji():
+    from datetime import date as _d
+    m = _parse_inline_metadata("meeting 🗓️ 2026-07-15")
+    assert m.due == _d(2026, 7, 15)
+    m2 = _parse_inline_metadata("meeting 📆 2026-07-15")
+    assert m2.due == _d(2026, 7, 15)
+
+
+def test_inline_meta_date_dd_mm_yyyy():
+    from datetime import date as _d
+    m = _parse_inline_metadata("thing 📅 15-07-2026")
+    assert m.due == _d(2026, 7, 15)
+
+
+def test_inline_meta_date_dd_slash_mm_yyyy():
+    from datetime import date as _d
+    m = _parse_inline_metadata("thing 📅 15/07/2026")
+    assert m.due == _d(2026, 7, 15)
+
+
+def test_inline_meta_combined_layer2():
+    from datetime import date as _d
+    m = _parse_inline_metadata("Ship feature ~next !high @alex 📅 2026-08-01 #feat")
+    assert m.title == "Ship feature"
+    assert m.bucket == "next"
+    assert m.priority == "high"
+    assert m.owner == "alex"
+    assert m.due == _d(2026, 8, 1)
+    assert "feat" in m.tags
+
+
+# ── D103: body block parsing ──────────────────────────────────────────
+
+
+def test_parse_body_block_captured():
+    content = "- [ ] Task title\n> Line one.\n> Line two.\n"
+    tasks = _parse_todo_md(content)
+    assert len(tasks) == 1
+    assert tasks[0].body == "Line one.\nLine two."
+
+
+def test_parse_body_block_not_required():
+    content = "- [ ] No body\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].body is None
+
+
+def test_parse_body_block_stops_at_next_checkbox():
+    content = "- [ ] First\n> Body of first.\n- [ ] Second\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].body == "Body of first."
+    assert tasks[1].body is None
+
+
+def test_parse_body_block_stops_at_heading():
+    content = "- [ ] Task\n> Body line.\n## New Section\n- [ ] Other\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].body == "Body line."
+
+
+# ── D103: YAML expansion block ────────────────────────────────────────
+
+
+def test_parse_yaml_block_kind_and_energy():
+    content = "- [ ] Task\n```yaml\nkind: feat\nenergy: low\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].suggested_kind == "feat"
+    assert tasks[0].suggested_energy == "low"
+
+
+def test_parse_yaml_block_actor_and_stage():
+    content = "- [ ] Task\n```yaml\nactor: ai\nstage: spec\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].suggested_actor == "ai"
+    assert tasks[0].suggested_stage == "spec"
+
+
+def test_parse_yaml_block_issue_blocked():
+    content = "- [ ] Task\n```yaml\nissue: blocked\nblocked_by: other task\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].suggested_issue == "blocked"
+    assert tasks[0].suggested_blocked_by == "other task"
+
+
+def test_parse_yaml_block_pinned():
+    content = "- [ ] Task\n```yaml\npinned: true\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].suggested_pinned is True
+
+
+def test_parse_yaml_block_tags_merged():
+    content = "- [ ] Task #existing\n```yaml\ntags: [new1, new2]\n```\n"
+    tasks = _parse_todo_md(content)
+    assert "existing" in tasks[0].suggested_tags
+    assert "new1" in tasks[0].suggested_tags
+    assert "new2" in tasks[0].suggested_tags
+
+
+def test_parse_yaml_block_tags_comma_string():
+    content = "- [ ] Task\n```yaml\ntags: foo, bar\n```\n"
+    tasks = _parse_todo_md(content)
+    assert "foo" in tasks[0].suggested_tags
+    assert "bar" in tasks[0].suggested_tags
+
+
+def test_parse_yaml_block_malformed_ignored():
+    content = "- [ ] Task\n```yaml\n: bad: yaml: {{\n```\n"
+    tasks = _parse_todo_md(content)
+    assert len(tasks) == 1  # item still imported, just no YAML fields
+
+
+def test_parse_yaml_block_after_body():
+    content = "- [ ] Task\n> Description here.\n```yaml\nkind: chore\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].body == "Description here."
+    assert tasks[0].suggested_kind == "chore"
+
+
+def test_parse_yaml_block_unknown_keys_ignored():
+    content = "- [ ] Task\n```yaml\nfuture_field: something\nkind: spec\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].suggested_kind == "spec"
+
+
+# ── D103: precedence rules ────────────────────────────────────────────
+
+
+def test_sigil_beats_yaml_for_priority():
+    content = "- [ ] Task !low\n```yaml\npriority: urgent\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].suggested_priority == "low"
+
+
+def test_sigil_beats_yaml_for_bucket():
+    content = "- [ ] Task ~next\n```yaml\nbucket: backlog\n```\n"
+    tasks = _parse_todo_md(content)
+    assert tasks[0].suggested_bucket == "next"
+
+
+def test_yaml_beats_section_map_for_kind():
+    content = "## Skills\n- [ ] Task\n```yaml\nkind: bug\n```\n"
+    tasks = _parse_todo_md(content, section_map={"skills": {"kind": "feat"}})
+    assert tasks[0].suggested_kind == "bug"
+
+
+def test_section_map_applies_as_default():
+    content = "## Skills\n- [ ] Task A\n\n## Library\n- [ ] Task B\n"
+    section_map = {"skills": {"kind": "feat"}, "library": {"kind": "chore"}}
+    tasks = _parse_todo_md(content, section_map=section_map)
+    by_title = {t.title: t for t in tasks}
+    assert by_title["Task A"].suggested_kind == "feat"
+    assert by_title["Task B"].suggested_kind == "chore"
+
+
+def test_section_map_does_not_override_existing():
+    content = "## Skills\n- [ ] Task\n```yaml\nkind: bug\n```\n"
+    tasks = _parse_todo_md(content, section_map={"skills": {"kind": "feat"}})
+    assert tasks[0].suggested_kind == "bug"
+
+
 # Capability declaration ──
 
 

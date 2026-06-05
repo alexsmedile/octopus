@@ -1,5 +1,5 @@
 ---
-updated: 2026-05-25
+updated: 2026-06-05
 ---
 
 # Decisions log
@@ -1830,6 +1830,44 @@ See `.spectacular/specs/TUI-GLYPHS.md` Slot 3 for the full spec.
 - Body: three vertically stacked, collapsible panels — `◇ INDEX` / `◆ CURRENT` / `◈ NESTED` (see D102).
 - Drill: `Enter` on an activity → replaces screen with FocusScreen for that activity. `Esc` from Focus/Board → confirm modal "Back to Activities?" → `y` returns. `0` is the direct shortcut (no prompt) from anywhere.
 - Cursor wraps both directions: `↑` from top → bottom; `↓` from bottom → top. Per-panel, not cross-panel.
+
+---
+
+## 2026-06-05 — TODO.md extended format
+
+### D103 — TODO.md Layer 2: shorthand sigils + body block + YAML expansion
+
+**Locked.** See `specs/TODO-MD-FORMAT.md` for full spec.
+
+Three-layer format. Layer 1 is plain GFM (current behavior, unchanged). Layer 2
+adds three opt-in extensions per item, all additive and non-destructive:
+
+**Shorthand sigils** (inline on the checkbox line):
+- `#tag` → `tags` (already Layer 1)
+- `@owner` → `owner`
+- `~bucket` → `bucket` (shorthand: `~b` `~n` `~!`)
+- `!priority` → `priority` (shorthand: `!l` `!h` `!!`)
+- `📅` `🗓️` `📆` + date → `due` (ISO, DD-MM-YYYY, or DD/MM/YYYY)
+
+`!` as priority sigil: no collision with `[!]` cancelled state — the checkbox
+marker is extracted before body parsing runs; `!word` in the body is unambiguous.
+
+**Body block** — `> text` lines immediately after the checkbox are captured
+as the task body. Renders as a blockquote in all markdown viewers.
+
+**YAML expansion block** — fenced ` ```yaml ``` ` block immediately after
+the checkbox (or body block) sets any Task field not covered by sigils.
+Supported keys: all non-provenance Task fields (`bucket`, `stage`, `pinned`,
+`issue`, `blocked_by`, `waiting_for`, `due`, `scheduled`, `priority`,
+`energy`, `actor`, `owner`, `kind`, `tags`).
+
+**Precedence (high → low):** sigils/emoji → YAML block → section_map config.
+
+**Implementation scope:**
+1. `ExternalTask` (base.py) — add `suggested_*` fields for all new keys.
+2. `todo_md.py` — parse sigils, body block, YAML block; populate new fields.
+3. `pipeline.py` — wire all new `suggested_*` fields into the materialized Task.
+4. Per-activity `section_map` in `.octopus/config.toml` for section-level defaults.
 
 ### D102 — Diamond family fully activated for activity scope
 - The reserved `◆` filled-diamond slot from D95 is now lit. New `◈` (white-diamond-with-black-diamond-inside, U+25C8) added for "containment / nested."

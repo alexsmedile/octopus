@@ -168,61 +168,131 @@ Standard PRD §5 conventions.
 
 ---
 
-## TODO.md format (D72–D74)
+## TODO.md format (D72–D74, D103)
 
-`todo-md` parses three layers, all standards-based except the arrow:
+Two layers. Both valid. Layer 2 is fully additive — a plain GFM file is already a valid Layer 2 file.
 
-### 1. GFM checklist (universal)
+### Layer 1 — Plain GFM (baseline)
 
-| Mark | Meaning | Pull behavior |
+**Checkbox state → bucket:**
+
+| Mark | Bucket | Notes |
 |---|---|---|
-| `- [ ]` | open | import to `backlog` |
-| `- [/]` or `- [-]` | in progress | import to `now` |
-| `- [x]` | checked | skip if has `→` arrow; else import to `done` (only if `include_checked=true`) |
-| `- [!]` | cancelled | skip |
-| `- [?]` | unclear | treat as unchecked |
+| `- [ ]` or `- [?]` | `backlog` | |
+| `- [/]` or `- [-]` | `now` | |
+| `- [x]` / `- [X]` | `done` | skipped unless `include_checked=true` |
+| `- [!]` | — | cancelled, always skipped |
 
-### 2. Obsidian Tasks emoji (inline metadata)
+**Obsidian Tasks emoji (inline):**
 
-| Emoji | Octopus field |
+| Emoji | Field |
 |---|---|
 | `🔺` / `⏫` | `priority: urgent` |
 | `🔽` / `⏬` | `priority: low` |
-| `🔼` | dropped (no medium in Octopus) |
-| `📅 YYYY-MM-DD` | `due` |
-| `⏳ YYYY-MM-DD` | `scheduled` |
-| `🛫 YYYY-MM-DD` | `start_date` |
-| `#tag` | appended to `tags` |
-| `✅` / `❌` / `➕` / `🔁` | preserved, not surfaced |
+| `📅` / `🗓️` / `📆` + date | `due` |
+| `⏳` + date | `scheduled` |
+| `🛫` + date | `start_date` |
+| `#tag` | `tags` |
 
-### 3. Octopus arrow (one convention we own)
+Date formats accepted everywhere: `YYYY-MM-DD`, `DD-MM-YYYY`, `DD/MM/YYYY`.
 
-`→ <provider>:<slug>` after a checkbox means "this item is now under that protocol's responsibility — exclude from import":
+**Octopus arrow (D73):** `→ <provider>:<slug>` means "handed off — skip on import." On pull, Octopus writes this arrow itself: `- [ ] foo` → `- [x] foo → octopus:<task-slug>`.
 
-```
-- [x] wire bridge → octopus:wire-obsidian-bridge
-- [x] adapter spec → spectacular:06-adapter-framework
-- [ ] tracking elsewhere → linear:ENG-123
-```
+**Carry-over prefixes:** `BUG:` → `kind:bug` · `HACK:` → `kind:chore` · `TODO:`/`FIXME:` stripped · `NOTE:` skipped.
 
-On successful pull, Octopus **writes the arrow itself**: every `- [ ] foo` that imports becomes `- [x] foo → octopus:<task-slug>`. The file becomes a living index.
+---
 
-### 4. Carry-over prefixes
+### Layer 2 — Octopus-extended (D103)
 
-| Prefix | Effect |
-|---|---|
-| `BUG:` | `kind: bug` |
-| `HACK:` | `kind: chore` |
-| `TODO:` / `FIXME:` | stripped, no kind |
-| `NOTE:` | item skipped (not a task) |
+Three additions per item, all optional, all non-destructive in any markdown viewer.
 
-Example with everything combined:
+#### Shorthand sigils (inline on the checkbox line)
 
 ```
-- [ ] BUG: fix marquee duplication ⏫ 📅 2026-06-15 #tui #regression
+- [ ] Task title @owner ~bucket !priority 📅 2026-05-16 #tag
 ```
 
-Parses to: `title="fix marquee duplication"`, `kind=bug`, `priority=urgent`, `due=2026-06-15`, `tags=["tui", "regression"]`, `bucket=backlog`.
+| Sigil | Field | Shorthand |
+|---|---|---|
+| `@word` | `owner` | — |
+| `~word` | `bucket` | `~b`=backlog `~n`=next `~!`=now |
+| `!word` | `priority` | `!l`=low `!h`=high `!!`=urgent |
+
+Sigils take **highest precedence** — they override YAML block and section_map.
+
+#### Body block
+
+`> text` lines immediately after the checkbox are captured as the task body. Renders as a blockquote in all markdown viewers.
+
+```markdown
+- [ ] Task title ~next !low
+  > Description. What it is, why it matters.
+  > Links: see `path/to/file.md`.
+```
+
+#### YAML expansion block
+
+Fenced ` ```yaml ``` ` after the checkbox (or body block) sets any Task field sigils can't express. Unknown keys silently ignored; malformed YAML silently skipped.
+
+````markdown
+- [ ] Task title
+  > Optional description.
+  ```yaml
+  kind: feat
+  energy: low
+  actor: ai
+  stage: spec
+  scheduled: 2026-07-15
+  issue: blocked
+  blocked_by: other-activity/other-task
+  pinned: true
+  tags: [tag1, tag2]
+  ```
+````
+
+Supported keys: `bucket` · `stage` · `pinned` · `issue` · `blocked_by` · `waiting_for` · `due` · `scheduled` · `priority` · `energy` · `actor` · `owner` · `kind` · `tags`.
+
+**Precedence (high → low):** sigils/emoji → YAML block → section_map config.
+
+#### Section map (per-activity config)
+
+`.octopus/config.toml` sets default fields for all tasks under a heading section:
+
+```toml
+[bridges.todo-md.section_map.skills]
+kind = "feat"
+
+[bridges.todo-md.section_map.infrastructure]
+kind = "chore"
+priority = "low"
+```
+
+Allowed keys: `bucket` · `kind` · `priority` · `energy` · `actor` · `stage`.
+
+---
+
+**Full Layer 2 example:**
+
+```markdown
+## Skills
+
+- [ ] /verify skill ~next !low @alex #skill
+  > Holistic QA gate before export. Checks cover clarity and CTA discipline.
+  ```yaml
+  kind: feat
+  actor: ai
+  stage: spec
+  ```
+
+## Infrastructure
+
+- [ ] Library integrity check 📅 15-07-2026
+  > Cross-validates downloaded.json against actual disk folders.
+  ```yaml
+  kind: chore
+  energy: low
+  ```
+```
 
 ## When to use this skill
 
