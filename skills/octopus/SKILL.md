@@ -1,7 +1,7 @@
 ---
 name: octopus
 description: Use when capturing, planning, focusing, starting, finishing, dropping, blocking, or reviewing tasks; querying open loops, stuck items, dashboards, or the current activity; managing the .octopus/ folder system on disk; recording sessions; writing memory or handoffs; routing user intent like "what should I do" or "what's going on" to the right verb. Folder-native, CLI-driven (octopus / octo); cross-activity write and read verbs let agents work from any cwd.
-version: 1.0.0
+version: 1.1.0
 category: productivity
 status: active
 tags: [activities, tasks, sessions, memory, handoffs, local-first, agents, cli, folder-native, dashboard, ranking]

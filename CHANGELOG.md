@@ -7,6 +7,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+---
+
+## [1.2.0] — 2026-06-05
+
+**TODO.md Layer 2 + project migration skill.** The `todo-md` bridge graduates from plain GFM to a rich shorthand format — sigils, body blocks, YAML expansion, section_map — closing the gap between a TODO.md file and full Octopus task frontmatter. A new `octopus-migrate` Claude Code skill automates the end-to-end project migration workflow.
+
 ### Added
 
 - **TODO.md Layer 2 extended format** (request #46, D103). The `todo-md` bridge now reads two layers on top of plain GFM (Layer 1):
