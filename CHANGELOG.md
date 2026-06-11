@@ -9,6 +9,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [1.3.0] — 2026-06-11
+
+**Subtasks + `%kind` sigil.** Tasks can now have a 1-level-deep parent/child relationship. A new `%kind` inline sigil lets you set task kind directly on the TODO.md checkbox line.
+
+### Added
+
+- **Subtask graph (D104–D107)**. A task may declare one level of children via `parent`/`subtasks` frontmatter fields. Key behaviors:
+  - `parent` is the source of truth (set on children); `subtasks` is a derived index managed by the CLI and reindex.
+  - Never cross-activity; max depth = 1 (no recursive nesting).
+  - `octopus task finish` and `drop` respect subtask state: returns `OpenSubtasksWarning` when children are open; `--cascade` finishes/drops all open children first; `--force` proceeds despite open children.
+  - **Three new lint rules**: `subtask-depth` (depth > 1), `subtask-cross-activity` (parent slug contains `/`), `subtask-orphan` (child's parent slug points to a missing task).
+  - **TUI**: subtask count shown on parent rows; `Space` expands/collapses inline child list in Focus view.
+  - **todo-md adapter (D105)**: indented checkboxes (`  - [ ] ...` under a parent item) are imported as subtasks and linked automatically on pull.
+- **`%kind` inline sigil (D108)**. TODO.md Layer 2 checkbox lines now accept `%feat`, `%bug`, `%spec`, `%chore`, `%refactor`, `%polish`, `%test`, `%docs`, `%idea` directly inline. Full names only — single-letter shorthands intentionally omitted (opaque without octopus context). Precedence: sigil > YAML block > section_map.
+- **DB schema**: `parent TEXT` and `subtasks TEXT` columns added to the tasks table; reindex populates them.
+- **`specs/requests/47-subtasks/PLAN.md`**: design plan for the subtask request.
+
+---
+
 ## [1.2.0] — 2026-06-05
 
 **TODO.md Layer 2 + project migration skill.** The `todo-md` bridge graduates from plain GFM to a rich shorthand format — sigils, body blocks, YAML expansion, section_map — closing the gap between a TODO.md file and full Octopus task frontmatter. A new `octopus-migrate` Claude Code skill automates the end-to-end project migration workflow.

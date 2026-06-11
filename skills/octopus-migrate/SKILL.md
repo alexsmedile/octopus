@@ -7,7 +7,7 @@ when_to_use: |
   - User says "octo init on <folder>" and there's a TODO.md to import
   - User says "bring tasks from <project> into octopus"
   - User wants to turn an unstructured TODO.md into tracked octopus tasks
-version: 1.1.0
+version: 1.3.0
 category: productivity
 status: active
 tags: [octopus, migration, todo-md, init, bridge]
