@@ -1847,6 +1847,7 @@ adds three opt-in extensions per item, all additive and non-destructive:
 - `@owner` → `owner`
 - `~bucket` → `bucket` (shorthand: `~b` `~n` `~!`)
 - `!priority` → `priority` (shorthand: `!l` `!h` `!!`)
+- `%kind` → `kind` (full names only: `%feat` `%bug` `%spec` `%chore` `%refactor` `%polish` `%test` `%docs` `%idea`) — D108
 - `📅` `🗓️` `📆` + date → `due` (ISO, DD-MM-YYYY, or DD/MM/YYYY)
 
 `!` as priority sigil: no collision with `[!]` cancelled state — the checkbox
@@ -1868,6 +1869,49 @@ Supported keys: all non-provenance Task fields (`bucket`, `stage`, `pinned`,
 2. `todo_md.py` — parse sigils, body block, YAML block; populate new fields.
 3. `pipeline.py` — wire all new `suggested_*` fields into the materialized Task.
 4. Per-activity `section_map` in `.octopus/config.toml` for section-level defaults.
+
+### D104 — Subtask graph: 1-level-deep parent/child task relationships
+- `parent: <slug>` on a child task is the **source of truth** (activity-scoped slug only, no `/`).
+- `subtasks: [slug, ...]` on a parent is a **derived managed index** — rebuilt by CLI on every write that changes parent/child relationships; never hand-edited.
+- Maximum nesting depth is **1**. A task with `parent:` set cannot also have `subtasks:`. Validated at model level + `subtask-depth` lint rule.
+- Slug uniqueness remains activity-scoped (D4); no special collision logic for subtasks.
+- Cross-activity parent references (containing `/`) are structurally invalid: `subtask-cross-activity` lint rule fires ERROR.
+- `finish`/`drop` on a parent with open children returns `OpenSubtasksWarning` (non-exception). CLI exits with user-error unless `--force` or `--cascade` is passed.
+  - `--force`: proceeds on parent only; children are orphaned (parent link preserved historically).
+  - `--cascade`: finishes/drops all open children first, then the parent. Children keep their `parent:` field post-cascade.
+- **CLI verbs**: `capture --parent <slug>`, `add task --parent <slug>`, `set --parent <slug>` (attach), `set --parent ""` (detach), `subtasks <slug>` (list children), `finish/drop --force/--cascade`.
+- **DB**: `parent TEXT` added as explicit column (schema v5 migration) for efficient querying. `subtasks:` not a column — read from `raw_frontmatter` JSON.
+- Reindex rebuilds `subtasks:` lists from `parent:` fields post-scan.
+
+### D105 — TODO.md Layer 2: indented checkboxes map to subtasks
+- Indented checkbox lines (`  - [ ] ...`) in TODO.md are parsed as children of the last top-level checkbox encountered in the same section.
+- Only **1-level** of nesting is recognized. Deeper indentation is treated as a child of the most-recent top-level item (not the nearest indented ancestor).
+- Section headings reset the parent-tracking state — an indented item after a new `##` heading has no implicit parent.
+- `ExternalTask.suggested_parent` carries the adapter slug-key of the parent item.
+- The pull pipeline performs a **second pass** after all tasks are materialized to wire `attach_subtask(child, parent)`. If the parent was skipped (already imported or errored), a non-fatal error is recorded and the child is left parentless.
+
+### D106 — TUI subtask display: expand/collapse inline under parent
+- Child rows render inline under their parent in all quadrant lists (Focus + Board).
+- Parents that have children show `⎇N` (U+2387 + count) appended to their title in grey — always visible regardless of expand state.
+- Children default to **expanded** (visible). `Space` on a parent row toggles expand/collapse per-slug; state is persisted in `_subtask_expanded: dict[str, bool]` for the session.
+- Child rows use tree prefix glyphs: `├─` for non-last children, `└─` for last child. Children are non-selectable (disabled `ListItem`).
+- Child rows that have no parent in the current quadrant are rendered as regular selectable `_TaskListItem` rows.
+
+### D107 — Orphan / drop behavior for subtask children
+- When a parent is dropped with `--cascade`, children are dropped first (bucket=dropped, end_date set). Children **keep** their `parent:` field as a historical reference.
+- When a parent is dropped with `--force`, only the parent is dropped; children remain untouched with their `parent:` field intact (orphaned but not corrupted).
+- `subtask-orphan` lint rule fires WARN when `parent:` points to a non-existent sibling slug — covers the post-force-drop case.
+- There is no automatic cleanup of orphaned children on reindex; the lint rule is the signal.
+
+### D108 — TODO.md Layer 2: `%kind` inline sigil
+
+**Locked.** Extends D103 with a `%word` sigil for the `kind` field.
+
+- Sigil: `%word` — e.g. `%feat`, `%bug`, `%spec`, `%chore`, `%refactor`, `%polish`, `%test`, `%docs`, `%idea`
+- Shorthands: full names only — single-letter shorthands intentionally omitted (opaque in plain text without knowing octopus internals)
+- Character chosen: `%` — not a markdown special character in this context; visually distinct from `#` `@` `~` `!`
+- Precedence: sigil wins over YAML block, YAML block wins over `section_map` (same as all other sigils, D103)
+- Implementation: `KIND_SIGIL_RE` + `_KIND_SHORTHANDS` in `todo_md.py`; `kind` field on `InlineMetadata`; wired into `suggested_kind` on `ExternalTask` before YAML overlay runs
 
 ### D102 — Diamond family fully activated for activity scope
 - The reserved `◆` filled-diamond slot from D95 is now lit. New `◈` (white-diamond-with-black-diamond-inside, U+25C8) added for "containment / nested."

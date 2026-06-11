@@ -7,7 +7,7 @@ when_to_use: |
   - User says "octo init on <folder>" and there's a TODO.md to import
   - User says "bring tasks from <project> into octopus"
   - User wants to turn an unstructured TODO.md into tracked octopus tasks
-version: 1.0.0
+version: 1.1.0
 category: productivity
 status: active
 tags: [octopus, migration, todo-md, init, bridge]
@@ -75,6 +75,25 @@ Verify the output confirms the activity was created and the id that was assigned
 ## Step 3 — Rewrite TODO.md to Layer 2
 
 **Read the existing `TODO.md` first.** Then rewrite it in Layer 2 format. Rules:
+
+### Subtask support (D105)
+
+Indented checkboxes in TODO.md are automatically imported as child tasks:
+
+```markdown
+- [ ] Parent task title ~next
+  - [ ] Child task one
+  - [ ] Child task two
+```
+
+- Any checkbox indented under a top-level item becomes a child task with `parent: <parent-slug>`.
+- Section headings reset the parent context — an indented item after a new `##` heading is NOT a child of the last item in the previous section.
+- Depth is 1-level max (D104). Deeper indentation maps to the last top-level item, not the nearest ancestor.
+- After pull, each child has `parent: <slug>` in its frontmatter; the parent's `subtasks:` list is managed automatically by the CLI.
+
+When rewriting TODO.md to Layer 2, preserve the indentation of subtasks — the indented structure is what the adapter reads.
+
+---
 
 ### Layer 2 format rules
 
@@ -204,6 +223,25 @@ cat <project_root>/.octopus/tasks/backlog/<slug>.md
 
 Confirm that YAML fields (kind, priority, actor, stage, blocked_by) landed correctly from the Layer 2 parsing.
 
+If the TODO.md had indented checkboxes, verify subtask wiring:
+
+```bash
+# A parent task should have subtasks: [child-slug, ...]
+grep -A5 "^subtasks:" <project_root>/.octopus/tasks/<bucket>/<parent-slug>.md
+
+# A child task should have parent: <parent-slug>
+grep "^parent:" <project_root>/.octopus/tasks/<bucket>/<child-slug>.md
+```
+
+Run lint to catch any wiring issues:
+
+```bash
+cd <project_root>
+octopus lint
+```
+
+`subtask-orphan` warnings indicate a child whose parent wasn't imported (e.g. parent was `[x]` done and skipped). Either pull with `include_checked = true` for that session or manually set `parent:` after the fact.
+
 ---
 
 ## Common issues
@@ -215,6 +253,8 @@ Confirm that YAML fields (kind, priority, actor, stage, blocked_by) landed corre
 | Body not captured | `> text` has >3 leading spaces, or no space after `>` | Use `  > text` (2 spaces + `> ` is fine; `>text` without space also works) |
 | "not inside an activity" error | CLI not run from within the project root | `cd <project_root>` before all bridge commands |
 | Duplicate tasks on re-pull | The `→ octopus:` arrows weren't written (pull failed mid-run) | Check `.octopus/tasks/` for the files; if present, re-pull is safe — dedup index prevents double-creates |
+| `subtask-orphan` lint warnings | Indented child's parent was `[x]` done → not imported | Pull again with `include_checked = true` temporarily, or set `parent: <slug>` manually on the orphaned child |
+| Children not linked after pull | Indented items have > 3 spaces (too deep), or parent was in a different section | Keep indent exactly 2 spaces; section headings reset parent context |
 
 ---
 

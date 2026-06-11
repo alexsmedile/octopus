@@ -280,7 +280,7 @@ def test_schema_version_is_current(temp_db):
     from octopus.db.connection import SCHEMA_VERSION
 
     v = temp_db.execute("PRAGMA user_version").fetchone()[0]
-    assert v == SCHEMA_VERSION == 4
+    assert v == SCHEMA_VERSION == 5
 
 
 def test_task_external_refs_table_exists(temp_db):

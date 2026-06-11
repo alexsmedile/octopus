@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   owner           TEXT,
   kind            TEXT,   -- D46 work-classification (soft enum)
   promoted_to     TEXT,   -- D48 "<provider>:<identifier>" — presence = promoted
+  parent          TEXT,   -- D104 slug of parent task (activity-scoped, 1-level max)
   raw_frontmatter TEXT,
   indexed_at      DATETIME NOT NULL,
   UNIQUE(activity_id, slug)
@@ -62,6 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_due          ON tasks(due);
 CREATE INDEX IF NOT EXISTS idx_tasks_activity     ON tasks(activity_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_kind         ON tasks(kind);
 CREATE INDEX IF NOT EXISTS idx_tasks_promoted_to  ON tasks(promoted_to);
+CREATE INDEX IF NOT EXISTS idx_tasks_parent       ON tasks(parent);
 
 -- External refs dedup index (schema v3, D63)
 CREATE TABLE IF NOT EXISTS task_external_refs (

@@ -73,6 +73,7 @@ All mutations route through `octopus.actions`. The TUI optimistically refreshes 
 | `S` | Session start (titled, prompts) |
 | `u` | Undo last mutation |
 | `y` | Yank slug to clipboard |
+| `Space` | Expand / collapse subtasks under the selected parent task (D106) |
 
 ## Search & system
 

@@ -117,6 +117,7 @@ TASK_FIELDS = {
     "priority", "energy",
     "actor", "owner",
     "kind", "tags",
+    "parent", "subtasks",
     "external_refs", "import_date", "imported_from", "promoted_to",
 }
 
@@ -156,6 +157,8 @@ def read_task(path: Path) -> tuple[Task, str]:
         owner=data.get("owner"),
         kind=data.get("kind"),
         tags=list(data.get("tags") or []),
+        parent=data.get("parent") or None,
+        subtasks=list(data.get("subtasks") or []),
         external_refs=dict(data.get("external_refs") or {}),
         import_date=_coerce_date(data.get("import_date")),
         imported_from=data.get("imported_from"),
@@ -221,6 +224,11 @@ def write_task(path: Path, task: Task, body: str) -> None:
         data["kind"] = task.kind
     if task.tags:
         data["tags"] = task.tags
+    # subtask graph (D104) — omit when absent / empty
+    if task.parent:
+        data["parent"] = task.parent
+    if task.subtasks:
+        data["subtasks"] = task.subtasks
     # integrations & provenance
     if task.external_refs:
         data["external_refs"] = task.external_refs

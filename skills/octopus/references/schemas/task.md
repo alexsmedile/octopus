@@ -42,6 +42,10 @@ owner:                    # optional, free-form
 kind:                     # optional, enum (feat | bug | spec | polish | test | chore)
 tags: []                  # optional, list of strings
 
+# subtask graph (D104) — 1-level-deep parent/child
+parent:                   # optional, slug of parent task (activity-scoped, no '/')
+subtasks: []              # optional, managed index of child slugs — rebuilt by CLI, do not hand-edit
+
 # integrations & provenance
 external_refs: {}         # optional, dict (e.g. reminders: <id>, github: <url>)
 import_date:              # optional, ISO date

@@ -80,6 +80,9 @@ class ExternalTask:
     suggested_kind: str | None = None             # feat | bug | spec | polish | test | chore
     suggested_tags: list[str] = field(default_factory=list)
 
+    # ── subtask graph (D104/D105) ─────────────────────────────────────
+    suggested_parent: str | None = None            # parent slug (activity-scoped)
+
     # ── provenance ────────────────────────────────────────────────────
     created_external: datetime | None = None
     source_group: str | None = None               # which list/section/repo this came from

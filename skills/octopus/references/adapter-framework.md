@@ -209,7 +209,7 @@ Three additions per item, all optional, all non-destructive in any markdown view
 #### Shorthand sigils (inline on the checkbox line)
 
 ```
-- [ ] Task title @owner ~bucket !priority 📅 2026-05-16 #tag
+- [ ] Task title @owner ~bucket !priority %kind 📅 2026-05-16 #tag
 ```
 
 | Sigil | Field | Shorthand |
@@ -217,6 +217,7 @@ Three additions per item, all optional, all non-destructive in any markdown view
 | `@word` | `owner` | — |
 | `~word` | `bucket` | `~b`=backlog `~n`=next `~!`=now |
 | `!word` | `priority` | `!l`=low `!h`=high `!!`=urgent |
+| `%word` | `kind` | `%feat` `%bug` `%spec` `%chore` `%refactor` `%polish` `%test` `%docs` `%idea` |
 
 Sigils take **highest precedence** — they override YAML block and section_map.
 

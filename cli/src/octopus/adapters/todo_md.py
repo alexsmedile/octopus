@@ -60,6 +60,7 @@ class InlineMetadata:
     tags: tuple[str, ...] = ()
     owner: str | None = None        # @sigil
     bucket: str | None = None       # ~sigil
+    kind: str | None = None         # %sigil
     arrow_target: str | None = None  # full "provider:slug" if an arrow is present
     has_arrow: bool = False          # convenience flag
 
@@ -163,6 +164,8 @@ BUCKET_RE = re.compile(r"(?:^|\s)~(\S+)")
 # Uses a word-boundary-style check: stops at whitespace. Does NOT match [!] state markers
 # because those are extracted by CHECKBOX_RE before body parsing ever runs.
 PRIORITY_SIGIL_RE = re.compile(r"(?:^|\s)!([\S]+)")
+# %word — kind. Accepts full names and single-char shorthand (%f %b %s %c %r).
+KIND_SIGIL_RE = re.compile(r"(?:^|\s)%([\w]+)")
 
 # YAML fenced block: ```yaml ... ``` (handles optional leading whitespace on fences).
 YAML_FENCE_OPEN_RE = re.compile(r"^\s*```yaml\s*$")
@@ -186,6 +189,19 @@ _PRIORITY_SHORTHANDS: dict[str, str] = {
     "h": "high",   "high": "high",
     "!": "urgent", "urgent": "urgent",
     "u": "urgent",
+}
+
+# Kind shorthand map — full names only (single-letter shorthands intentionally omitted).
+_KIND_SHORTHANDS: dict[str, str] = {
+    "feat": "feat",
+    "bug": "bug",
+    "spec": "spec",
+    "chore": "chore",
+    "refactor": "refactor",
+    "polish": "polish",
+    "test": "test",
+    "docs": "docs",
+    "idea": "idea",
 }
 
 
@@ -227,6 +243,7 @@ def _parse_inline_metadata(text: str) -> InlineMetadata:
     start_date: date | None = None
     owner: str | None = None
     bucket: str | None = None
+    kind: str | None = None
     arrow_target: str | None = None
     has_arrow = False
 
@@ -288,6 +305,15 @@ def _parse_inline_metadata(text: str) -> InlineMetadata:
         bucket = _BUCKET_SHORTHANDS.get(raw)
         text = text[: bm.start()] + text[bm.end():]
 
+    # 8.5. %kind sigil.
+    km = KIND_SIGIL_RE.search(text)
+    if km:
+        raw = km.group(1).lower()
+        resolved_kind = _KIND_SHORTHANDS.get(raw)
+        if resolved_kind is not None:
+            kind = resolved_kind
+            text = text[: km.start()] + text[km.end():]
+
     # 9. D103 sigils — !priority (before emoji so both don't fire on same item).
     pm = PRIORITY_SIGIL_RE.search(text)
     if pm:
@@ -319,6 +345,7 @@ def _parse_inline_metadata(text: str) -> InlineMetadata:
         tags=tags,
         owner=owner,
         bucket=bucket,
+        kind=kind,
         arrow_target=arrow_target,
         has_arrow=has_arrow,
     )
@@ -529,15 +556,22 @@ def _parse_todo_md(
     filter_set = set(section_filter) if section_filter else None
     _section_map = section_map or {}
 
+    # D105: track the most-recently-seen top-level item per indent level so
+    # indented children can reference their parent slug.
+    # Maps indent_len → (slug, indent_len) of the last top-level item at that depth.
+    # Only 1-level nesting is supported; deeper items are treated as top-level.
+    last_top_level_slug: str | None = None  # slug of the last depth-0 item
+
     lines = content.splitlines()
     i = 0
     while i < len(lines):
         line = lines[i]
 
-        # Heading → update current section.
+        # Heading → update current section; reset depth tracking.
         hm = HEADING_RE.match(line)
         if hm:
             current_section = _slugify_heading(hm.group(2))
+            last_top_level_slug = None
             i += 1
             continue
 
@@ -546,13 +580,22 @@ def _parse_todo_md(
             i += 1
             continue
 
+        # Measure indent of this item.
+        m_indent = CHECKBOX_RE.match(line)
+        indent_len = len(m_indent.group(1)) if m_indent else 0
+        is_child = indent_len > 0
+
         # Section filter.
         if filter_set is not None and current_section not in filter_set:
+            if not is_child:
+                last_top_level_slug = None
             i += 1
             continue
 
         # D73: skip items already handed off.
         if cb.metadata.has_arrow:
+            if not is_child:
+                last_top_level_slug = None
             i += 1
             continue
 
@@ -563,6 +606,8 @@ def _parse_todo_md(
 
         # Skip checked unless include_checked.
         if cb.state == "checked" and not include_checked:
+            if not is_child:
+                last_top_level_slug = None
             i += 1
             continue
 
@@ -619,17 +664,25 @@ def _parse_todo_md(
         else:
             bucket = "backlog"
 
+        # D105: resolve suggested_parent for indented children.
+        suggested_parent: str | None = None
+        if is_child and last_top_level_slug is not None:
+            suggested_parent = last_top_level_slug
+        elif not is_child:
+            last_top_level_slug = slug
+
         et = ExternalTask(
             external_id=external_id,
             title=title,
             body="\n".join(body_lines) if body_lines else None,
             suggested_bucket=bucket,
-            suggested_kind=kind_from_prefix,
+            suggested_kind=cb.metadata.kind or kind_from_prefix,
             suggested_tags=list(cb.metadata.tags),
             suggested_priority=cb.metadata.priority,
             suggested_due=cb.metadata.due,
             suggested_scheduled=cb.metadata.scheduled,
             suggested_owner=cb.metadata.owner,
+            suggested_parent=suggested_parent,
             source_group=current_section,
         )
 

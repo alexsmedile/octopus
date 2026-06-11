@@ -444,6 +444,9 @@ The SQLite index is derived; the filesystem is the source of truth (see `SCHEMA-
 | `dangling-blocker` | warn | — | `blocked_by` field + local slug set |
 | `stale-done` | info | yes (move) | `bucket=done` + `end_date`; threshold 30 days |
 | `bucket-blocked` | info | — | `issue ∈ {blocked, waiting}` + `bucket ∈ {now, next}`; severity locked at info per D100 |
+| `subtask-depth` | error | — | `parent:` + `subtasks:` both set; violates D104 1-level max |
+| `subtask-orphan` | warn | — | `parent:` slug not present in sibling task set (dropped parent, slug mismatch) |
+| `subtask-cross-activity` | error | — | `parent:` contains `/` (cross-activity refs unsupported per D104) |
 
 **Coupling rule:** if a SCHEMA-TASK field is added, renamed, or removed, audit `cli/src/octopus/lint/rules/` for any rule that names it and update both the rule and this table in the same commit. `corrupt-frontmatter` enforces the `TASK_FIELDS` set automatically; the others reference fields directly.
 

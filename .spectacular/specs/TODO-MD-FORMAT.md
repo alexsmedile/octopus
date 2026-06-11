@@ -70,7 +70,7 @@ Layer 1 plus three additions: **shorthand sigils**, a **body block**, and a
 ### Shorthand sigils (inline, on the checkbox line)
 
 ```markdown
-- [ ] Task title #tag @owner ~bucket !priority 📅 2026-05-16
+- [ ] Task title #tag @owner ~bucket !priority %kind 📅 2026-05-16
 ```
 
 | Sigil | Field | Values | Shorthand |
@@ -79,6 +79,7 @@ Layer 1 plus three additions: **shorthand sigils**, a **body block**, and a
 | `@word` | `owner` | any string | — |
 | `~word` | `bucket` | `backlog` `next` `now` | `~b` `~n` `~!` |
 | `!word` | `priority` | `low` `high` `urgent` | `!l` `!h` `!!` |
+| `%word` | `kind` | `feat` `bug` `spec` `chore` `refactor` `polish` `test` `docs` `idea` | — (full names only) |
 | `📅` `🗓️` `📆` + date | `due` | see date formats below | — |
 
 **Date formats accepted** (all three calendar emoji):

@@ -1,5 +1,7 @@
 """SQLite connection management.
 
+Schema v5 (D104): adds `parent` column on tasks for subtask graph.
+Schema v4 (D87/D88): activity priority + last_touched_at columns.
 Schema v3 (D63): adds `task_external_refs` join table for adapter dedup.
 v2 (D46/D48): adds `kind` and `promoted_to` columns + their indexes.
 Migrations run in-place via ALTER TABLE / CREATE TABLE on connection open.
@@ -13,7 +15,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 SCHEMA_SQL = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -98,6 +100,18 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         )
         conn.execute("PRAGMA user_version = 4")
         current = 4
+    if current == 4:
+        # v4 → v5 (D104): parent column on tasks for subtask graph.
+        conn.executescript(
+            """
+            ALTER TABLE tasks ADD COLUMN parent TEXT;
+            CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent);
+            """
+        )
+        # Backfill from existing tasks' raw_frontmatter.parent.
+        _backfill_parent(conn)
+        conn.execute("PRAGMA user_version = 5")
+        current = 5
     if current > SCHEMA_VERSION:
         raise RuntimeError(
             f"index.db schema version {current} > supported {SCHEMA_VERSION}; "
@@ -133,6 +147,27 @@ def _backfill_external_refs(conn: sqlite3.Connection) -> None:
                 "INSERT OR IGNORE INTO task_external_refs "
                 "(task_id, adapter, external_id) VALUES (?, ?, ?)",
                 (row["id"], str(adapter), str(external_id)),
+            )
+
+
+def _backfill_parent(conn: sqlite3.Connection) -> None:
+    """v4 → v5 migration: populate tasks.parent from raw_frontmatter."""
+    import json
+
+    rows = conn.execute("SELECT id, raw_frontmatter FROM tasks").fetchall()
+    for row in rows:
+        raw = row["raw_frontmatter"]
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        parent = data.get("parent") if isinstance(data, dict) else None
+        if parent:
+            conn.execute(
+                "UPDATE tasks SET parent = ? WHERE id = ?",
+                (str(parent), row["id"]),
             )
 
 

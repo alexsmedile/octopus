@@ -60,6 +60,15 @@ MIGRATED     = "+"        # promoted_to is set                    — lavender
 DROPPED      = BUCKET_DROPPED  # bucket=dropped                   — dim grey
 SESSION_RUN  = "▶"        # active human session on this task     — cyan
 
+# ── Subtask graph glyphs (D104 / D106) ────────────────────────────────
+# ⎇ (U+2387) — branch/subtask indicator on parent task titles.
+# Always visible on parent rows regardless of expand/collapse state.
+# e.g. title renders as: "Fix auth ⎇3"
+
+SUBTASK_BRANCH   = "⎇"   # inline parent decoration: title + ⎇N
+SUBTASK_CHILD    = "├─"  # tree prefix for non-last child rows (expanded)
+SUBTASK_CHILD_LAST = "└─" # tree prefix for last child row (expanded)
+
 # ── Chrome glyphs (not status — UI affordances) ────────────────────────
 
 CURSOR  = "▸"             # selected-row indicator on every list

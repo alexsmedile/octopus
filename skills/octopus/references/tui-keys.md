@@ -74,6 +74,7 @@ All route through `octopus.actions`. Optimistic refresh; failures toast + revert
 | `S` | Session start (titled, prompts) |
 | `u` | Undo last mutation |
 | `y` | Yank slug to clipboard |
+| `Space` | Expand / collapse subtasks under selected parent (D106) |
 
 ## Search & system
 

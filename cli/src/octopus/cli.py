@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.table import Table
 
 from octopus import __version__
+from octopus import actions
 from octopus.config import (
     add_root as config_add_root,
 )
@@ -449,6 +450,10 @@ def capture(
         None, "--activity",
         help="Activity id/prefix/path. Default: cwd-walk-up. (D86)",
     ),
+    parent: str | None = typer.Option(
+        None, "--parent",
+        help="Slug of the parent task. Makes this task a subtask (1-level deep).",
+    ),
 ) -> None:
     """Create a new task. Default bucket: backlog. Empty body by default (D82)."""
     _create_task_impl(
@@ -459,6 +464,7 @@ def capture(
         tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
         remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
         activity_token=activity,
+        parent=parent,
     )
 
 
@@ -510,6 +516,7 @@ def _create_task_impl(
     remove_tags: list[str] | None,
     clear_tags: bool,
     activity_token: str | None,
+    parent: str | None = None,
 ) -> None:
     """Shared implementation for `capture` and `add task` (D85)."""
     from octopus.core.tag_parser import TagFlagConflict, TagFlagInputs, apply_tag_mutations
@@ -596,6 +603,23 @@ def _create_task_impl(
         err_console.print(f"[red]✗[/] {exc}")
         raise typer.Exit(EXIT_USER_ERROR) from exc
 
+    # Validate parent (D104) before writing the child.
+    if parent:
+        from octopus.actions import find_task_file as _ftf
+        parent_task_path = _ftf(octopus_dir, storage_mode, parent)
+        if parent_task_path is None:
+            err_console.print(f"[red]✗[/] parent task not found: {parent!r}")
+            raise typer.Exit(EXIT_USER_ERROR)
+        _pt, _ = read_task(parent_task_path)
+        if _pt.parent:
+            err_console.print(
+                f"[red]✗[/] nesting depth exceeds 1 level: {parent!r} is itself a child of "
+                f"{_pt.parent!r}"
+            )
+            raise typer.Exit(EXIT_USER_ERROR)
+        if _pt.subtasks and False:  # parent may already have subtasks — that's fine
+            pass
+
     task = Task(
         title=title,
         created=date.today(),
@@ -612,6 +636,7 @@ def _create_task_impl(
         owner=owner_val,
         stage=stage_val,
         tags=final_tags,
+        parent=parent or None,
     )
     task.slug = final_slug
     task.path = task_path
@@ -630,7 +655,14 @@ def _create_task_impl(
     if err:
         err_console.print(f"[yellow]⚠[/] {err} (run `octopus reindex` to reconcile)")
 
+    # Rebuild parent's subtasks index.
+    if parent:
+        from octopus.actions import _sync_subtasks_list
+        _sync_subtasks_list(root, parent)
+
     console.print(f"[green]✓[/] Created task [bold]{final_slug}[/] in {bucket}")
+    if parent:
+        console.print(f"  subtask of [dim]{parent}[/]")
     console.print(f"  {task_path.relative_to(root)}")
 
 
@@ -986,27 +1018,15 @@ def start(
 def finish(
     slug: str = typer.Argument(..., help="Task slug."),
     activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+    force: bool = typer.Option(False, "--force", help="Finish parent even if subtasks are open."),
+    cascade: bool = typer.Option(False, "--cascade", help="Finish all open subtasks first, then the parent."),
 ) -> None:
     """Mark complete: bucket: done, end_date, clear pinned/issue/run_state."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
-    today = date.today()
-    if task.start_date is None:
-        task.start_date = today  # one-shot capture-and-finish
-    if task.end_date is None:
-        task.end_date = today
-    task.bucket = "done"
-    task.pinned = None
-    task.issue = None
-    task.blocked_by = None
-    task.waiting_for = None
-    task.run_state = None
-
-    errors = task.validate()
-    if errors:
-        for e in errors:
-            err_console.print(f"[red]✗[/] {e}")
+    root = _resolve_activity_root(activity)
+    result = actions.finish_task(root, slug, force=force, cascade=cascade)
+    if isinstance(result, actions.OpenSubtasksWarning):
+        err_console.print(f"[yellow]⚠[/] {result.message}")
         raise typer.Exit(EXIT_USER_ERROR)
-    _save_task(task, body, path, octopus_dir, storage_mode)
     console.print(f"[green]✓[/] {slug} finished")
 
 
@@ -1014,35 +1034,53 @@ def finish(
 def end(
     slug: str = typer.Argument(..., help="Task slug."),
     activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+    force: bool = typer.Option(False, "--force", help="Finish parent even if subtasks are open."),
+    cascade: bool = typer.Option(False, "--cascade", help="Finish all open subtasks first, then the parent."),
 ) -> None:
     """Alias for `finish`."""
-    finish(slug, activity)
+    finish(slug, activity, force, cascade)
 
 
 @app.command()
 def drop(
     slug: str = typer.Argument(..., help="Task slug."),
     activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+    force: bool = typer.Option(False, "--force", help="Drop parent even if subtasks are open (children orphaned)."),
+    cascade: bool = typer.Option(False, "--cascade", help="Drop all open subtasks first (keeps parent: link on children), then drop the parent."),
 ) -> None:
     """Mark dropped: bucket: dropped, end_date, clear pinned/issue/run_state."""
-    path, task, body, octopus_dir, storage_mode = _load_task(slug, activity)
-    today = date.today()
-    if task.end_date is None:
-        task.end_date = today
-    task.bucket = "dropped"
-    task.pinned = None
-    task.issue = None
-    task.blocked_by = None
-    task.waiting_for = None
-    task.run_state = None
-
-    errors = task.validate()
-    if errors:
-        for e in errors:
-            err_console.print(f"[red]✗[/] {e}")
+    root = _resolve_activity_root(activity)
+    result = actions.drop_task(root, slug, force=force, cascade=cascade)
+    if isinstance(result, actions.OpenSubtasksWarning):
+        err_console.print(f"[yellow]⚠[/] {result.message}")
         raise typer.Exit(EXIT_USER_ERROR)
-    _save_task(task, body, path, octopus_dir, storage_mode)
     console.print(f"[green]✓[/] {slug} dropped")
+
+
+# ── subtask verbs (D104) ──────────────────────────────────────────────
+
+
+@app.command()
+def subtasks(
+    slug: str = typer.Argument(..., help="Parent task slug."),
+    activity: str | None = typer.Option(None, "--activity", help=_ACTIVITY_OPT_HELP),
+) -> None:
+    """List the subtasks of a parent task."""
+    root = _resolve_activity_root(activity)
+    try:
+        children = actions.list_subtasks(root, slug)
+    except actions.ActionError as exc:
+        err_console.print(f"[red]✗[/] {exc}")
+        raise typer.Exit(EXIT_USER_ERROR) from exc
+    if not children:
+        console.print(f"[dim]{slug} has no subtasks[/]")
+        return
+    for child in children:
+        from octopus.tui.icons import status_glyph, status_glyph_color
+        g = status_glyph(child)
+        color = status_glyph_color(child)
+        bucket_label = f"[dim]{child.bucket}[/]"
+        console.print(f"  [{color}]{g}[/] [bold]{child.slug}[/]  {child.title}  {bucket_label}")
 
 
 # ── impediment verbs ──────────────────────────────────────────────────
@@ -1259,6 +1297,10 @@ def add_task_cmd(
         None, "--activity",
         help="Activity id/prefix/path. Default: cwd-walk-up. (D85/D86)",
     ),
+    parent: str | None = typer.Option(
+        None, "--parent",
+        help="Slug of the parent task. Makes this task a subtask (1-level deep).",
+    ),
 ) -> None:
     """Create a new task. The "from anywhere" sibling of `capture` (D85).
 
@@ -1274,6 +1316,7 @@ def add_task_cmd(
         tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
         remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
         activity_token=activity,
+        parent=parent,
     )
 
 
@@ -2210,6 +2253,7 @@ def _set_task_one(
     remove_tag: list[str] | None,
     remove_tags: list[str] | None,
     clear_tags: bool,
+    parent: str | None = None,
 ) -> bool:
     """Apply a frontmatter-only edit to one task in one activity. Returns True on success.
 
@@ -2239,6 +2283,25 @@ def _set_task_one(
             err_console.print(f"[red]✗[/] task not found after rename: {slug}")
             return False
         task, body = read_task(path)
+
+    # D104: --parent attach/detach handled before other field edits.
+    if parent is not None:
+        try:
+            if parent == "":
+                # Detach
+                res = actions.detach_subtask(activity_root, slug)
+            else:
+                # Attach
+                res = actions.attach_subtask(activity_root, slug, parent)
+            console.print(f"[green]✓[/] {res.message}")
+        except actions.ActionError as exc:
+            err_console.print(f"[red]✗[/] {exc}")
+            return False
+        # Reload task after subtask sync.
+        path2 = _find_task_file(octopus_dir, storage_mode, slug)
+        if path2:
+            task, body = read_task(path2)
+            path = path2
 
     overlaps_used: list[str] = []
     bucket_changed_to: str | None = None
@@ -2423,6 +2486,7 @@ _TASK_ONLY_SET_FLAGS = {
     "owner": "--owner",
     "kind": "--kind",
     "new_slug": "--slug",
+    "parent": "--parent",
 }
 
 
@@ -2599,6 +2663,11 @@ def set_(
         None, "--slug",
         help="Rename the task slug (filename). Cascades to Octopus-managed refs.",
     ),
+    # D104: subtask attach / detach
+    parent: str | None = typer.Option(
+        None, "--parent",
+        help="Attach to a parent task (slug). Pass '' (empty string) to detach.",
+    ),
     yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompts."),
     # Tag flag matrix (D76)
     tag: list[str] | None = typer.Option(None, "--tag", help="Replace the tag list (alias of --tags)."),
@@ -2721,6 +2790,7 @@ def set_(
                 kind=kind, title=title, new_slug=new_slug, yes=yes,
                 tag=tag, tags=tags, add_tag=add_tag, add_tags=add_tags,
                 remove_tag=remove_tag, remove_tags=remove_tags, clear_tags=clear_tags,
+                parent=parent,
             )
             if not ok:
                 failures += 1

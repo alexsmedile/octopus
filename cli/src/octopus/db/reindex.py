@@ -105,6 +105,7 @@ def _process_activity(
 
     # Tasks — collect promoted_to values as we go for the propagation pass.
     promoted_pairs: list[tuple[str, str]] = []  # (task_slug, promoted_to_value)
+    all_tasks: list = []  # for subtask list rebuild (D104)
     tasks_dir = folder / ".octopus" / "tasks"
     if tasks_dir.is_dir():
         for task_file in _walk_task_files(tasks_dir):
@@ -114,8 +115,19 @@ def _process_activity(
                 result.tasks_seen += 1
                 if task.promoted_to:
                     promoted_pairs.append((task.slug, task.promoted_to))
+                all_tasks.append(task)
             except Exception as e:
                 result.errors.append(f"{task_file}: {e}")
+
+    # D104: rebuild subtasks: list on each parent file after all tasks are indexed.
+    # parent: on child is source of truth; subtasks: is derived managed index.
+    try:
+        from octopus.actions import _sync_subtasks_list
+        parent_slugs = {t.parent for t in all_tasks if t.parent}
+        for slug in parent_slugs:
+            _sync_subtasks_list(folder, slug)
+    except Exception as e:
+        result.errors.append(f"{folder}: subtasks list rebuild failed: {e}")
 
     # D54: propagate `related_tasks` to .spectacular/requests/<slug>/PLAN.md.
     # This makes the request side a derived mirror of the task scan.

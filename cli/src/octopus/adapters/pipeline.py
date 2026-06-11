@@ -117,6 +117,11 @@ def materialize_pull_result(
     groups_seen: set[str] = set()
     # D74: track external_id → task_slug for adapters that declare MARK_PULLED.
     new_id_to_slug: dict[str, str] = {}
+    # D105: track ExternalTask slug-key → created octopus slug (for parent linking).
+    # Key is the last segment of external_id (after '#'), which is the TODO.md slug.
+    et_slug_to_octopus: dict[str, str] = {}
+    # Children needing parent linkage: list of (child_octopus_slug, parent_et_slug).
+    pending_parent_links: list[tuple[str, str]] = []
 
     conn = get_db()
     try:
@@ -143,6 +148,11 @@ def materialize_pull_result(
                 continue
 
             new_id_to_slug[et.external_id] = created.slug
+            # D105: record et slug-key → octopus slug for parent linking pass.
+            et_slug_key = et.external_id.split("#", 1)[-1] if "#" in et.external_id else et.external_id
+            et_slug_to_octopus[et_slug_key] = created.slug
+            if et.suggested_parent:
+                pending_parent_links.append((created.slug, et.suggested_parent))
 
             # Re-open the task to add the provenance + classification fields
             # that capture_task doesn't accept directly.
@@ -198,6 +208,21 @@ def materialize_pull_result(
         conn.close()
 
     out.source_groups = sorted(groups_seen)
+
+    # D105: second pass — wire parent links now that all slugs are known.
+    for child_slug, parent_et_slug in pending_parent_links:
+        # Resolve the parent_et_slug to the octopus slug it was created as.
+        parent_octopus_slug = et_slug_to_octopus.get(parent_et_slug)
+        if parent_octopus_slug is None:
+            out.errors.append(
+                f"{child_slug}: suggested_parent {parent_et_slug!r} was not imported "
+                "(skipped or already existed) — parent link not set"
+            )
+            continue
+        try:
+            actions.attach_subtask(activity_root, child_slug, parent_octopus_slug)
+        except actions.ActionError as exc:
+            out.errors.append(f"{child_slug}: parent link failed — {exc}")
 
     # D74: if the adapter declares MARK_PULLED, ask it to annotate its source.
     # Best-effort — errors here don't undo the materialization that already

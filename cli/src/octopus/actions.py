@@ -150,9 +150,64 @@ def start_task(activity_root: Path, slug: str) -> TaskResult:
     return TaskResult(slug, task.bucket, msg)
 
 
-def finish_task(activity_root: Path, slug: str) -> TaskResult:
-    """Mark complete: bucket → done, end_date set, clear pinned/issue/run_state."""
+@dataclass(frozen=True)
+class OpenSubtasksWarning:
+    """Returned by finish/drop when a parent has open children and force=False."""
+    parent_slug: str
+    open_children: list[str]
+
+    @property
+    def message(self) -> str:
+        names = ", ".join(self.open_children)
+        return (
+            f"{self.parent_slug!r} has {len(self.open_children)} open subtask(s): {names}. "
+            "Use --force to proceed anyway or --cascade to finish/drop them first."
+        )
+
+
+def _open_subtask_slugs(activity_root: Path, task: Task) -> list[str]:
+    """Return slugs of non-terminal subtasks."""
+    if not task.subtasks:
+        return []
+    octopus_dir = activity_root / ".octopus"
+    storage_mode = read_storage_mode(octopus_dir)
+    open_children: list[str] = []
+    for slug in task.subtasks:
+        p = find_task_file(octopus_dir, storage_mode, slug)
+        if p and p.is_file():
+            try:
+                t, _ = read_task(p)
+                if not t.is_terminal():
+                    open_children.append(slug)
+            except Exception:
+                pass
+    return open_children
+
+
+def finish_task(
+    activity_root: Path,
+    slug: str,
+    *,
+    force: bool = False,
+    cascade: bool = False,
+) -> TaskResult | OpenSubtasksWarning:
+    """Mark complete: bucket → done, end_date set, clear pinned/issue/run_state.
+
+    If the task has open subtasks:
+    - cascade=True: finish each open child first, then finish the parent.
+    - force=True: finish the parent despite open children (orphans them in open state).
+    - neither: return OpenSubtasksWarning (caller decides).
+    """
     path, task, body, octopus_dir, storage_mode = _load(activity_root, slug)
+
+    open_children = _open_subtask_slugs(activity_root, task)
+    if open_children and not force and not cascade:
+        return OpenSubtasksWarning(slug, open_children)
+
+    if cascade:
+        for child_slug in open_children:
+            finish_task(activity_root, child_slug, force=True)
+
     today = date.today()
     if task.start_date is None:
         task.start_date = today
@@ -169,9 +224,31 @@ def finish_task(activity_root: Path, slug: str) -> TaskResult:
     return TaskResult(slug, "done", "finished")
 
 
-def drop_task(activity_root: Path, slug: str) -> TaskResult:
-    """Mark dropped: bucket → dropped, end_date set, clear pinned/issue/run_state."""
+def drop_task(
+    activity_root: Path,
+    slug: str,
+    *,
+    force: bool = False,
+    cascade: bool = False,
+) -> TaskResult | OpenSubtasksWarning:
+    """Mark dropped: bucket → dropped, end_date set, clear pinned/issue/run_state.
+
+    If the task has open subtasks:
+    - cascade=True: drop each open child first (keeping their parent: field as
+      a historical link), then drop the parent.
+    - force=True: drop the parent; children are orphaned (lint will flag them).
+    - neither: return OpenSubtasksWarning.
+    """
     path, task, body, octopus_dir, storage_mode = _load(activity_root, slug)
+
+    open_children = _open_subtask_slugs(activity_root, task)
+    if open_children and not force and not cascade:
+        return OpenSubtasksWarning(slug, open_children)
+
+    if cascade:
+        for child_slug in open_children:
+            drop_task(activity_root, child_slug, force=True)
+
     today = date.today()
     if task.end_date is None:
         task.end_date = today
@@ -291,6 +368,7 @@ def capture_task(
     priority: str | None = None,
     slug: str | None = None,
     body: str | None = None,
+    parent: str | None = None,
 ) -> CaptureResult:
     """Create a new task. Default bucket: backlog. --now also pins."""
     if not title or not title.strip():
@@ -320,14 +398,27 @@ def capture_task(
     final_slug = _resolve_slug_collision(target_dir, base_slug, cfg.max_length)
     task_path = target_dir / f"{final_slug}.md"
 
+    # Validate parent before creating the child.
+    if parent:
+        octopus_dir2 = activity_root / ".octopus"
+        storage_mode2 = read_storage_mode(octopus_dir2)
+        parent_path = find_task_file(octopus_dir2, storage_mode2, parent)
+        if parent_path is None:
+            raise ActionError(f"parent task not found: {parent}")
+        parent_task, _ = read_task(parent_path)
+        if parent_task.parent:
+            raise ActionError(
+                f"nesting depth exceeds 1 level: {parent!r} is itself a child of "
+                f"{parent_task.parent!r}"
+            )
+
     task = Task(
         title=title.strip(),
         created=date.today(),
         bucket=bucket,
         priority=priority,
-        # Pin is a separate axis (AXIS-MODEL §ATTENTION) — capture does not pin.
-        # Callers that want a pinned task should call pin_task() after capture.
         pinned=None,
+        parent=parent or None,
     )
     task.slug = final_slug
     task.path = task_path
@@ -336,7 +427,155 @@ def capture_task(
     write_task(task_path, task, body or "\n## References\n")
     sync_task_after_write(activity_root, task)
 
+    # Rebuild parent's subtasks list.
+    if parent:
+        _sync_subtasks_list(activity_root, parent)
+
     return CaptureResult(slug=final_slug, bucket=bucket, path=task_path)
+
+
+# ── subtask graph (D104) ───────────────────────────────────────────────
+
+
+def _sync_subtasks_list(activity_root: Path, parent_slug: str) -> None:
+    """Rebuild the parent's `subtasks:` list from all tasks with parent=parent_slug.
+
+    Called after any write that changes parent/child relationships so the
+    derived index stays consistent with the source-of-truth `parent:` fields.
+    """
+    octopus_dir = activity_root / ".octopus"
+    storage_mode = read_storage_mode(octopus_dir)
+    tasks_dir = octopus_dir / "tasks"
+
+    children: list[str] = []
+    if storage_mode == "folders":
+        from octopus.fs.scaffold import BUCKET_FOLDERS
+        for bucket in BUCKET_FOLDERS:
+            bucket_dir = tasks_dir / bucket
+            if not bucket_dir.is_dir():
+                continue
+            for md in sorted(bucket_dir.glob("*.md")):
+                try:
+                    t, _ = read_task(md)
+                    if t.parent == parent_slug:
+                        children.append(t.slug)
+                except Exception:
+                    pass
+    else:
+        for md in sorted(tasks_dir.glob("*.md")):
+            try:
+                t, _ = read_task(md)
+                if t.parent == parent_slug:
+                    children.append(t.slug)
+            except Exception:
+                pass
+
+    parent_path = find_task_file(octopus_dir, storage_mode, parent_slug)
+    if parent_path is None:
+        return
+    parent_task, parent_body = read_task(parent_path)
+    parent_task.subtasks = children
+    write_task(parent_path, parent_task, parent_body)
+    sync_task_after_write(activity_root, parent_task)
+
+
+@dataclass(frozen=True)
+class SubtaskResult:
+    child_slug: str
+    parent_slug: str
+    message: str
+
+
+def attach_subtask(activity_root: Path, child_slug: str, parent_slug: str) -> SubtaskResult:
+    """Set child.parent = parent_slug and rebuild parent.subtasks.
+
+    Validates: parent exists, parent has no parent of its own (depth limit),
+    child has no existing subtasks of its own (would make it a parent too).
+    """
+    octopus_dir = activity_root / ".octopus"
+    storage_mode = read_storage_mode(octopus_dir)
+
+    # Validate parent exists.
+    parent_path = find_task_file(octopus_dir, storage_mode, parent_slug)
+    if parent_path is None:
+        raise ActionError(f"parent task not found: {parent_slug}")
+    parent_task, _ = read_task(parent_path)
+
+    # Depth limit — parent must not itself be a child.
+    if parent_task.parent:
+        raise ActionError(
+            f"nesting depth exceeds 1 level: {parent_slug!r} is already a child "
+            f"of {parent_task.parent!r}"
+        )
+
+    # Load child.
+    child_path = find_task_file(octopus_dir, storage_mode, child_slug)
+    if child_path is None:
+        raise ActionError(f"task not found: {child_slug}")
+    child_task, child_body = read_task(child_path)
+
+    # Child must not already be a parent.
+    if child_task.subtasks:
+        raise ActionError(
+            f"{child_slug!r} already has subtasks; a task cannot be both parent and child"
+        )
+
+    if child_task.parent == parent_slug:
+        return SubtaskResult(child_slug, parent_slug, "already attached")
+
+    old_parent = child_task.parent
+    child_task.parent = parent_slug
+    _validate(child_task)
+    _save(child_task, child_body, child_path, octopus_dir, storage_mode, activity_root)
+
+    # Rebuild old parent's subtasks list (if there was one).
+    if old_parent:
+        _sync_subtasks_list(activity_root, old_parent)
+
+    # Rebuild new parent's subtasks list.
+    _sync_subtasks_list(activity_root, parent_slug)
+
+    return SubtaskResult(child_slug, parent_slug, f"attached to {parent_slug}")
+
+
+def detach_subtask(activity_root: Path, child_slug: str) -> SubtaskResult:
+    """Clear child.parent and rebuild the old parent's subtasks list."""
+    octopus_dir = activity_root / ".octopus"
+    storage_mode = read_storage_mode(octopus_dir)
+
+    child_path = find_task_file(octopus_dir, storage_mode, child_slug)
+    if child_path is None:
+        raise ActionError(f"task not found: {child_slug}")
+    child_task, child_body = read_task(child_path)
+
+    old_parent = child_task.parent
+    if not old_parent:
+        return SubtaskResult(child_slug, "", "no parent to detach from")
+
+    child_task.parent = None
+    _validate(child_task)
+    _save(child_task, child_body, child_path, octopus_dir, storage_mode, activity_root)
+    _sync_subtasks_list(activity_root, old_parent)
+
+    return SubtaskResult(child_slug, old_parent, f"detached from {old_parent}")
+
+
+def list_subtasks(activity_root: Path, parent_slug: str) -> list[Task]:
+    """Return all child tasks for a given parent slug, in creation order."""
+    octopus_dir = activity_root / ".octopus"
+    storage_mode = read_storage_mode(octopus_dir)
+    parent_path = find_task_file(octopus_dir, storage_mode, parent_slug)
+    if parent_path is None:
+        raise ActionError(f"task not found: {parent_slug}")
+
+    parent_task, _ = read_task(parent_path)
+    children: list[Task] = []
+    for slug in parent_task.subtasks:
+        p = find_task_file(octopus_dir, storage_mode, slug)
+        if p and p.is_file():
+            t, _ = read_task(p)
+            children.append(t)
+    return children
 
 
 # ── session ────────────────────────────────────────────────────────────

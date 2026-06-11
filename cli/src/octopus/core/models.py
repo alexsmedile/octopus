@@ -48,6 +48,9 @@ TASK_ACTORS = {"human", "ai", "automation"}
 # Taxonomy (D46) — work-classification, optional. Soft validation v1.
 TASK_KINDS = {"feat", "bug", "spec", "polish", "test", "chore"}
 
+# Subtask relationship constraints (D104).
+MAX_SUBTASK_DEPTH = 1  # exactly one level deep — no recursive nesting
+
 # Defaults that should be omitted from written frontmatter.
 DEFAULT_ACTOR = "human"
 DEFAULT_BUCKET = "backlog"
@@ -148,6 +151,12 @@ class Task:
     kind: str | None = None  # D46 — soft enum; unknown values warn but don't reject
     tags: list[str] = field(default_factory=list)
 
+    # Subtask graph (D104) — 1-level deep only.
+    # `parent` is the source of truth; `subtasks` is a derived index, managed by CLI + reindex.
+    # Both omitted by default-omission. Never cross-activity.
+    parent: str | None = None              # slug of the parent task (set on children)
+    subtasks: list[str] = field(default_factory=list)  # slugs of child tasks (set on parents)
+
     # Integrations & provenance
     external_refs: dict[str, str] = field(default_factory=dict)
     import_date: date | None = None
@@ -221,6 +230,17 @@ class Task:
                 errors.append(
                     f"legacy field {forbidden!r} is not allowed in v1 (see DECISIONS D32/D33/D34)"
                 )
+
+        # Subtask graph constraints (D104 / D107)
+        if self.parent is not None:
+            if "/" in self.parent:
+                errors.append(
+                    f"parent={self.parent!r} contains '/'; cross-activity subtasks are not supported"
+                )
+            elif not self.parent:
+                errors.append("parent field is empty; omit it instead")
+        if self.parent and self.subtasks:
+            errors.append("a task cannot be both a child (parent set) and a parent (subtasks set)")
 
         # promoted_to format check (D48): "<provider>:<identifier>"
         if self.promoted_to is not None:

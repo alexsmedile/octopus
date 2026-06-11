@@ -302,5 +302,8 @@ For sessions and handoffs: slugs are never renamed (timestamps in the slug make 
 | `dangling-blocker` | warn | — | `blocked_by` + local slugs |
 | `stale-done` | info | yes | `bucket=done` + `end_date` (>30d) |
 | `bucket-blocked` | info | — | `issue` + `bucket` (locked at info per D100) |
+| `subtask-depth` | error | — | `parent:` + `subtasks:` both set (D104 1-level max) |
+| `subtask-orphan` | warn | — | `parent:` slug not in sibling set |
+| `subtask-cross-activity` | error | — | `parent:` contains `/` |
 
 Exit codes: 0 clean, 1 info/warn, 2 errors.

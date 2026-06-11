@@ -135,11 +135,11 @@ def upsert_task(conn: sqlite3.Connection, activity_id: str, task: Task) -> None:
             bucket, stage, run_state, pinned, issue, archived,
             due, scheduled, start_date, end_date,
             priority, energy, actor, owner,
-            kind, promoted_to,
+            kind, promoted_to, parent,
             raw_frontmatter, indexed_at
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
             path = excluded.path,
@@ -161,6 +161,7 @@ def upsert_task(conn: sqlite3.Connection, activity_id: str, task: Task) -> None:
             owner = excluded.owner,
             kind = excluded.kind,
             promoted_to = excluded.promoted_to,
+            parent = excluded.parent,
             raw_frontmatter = excluded.raw_frontmatter,
             indexed_at = excluded.indexed_at
         """,
@@ -186,6 +187,7 @@ def upsert_task(conn: sqlite3.Connection, activity_id: str, task: Task) -> None:
             task.owner,
             task.kind,
             task.promoted_to,
+            task.parent or None,
             _task_raw_frontmatter(task),
             _now(),
         ),

@@ -80,6 +80,10 @@ owner:                        # optional, string
 kind:                         # optional, enum: feat | bug | spec | polish | test | chore
 tags:                         # optional, list of strings                              (absent = [])
 
+# ── subtask graph (D104) ─────────────────────────────────────────────
+parent:                       # optional, slug of parent task (activity-scoped; no '/')
+subtasks:                     # optional, list of child slugs  (managed index — do not hand-edit)
+
 # ── integrations & provenance ────────────────────────────────────────
 external_refs:                # optional, map: <adapter-name> → <opaque-string>
 import_date:                  # optional, ISO date
@@ -117,6 +121,7 @@ The schema is grouped into seven semantic sections. Each group answers one quest
 | Prioritization | How urgent? How costly? | `priority`, `energy` |
 | Actors | Who does it? Who owns it? | `actor`, `owner` |
 | Taxonomy | What kind of work? How is it categorized? | `kind`, `tags` |
+| Subtask graph | Is this task a child or parent of another? | `parent`, `subtasks` |
 | Integrations & provenance | Where else does it live? Where did it come from / go to? | `external_refs`, `import_date`, `imported_from`, `promoted_to` |
 
 `actor` and `owner` are deliberately adjacent.

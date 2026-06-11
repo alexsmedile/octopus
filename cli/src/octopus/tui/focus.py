@@ -47,7 +47,11 @@ from octopus.fs.io import read_activity
 from octopus.tui.filter_bar import FilterBar
 from octopus.tui.header_bar import HeaderBar
 from octopus.tui.help import HelpOverlay
-from octopus.tui.icons import BLOCKED, CURSOR, PINNED, status_glyph, status_glyph_color
+from octopus.tui.icons import (
+    BLOCKED, CURSOR, PINNED,
+    SUBTASK_BRANCH, SUBTASK_CHILD, SUBTASK_CHILD_LAST,
+    status_glyph, status_glyph_color,
+)
 from octopus.tui.overlay import TaskDetailOverlay
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
@@ -204,6 +208,58 @@ def _row_text(
         t.append(title, style="#8A8D9A strike")
     else:
         t.append(title)
+
+    # ⎇N subtask-count decoration (D106) — always visible on parent rows.
+    subtask_count = _row_subtask_count(row)
+    if subtask_count > 0:
+        t.append(f" {SUBTASK_BRANCH}{subtask_count}", style="#8A8D9A")
+
+    return t
+
+
+def _row_subtask_count(row) -> int:
+    """Return the number of subtasks for this row, or 0 if not a parent.
+
+    `subtasks` is not a DB column — read from raw_frontmatter JSON.
+    """
+    import json
+    raw = row["raw_frontmatter"] if _row_has(row, "raw_frontmatter") else None
+    if not raw:
+        return 0
+    try:
+        payload = json.loads(raw)
+        v = payload.get("subtasks") if isinstance(payload, dict) else None
+        return len(v) if isinstance(v, list) else 0
+    except Exception:
+        return 0
+
+
+def _row_parent_slug(row) -> str | None:
+    """Return the parent slug for a child row, or None."""
+    if _row_has(row, "parent"):
+        return row["parent"] or None
+    return None
+
+
+def _child_row_text(row, *, selected: bool, is_last: bool) -> Text:
+    """Render a child (subtask) row, indented with tree prefix."""
+    t = Text(no_wrap=True, overflow="ellipsis")
+    if selected:
+        t.append(f"{CURSOR} ", style="#F38BA8 bold")
+    else:
+        t.append("  ")
+    prefix = SUBTASK_CHILD_LAST if is_last else SUBTASK_CHILD
+    t.append(f"{prefix} ", style="#8A8D9A")
+
+    bucket = (row["bucket"] if _row_has(row, "bucket") else "") or ""
+    glyph = status_glyph(row)
+    t.append(f"{glyph} ", style=status_glyph_color(glyph, bucket))
+
+    title = row["title"] or "(untitled)"
+    if bucket in ("done", "dropped"):
+        t.append(title, style="#8A8D9A strike")
+    else:
+        t.append(title, style="#CDD6F4")  # slightly dimmer than parent rows
     return t
 
 
@@ -335,6 +391,24 @@ class _TaskListItem(ListItem):
             self._preview_static.styles.display = "none"
 
 
+class _ChildListItem(ListItem):
+    """Non-selectable inline child row rendered under a parent task."""
+
+    def __init__(self, row: sqlite3.Row, *, is_last: bool) -> None:
+        self._row = row
+        self._title_static = Static(
+            _child_row_text(row, selected=False, is_last=is_last),
+            classes="row-title",
+        )
+        super().__init__(self._title_static)
+        self.disabled = True
+
+    def render_title(self, *, selected: bool, is_last: bool) -> None:
+        self._title_static.update(
+            _child_row_text(self._row, selected=selected, is_last=is_last)
+        )
+
+
 # Quadrant ids — used in focus tracking & captures.
 Q_BACKLOG = "backlog"
 Q_NOW = "now"
@@ -432,6 +506,8 @@ class FocusScreen(Screen):
         Binding("u", "undo", "undo", show=False),
         Binding("y", "yank_slug", "yank slug", show=False),
         Binding("g", "goto_slug", "go to…", show=False),
+        # Subtasks expand/collapse
+        Binding("space", "toggle_subtasks", "expand/collapse subtasks", show=False),
     ]
 
     def __init__(self, activity_title: str, activity_root: Path) -> None:
@@ -470,6 +546,9 @@ class FocusScreen(Screen):
         # Detail pane state. Hidden by default; toggled with `,`.
         self._detail_visible: bool = False
         self._detail_body = Static("", id="detail-body", expand=True)
+
+        # Subtask expansion state: slug → bool (default True = expanded).
+        self._subtask_expanded: dict[str, bool] = {}
         self._detail_scroll = VerticalScroll(self._detail_body, id="detail-scroll")
         self._detail_panel: Vertical | None = None
 
@@ -679,8 +758,36 @@ class FocusScreen(Screen):
         if not rows:
             self._render_empty(quadrant, empty_msg)
             return
+
+        # Separate parent rows from child rows.
+        by_slug: dict[str, sqlite3.Row] = {r["slug"]: r for r in rows if r["slug"]}
+        child_by_parent: dict[str, list[sqlite3.Row]] = {}
+        top_level: list[sqlite3.Row] = []
+        orphan_children: list[sqlite3.Row] = []
         for r in rows:
+            p = _row_parent_slug(r)
+            if p is not None:
+                child_by_parent.setdefault(p, []).append(r)
+            else:
+                top_level.append(r)
+
+        for r in top_level:
             lst.append(_TaskListItem(r, provider_chips=self._provider_chips))
+            slug = r["slug"]
+            children = child_by_parent.get(slug, [])
+            if children:
+                expanded = self._subtask_expanded.get(slug, True)
+                if expanded:
+                    for i, cr in enumerate(children):
+                        is_last = i == len(children) - 1
+                        lst.append(_ChildListItem(cr, is_last=is_last))
+
+        # Children whose parent isn't in this quadrant: append as regular items.
+        for p_slug, children in child_by_parent.items():
+            if p_slug not in by_slug:
+                for cr in children:
+                    lst.append(_TaskListItem(cr, provider_chips=self._provider_chips))
+
         try:
             lst.index = 0
         except Exception:
@@ -1280,6 +1387,21 @@ class FocusScreen(Screen):
             lambda: actions.unblock_task(self._activity_root, slug),
             success_msg=f"{slug} unblocked",
         )
+
+    def action_toggle_subtasks(self) -> None:
+        """Space: toggle expand/collapse subtasks under the highlighted parent."""
+        item = self._current_item()
+        if item is None:
+            return
+        slug = item.task_slug
+        if not slug:
+            return
+        count = _row_subtask_count(item.task_row)
+        if count == 0:
+            return
+        current = self._subtask_expanded.get(slug, True)
+        self._subtask_expanded[slug] = not current
+        self._refresh_data()
 
     def action_undo(self) -> None:
         # Real undo requires snapshot/journaling — not yet implemented.

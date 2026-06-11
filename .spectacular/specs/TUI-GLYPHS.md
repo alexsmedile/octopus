@@ -153,6 +153,21 @@ Emoji fast-forward (`⏩`) was rejected: renders inconsistently across terminals
 
 - `◆ session` (filled diamond as session indicator) — **retired** in v1.0. The filled-diamond slot is reserved for future activity-state encoding. Session live is `▶`. See D91.
 
+## Subtask graph glyphs (D104 / D106)
+
+Used to render the parent/child hierarchy inline in task lists. Always-visible on parent rows; tree-prefix on child rows.
+
+| Glyph | Unicode | Meaning | Where |
+|---|---|---|---|
+| `⎇` | U+2387 | branch indicator — appended to parent title with count | parent rows in Focus + Board; e.g. `Fix auth ⎇3` |
+| `├─` | U+251C U+2500 | tree prefix — non-last child row | child rows (expanded) |
+| `└─` | U+2514 U+2500 | tree prefix — last child row | last child row (expanded) |
+
+**Rendering rules:**
+- `⎇N` decoration on parent rows is always visible regardless of expand/collapse state.
+- Child rows are non-selectable (disabled); they don't receive the cursor glyph `▸`.
+- `Space` on a parent row toggles expand/collapse of its children (D106).
+
 ## Chrome glyphs
 
 Not status, not flags — UI affordances. Listed here so they never get reassigned.

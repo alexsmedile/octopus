@@ -114,6 +114,17 @@ Never reassign.
 
 - `◆ session` (filled diamond as session indicator) — retired v1.0. Session live is `▶`. The filled diamond stays reserved for activity state.
 
+## Subtask graph glyphs (D104/D106)
+
+| Glyph | Meaning | Where |
+|---|---|---|
+| `⎇N` (U+2387 + count) | parent has N subtasks | appended to parent title in grey, always visible |
+| `├─` | non-last child row tree prefix | child rows (expanded) |
+| `└─` | last child row tree prefix | last child row (expanded) |
+
+- `Space` on a parent row toggles expand/collapse of its children.
+- Child rows are non-selectable. `⎇N` is always shown regardless of expand state.
+
 ## Chrome glyphs
 
 UI affordances, never task state.
