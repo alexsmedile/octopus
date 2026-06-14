@@ -9,6 +9,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [1.4.0] — 2026-06-14
+
+**Agent JSON outputs, DB performance indexes, and progressive disclosure skill rewrite.**
+
+### Added
+
+- **`octopus status --json`**: lean JSON output — activity metadata + bucket counts + now/pinned/overdue task chips. Gives agents a fast read without loading full task arrays.
+- **`octopus next --json` enriched**: response now includes `why` (per-signal score breakdown: pinned, overdue, now_bucket, due_soon, priority, activity_priority, blocked), `energy`, `activity_title`, and `issue` fields. Agents can now explain ranking in plain English and filter by energy level.
+- **DB schema**: `blocked_by` and `waiting_for` promoted from `raw_frontmatter` to indexed columns on the `tasks` table.
+- **DB indexes**: two covering indexes — `idx_tasks_activity_bucket` (composite covering index eliminating temp B-tree sort) and `idx_tasks_open` (partial index for open tasks only, keeps index small).
+- **Skill — progressive disclosure**: SKILL.md reduced from 548 → 323 lines. Write mechanics, triage rituals, chat rendering, and all response templates extracted to on-demand reference files under `references/`.
+- **`references/write-mechanics.md`**: task naming, kind, tags, slug renames, set vs mv, capture flags, promotion, bridges — loaded only when writing or managing tasks.
+- **`references/triage-rituals.md`**: morning review, EOD, inbox triage, weekly stale, cross-project sweep patterns.
+- **`references/chat-rendering.md`**: ASCII layout rules for Focus / Board / Compact views in chat.
+- **`references/prompts/`**: five per-intent prompt files — `next-tasks`, `dashboard`, `project-status`, `recent-activity`, `blocked-stuck`. Each loads independently; agents load only the one that matches the request.
+- **`references/cli-verbs.md`**: section map at top enables targeted `Read offset+limit` calls instead of loading all 568+ lines.
+
+### Changed
+
+- **Dashboard queries**: `_DASH_COLS` replaces `SELECT t.*` — `raw_frontmatter` no longer loaded in dashboard queries.
+
+---
+
 ## [1.3.0] — 2026-06-11
 
 **Subtasks + `%kind` sigil.** Tasks can now have a 1-level-deep parent/child relationship. A new `%kind` inline sigil lets you set task kind directly on the TODO.md checkbox line.

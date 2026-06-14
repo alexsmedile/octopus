@@ -15,7 +15,7 @@
         "authentication": "ON_USE"
       },
       "description": "Folder-native task and continuity system. Activities, tasks, sessions, memory, handoffs — all as markdown.",
-      "version": "1.2.0",
+      "version": "1.4.0",
       "category": "Productivity"
     }
   ]
