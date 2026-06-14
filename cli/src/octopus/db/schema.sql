@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   kind            TEXT,   -- D46 work-classification (soft enum)
   promoted_to     TEXT,   -- D48 "<provider>:<identifier>" — presence = promoted
   parent          TEXT,   -- D104 slug of parent task (activity-scoped, 1-level max)
+  subtasks        TEXT,   -- D104 JSON list of child slugs (derived, managed by reindex)
+  blocked_by      TEXT,   -- impediment detail (promoted from raw_frontmatter)
+  waiting_for     TEXT,   -- impediment detail (promoted from raw_frontmatter)
   raw_frontmatter TEXT,
   indexed_at      DATETIME NOT NULL,
   UNIQUE(activity_id, slug)
@@ -64,6 +67,17 @@ CREATE INDEX IF NOT EXISTS idx_tasks_activity     ON tasks(activity_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_kind         ON tasks(kind);
 CREATE INDEX IF NOT EXISTS idx_tasks_promoted_to  ON tasks(promoted_to);
 CREATE INDEX IF NOT EXISTS idx_tasks_parent       ON tasks(parent);
+
+-- Fix 1: composite covering index for tasks_for_activity (eliminates temp B-tree sort).
+-- Covers: activity_id filter + archived guard + bucket filter + sort (pinned, priority, due, slug).
+CREATE INDEX IF NOT EXISTS idx_tasks_activity_bucket
+  ON tasks(activity_id, bucket, archived, pinned DESC, due, slug);
+
+-- Fix 2: partial index for open tasks (fixes SCAN in loops / tasks_all).
+-- Only indexes rows that are not done/dropped and not archived — keeps the index small.
+CREATE INDEX IF NOT EXISTS idx_tasks_open
+  ON tasks(bucket, activity_id, pinned DESC, due, slug)
+  WHERE bucket NOT IN ('done', 'dropped') AND (archived IS NULL OR archived = 0);
 
 -- External refs dedup index (schema v3, D63)
 CREATE TABLE IF NOT EXISTS task_external_refs (

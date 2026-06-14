@@ -5,6 +5,18 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+# Columns returned by list-style task queries (tasks_for_activity, tasks_all, loops).
+# Excludes raw_frontmatter — callers use the promoted columns (subtasks, blocked_by,
+# waiting_for) instead of JSON-parsing the blob at render time.
+_TASK_LIST_COLS = """
+    id, activity_id, path, slug, title,
+    bucket, stage, run_state, pinned, issue, archived,
+    due, scheduled, start_date, end_date,
+    priority, energy, actor, owner,
+    kind, promoted_to, parent, subtasks, blocked_by, waiting_for,
+    indexed_at
+""".strip()
+
 
 def list_activities(
     conn: sqlite3.Connection,
@@ -156,11 +168,10 @@ def tasks_for_activity(
 ) -> list[sqlite3.Row]:
     """Tasks for one activity, sorted pinned-first / priority / due / slug.
 
-    --kind / --promoted / --spec filter args follow D52 scope rules. When
-    `promoted=True` or `spec` is set, this overrides the default scope
-    implicitly (callers don't need to lift `include_archived`).
+    Uses idx_tasks_activity_bucket to avoid a temp B-tree sort on every call.
+    Excludes raw_frontmatter — callers use promoted columns (subtasks, blocked_by, waiting_for).
     """
-    sql = "SELECT * FROM tasks WHERE activity_id = ?"
+    sql = f"SELECT {_TASK_LIST_COLS} FROM tasks WHERE activity_id = ?"
     args: list[Any] = [activity_id]
     if bucket:
         sql += " AND bucket = ?"
@@ -194,8 +205,12 @@ def tasks_all(
     promoted: bool = False,
     spec: str | None = None,
 ) -> list[sqlite3.Row]:
-    """Tasks across ALL activities — backing `--all` flag and `octopus loops`."""
-    sql = "SELECT * FROM tasks WHERE 1=1"
+    """Tasks across ALL activities — backing `--all` flag and `octopus loops`.
+
+    Uses idx_tasks_open partial index when no bucket filter or include_archived
+    is set (the common case), avoiding a full table scan.
+    """
+    sql = f"SELECT {_TASK_LIST_COLS} FROM tasks WHERE 1=1"
     args: list[Any] = []
     if bucket:
         sql += " AND bucket = ?"
@@ -228,10 +243,11 @@ def loops(
 ) -> list[sqlite3.Row]:
     """Open loops: bucket NOT IN (done, dropped) AND NOT archived.
 
+    Uses idx_tasks_open partial index — no full table scan.
     Scoped to one activity if given; else cross-activity.
     """
-    sql = """
-        SELECT * FROM tasks
+    sql = f"""
+        SELECT {_TASK_LIST_COLS} FROM tasks
         WHERE bucket NOT IN ('done', 'dropped')
           AND (archived IS NULL OR archived = 0)
     """

@@ -3115,11 +3115,13 @@ def status(
     ),
     show_ids: bool = typer.Option(False, "--show-ids", "-i"),
     limit: int = typer.Option(5, "--limit", help="Max tasks per section (now/pinned/overdue)."),
+    json_flag: bool = typer.Option(False, "--json", help="Emit metadata+counts+previews as JSON."),
 ) -> None:
     """Rich activity view (D90): metadata + bucket counts + now/pinned/overdue.
 
     Path-or-id resolution (D83): token starts with `/`, `~`, or contains `/`
     → filesystem path; otherwise activity id (exact or unambiguous prefix).
+    --json emits a lean document (no raw_frontmatter, no full task body) suited for agents.
     """
     from octopus.core.identify import (
         ActivityAmbiguous,
@@ -3155,78 +3157,114 @@ def status(
                 console.print(EMPTY_INDEX_HINT)
                 return
 
-        display_id = activity["id"] if show_ids else short_form(activity["id"])
-
-        # Metadata table
-        tbl = Table(show_header=False, show_edge=False, padding=(0, 2))
-        tbl.add_column(style="dim")
-        tbl.add_column()
-        tbl.add_row("Activity", f"[bold]{display_id}[/]")
-        tbl.add_row("Title", activity["title"] or "")
-        tbl.add_row("Path", activity["path"])
-        tbl.add_row("Type", activity["type"] or "")
-        tbl.add_row("Status", activity["status"] or "")
-        try:
-            pri = activity["priority"]
-        except (KeyError, IndexError):
-            pri = None
-        if pri:
-            tbl.add_row("Priority", _priority_chip(pri))
-        if activity["area"]:
-            tbl.add_row("Area", activity["area"])
-        if activity["last_reviewed"]:
-            tbl.add_row("Last reviewed", str(activity["last_reviewed"]))
-        try:
-            lt = activity["last_touched_at"]
-        except (KeyError, IndexError):
-            lt = None
-        if lt:
-            tbl.add_row("Last touched", str(lt))
-        console.print(tbl)
-
-        # Bucket counts
+        # Bucket counts + task previews — collected here, rendered after conn.close()
         counts = count_by_bucket(conn, activity["id"])
-        if counts:
-            console.print()
-            ctab = Table(show_header=False, padding=(0, 2))
-            ctab.add_column(style="dim")
-            ctab.add_column(justify="right")
-            for b in ("now", "next", "backlog", "done", "dropped"):
-                n = counts.get(b, 0)
-                if n:
-                    ctab.add_row(b, str(n))
-            if ctab.row_count:
-                console.print(ctab)
 
         # Now / pinned / overdue task previews
         rows = tasks_for_activity(conn, activity["id"])
         now_rows = [r for r in rows if r["bucket"] == "now"]
         pinned_rows = [r for r in rows if r["pinned"]]
+        today_iso = date.today().isoformat()
         overdue_rows = [
             r for r in rows
             if r["due"] is not None
-            and str(r["due"]) < date.today().isoformat()
+            and str(r["due"]) < today_iso
             and r["bucket"] not in {"done", "dropped"}
         ]
-        for label, items in (
-            ("Now", now_rows),
-            ("Pinned", pinned_rows),
-            ("Overdue", overdue_rows),
-        ):
-            if not items:
-                continue
-            console.print(f"\n[bold]{label}[/] ({len(items)})")
-            for r in items[:limit]:
-                marker = ""
-                if r["priority"] == "urgent":
-                    marker = "🔥 "
-                elif r["priority"] == "high":
-                    marker = "! "
-                console.print(f"  {marker}[cyan]{r['slug']}[/]  {r['title']}")
-            if len(items) > limit:
-                console.print(f"  [dim]…and {len(items) - limit} more[/]")
     finally:
         conn.close()
+
+    def _task_chip(r) -> dict:
+        return {
+            "slug": r["slug"],
+            "title": r["title"],
+            "bucket": r["bucket"],
+            "priority": r["priority"],
+            "due": str(r["due"]) if r["due"] else None,
+            "pinned": bool(r["pinned"]),
+            "kind": r["kind"],
+            "issue": r["issue"],
+        }
+
+    if json_flag:
+        import json as _json
+        doc = {
+            "id": activity["id"],
+            "title": activity["title"],
+            "path": activity["path"],
+            "type": activity["type"],
+            "status": activity["status"],
+            "priority": activity["priority"],
+            "area": activity["area"],
+            "last_touched_at": str(activity["last_touched_at"]) if activity["last_touched_at"] else None,
+            "counts": counts,
+            "now": [_task_chip(r) for r in now_rows],
+            "pinned": [_task_chip(r) for r in pinned_rows],
+            "overdue": [_task_chip(r) for r in overdue_rows],
+        }
+        sys.stdout.write(_json.dumps(doc, ensure_ascii=False, default=str))
+        sys.stdout.write("\n")
+        return
+
+    # Rich rendering
+    display_id = activity["id"] if show_ids else short_form(activity["id"])
+
+    # Metadata table
+    tbl = Table(show_header=False, show_edge=False, padding=(0, 2))
+    tbl.add_column(style="dim")
+    tbl.add_column()
+    tbl.add_row("Activity", f"[bold]{display_id}[/]")
+    tbl.add_row("Title", activity["title"] or "")
+    tbl.add_row("Path", activity["path"])
+    tbl.add_row("Type", activity["type"] or "")
+    tbl.add_row("Status", activity["status"] or "")
+    try:
+        pri = activity["priority"]
+    except (KeyError, IndexError):
+        pri = None
+    if pri:
+        tbl.add_row("Priority", _priority_chip(pri))
+    if activity["area"]:
+        tbl.add_row("Area", activity["area"])
+    if activity["last_reviewed"]:
+        tbl.add_row("Last reviewed", str(activity["last_reviewed"]))
+    try:
+        lt = activity["last_touched_at"]
+    except (KeyError, IndexError):
+        lt = None
+    if lt:
+        tbl.add_row("Last touched", str(lt))
+    console.print(tbl)
+
+    if counts:
+        console.print()
+        ctab = Table(show_header=False, padding=(0, 2))
+        ctab.add_column(style="dim")
+        ctab.add_column(justify="right")
+        for b in ("now", "next", "backlog", "done", "dropped"):
+            n = counts.get(b, 0)
+            if n:
+                ctab.add_row(b, str(n))
+        if ctab.row_count:
+            console.print(ctab)
+
+    for label, items in (
+        ("Now", now_rows),
+        ("Pinned", pinned_rows),
+        ("Overdue", overdue_rows),
+    ):
+        if not items:
+            continue
+        console.print(f"\n[bold]{label}[/] ({len(items)})")
+        for r in items[:limit]:
+            marker = ""
+            if r["priority"] == "urgent":
+                marker = "🔥 "
+            elif r["priority"] == "high":
+                marker = "! "
+            console.print(f"  {marker}[cyan]{r['slug']}[/]  {r['title']}")
+        if len(items) > limit:
+            console.print(f"  [dim]…and {len(items) - limit} more[/]")
 
 
 # ── get / dashboard / next / impact (D90) ─────────────────────────────
@@ -3365,6 +3403,7 @@ def _gather_ranked_tasks(conn) -> list[dict]:
             "pinned": r["pinned"],
             "due": r["due"],
             "priority": r["priority"],
+            "energy": r["energy"],
             "issue": r["issue"],
             "last_touched_at": act["last_touched_at"] if act else None,
             "score": score.total,
@@ -3437,17 +3476,34 @@ def _emit_ranked(
     import json as _json
 
     if json_flag or json_path:
+        def _breakdown(r) -> dict:
+            bd = r.get("score_breakdown")
+            if bd is None:
+                return {}
+            return {
+                "pinned": bd.pinned,
+                "overdue": bd.overdue,
+                "now_bucket": bd.now_bucket,
+                "due_soon": bd.due_soon,
+                "priority": bd.priority,
+                "activity_priority": bd.activity_priority,
+                "blocked": bd.blocked,
+            }
         payload = [
             {
                 "rank": i + 1,
                 "activity_id": r["activity_id"],
+                "activity_title": r.get("activity_title", ""),
                 "slug": r["slug"],
                 "title": r["title"],
                 "bucket": r["bucket"],
                 "pinned": bool(r["pinned"]),
                 "due": str(r["due"]) if r["due"] else None,
                 "priority": r["priority"],
+                "energy": r.get("energy"),
+                "issue": r.get("issue"),
                 "score": r["score"],
+                "why": _breakdown(r),
             }
             for i, r in enumerate(ranked)
         ]
@@ -3492,11 +3548,17 @@ def dashboard(
     """Composite cross-activity view (D90): pinned, overdue, now, blocked, sessions."""
     import json as _json
 
+    # Columns needed by the dashboard _row() serializer — excludes raw_frontmatter.
+    _DASH_COLS = (
+        "t.activity_id, a.title AS activity_title, t.slug, t.title, "
+        "t.bucket, t.due, t.priority, t.pinned, t.issue"
+    )
+
     conn = get_db()
     try:
         # Pinned across all activities, active only
         pinned = conn.execute(
-            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            f"SELECT {_DASH_COLS} FROM tasks t "
             "JOIN activities a ON a.id = t.activity_id "
             "WHERE t.pinned = 1 AND (t.archived IS NULL OR t.archived = 0) "
             "AND t.bucket NOT IN ('done', 'dropped') "
@@ -3506,7 +3568,7 @@ def dashboard(
 
         today_str = date.today().isoformat()
         overdue = conn.execute(
-            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            f"SELECT {_DASH_COLS} FROM tasks t "
             "JOIN activities a ON a.id = t.activity_id "
             "WHERE t.due IS NOT NULL AND t.due < ? "
             "AND (t.archived IS NULL OR t.archived = 0) "
@@ -3517,7 +3579,7 @@ def dashboard(
         ).fetchall()
 
         now_rows = conn.execute(
-            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            f"SELECT {_DASH_COLS} FROM tasks t "
             "JOIN activities a ON a.id = t.activity_id "
             "WHERE t.bucket = 'now' AND (t.archived IS NULL OR t.archived = 0) "
             "AND (a.status IS NULL OR a.status != 'archived') "
@@ -3525,7 +3587,7 @@ def dashboard(
         ).fetchall()
 
         blocked = conn.execute(
-            "SELECT t.*, a.title AS activity_title FROM tasks t "
+            f"SELECT {_DASH_COLS} FROM tasks t "
             "JOIN activities a ON a.id = t.activity_id "
             "WHERE t.issue IN ('blocked', 'waiting') "
             "AND (t.archived IS NULL OR t.archived = 0) "

@@ -2,6 +2,30 @@
 
 `octopus` (alias `octo`) is the primary user interface. Every verb is callable both as a subcommand (`octopus task start <slug>`) and, where natural, as a shortcut at the top level (`octopus start <slug>`).
 
+## Section map — load this first, then `Read` the target section by offset if needed
+
+| Section | Approx. lines | Contents |
+|---|---|---|
+| Exit codes | 5–13 | Return code meanings |
+| Global flags | 14–20 | `--version`, `--no-stale-check` |
+| Initialization & navigation | 21–32 | `init`, `where` |
+| Capture & pipeline | 33–90 | `capture`, `add task`, `plan`, `focus`, `park`, `defer`, `block`, `wait`, `unblock`, `pin`, `unpin`, `archive`, `restore` |
+| Listing & viewing | 91–179 | `show`, `task list`, `task show`, `status`, `get activity`, `dashboard`, `next`, `impact`, `list activities`, `list tasks` |
+| Curated views | 180–189 | `loops`, `today`, `stuck`, `stale`, `context` |
+| Set / rename / move | 190–267 | `set`, `set --slug`, `mv`, `forget activity` — D76/D77/D78/D84 |
+| References | 268–284 | `refs find` |
+| Bridges | 285–366 | `bridge list/enable/disable/status/peek/pull/search/add/complete/uncomplete` |
+| Promotion | 367–409 | `promote`, `--to` forms, multi-task, reverse flow |
+| Sessions | 410–442 | `session start/end/switch/list/show/prune`, `log` |
+| Memory | 443–466 | `memory show/append/summary/state` |
+| Handoffs | 467–482 | `handoff new/list/show` |
+| Indexing | 483–495 | `reindex`, `config root add/list/remove` |
+| Config | 496–505 | `config show`, config.toml fields |
+| Lint | 506–535 | `octopus lint` flags and severity levels |
+| TUI launcher | 536–552 | `octopus tui` flags |
+| Flag conventions | 553–559 | Common flag patterns |
+| Common patterns | 560+ | Chained command examples |
+
 ## Exit codes
 
 | Code | Meaning |

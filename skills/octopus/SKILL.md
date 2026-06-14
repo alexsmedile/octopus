@@ -144,6 +144,14 @@ When the user's request crosses any threshold below, read the named reference **
 | Debug a CLI validation error or check an invariant before writing | `references/critical-dependencies.md` |
 | Set up, peek into, pull from, or search a bridge/adapter | `references/adapter-framework.md` |
 | Migrate an existing project folder to Octopus (init + TODO.md rewrite + pull) | use `/octopus-migrate` skill |
+| Run a morning review / EOD / inbox triage / weekly stale / cross-project sweep | `references/triage-rituals.md` |
+| Render tasks in chat as ASCII layouts (Focus / Board / Compact) | `references/chat-rendering.md` |
+| Respond to "what should I work on" / top tasks / tomorrow | `references/prompts/next-tasks.md` |
+| Respond to "what's going on" / dashboard / overview | `references/prompts/dashboard.md` |
+| Respond to "how's [project]" / project status | `references/prompts/project-status.md` |
+| Respond to "what did I work on" / recent activity | `references/prompts/recent-activity.md` |
+| Respond to "what's blocked" / stuck | `references/prompts/blocked-stuck.md` |
+| Name a task, set kind/tags, rename slug, use capture flags, promote, or use bridges | `references/write-mechanics.md` |
 
 Triggers:
 
@@ -177,7 +185,7 @@ Octopus is the agent's task-management protocol. When the user asks open-ended q
 
 | User says | Run | Then offer |
 |---|---|---|
-| "what should I do" / "what's next" / "what's on my plate" | `octopus next` | `octopus impact` for the full ranked list |
+| "what should I do" / "what's next" / "what's on my plate" / "top tasks for tomorrow" | `octopus next --json` then translate `why` breakdown into plain English — "pinned + overdue = do this first"; if the user mentioned time or energy, filter the list before presenting | `octopus impact --json` for the full ranked list |
 | "what's going on" / "dashboard" / "overview" / "give me the picture" | `octopus dashboard` | drill into top-priority activity via `octopus status <id>` |
 | "what's the status of \<project\>" / "how's \<project\>" | `octopus status <project>` (rich view with path-or-id) | `octopus list tasks <project>` for the full task list |
 | "show me everything across all projects" | `octopus list activities` (card layout, priority-sorted) | filter flags as needed |
@@ -188,6 +196,7 @@ Octopus is the agent's task-management protocol. When the user asks open-ended q
 | "what's blocked" | `octopus stuck` | the dashboard's `BLOCKED` section also surfaces these |
 | "what did I touch recently" / "what was I working on" | `octopus list activities --touched-within 7` | `octopus status <id>` on the freshest |
 | "give me JSON of \<project\>" / "pipe this to jq" | `octopus get activity <project>` (TTY → pretty, pipe → compact) | `--format compact` to force |
+| "quick status of \<project\>" for agent decision-making | `octopus status <project> --json` (lean: metadata + counts + now/pinned/overdue chips) | lighter than `get activity` — no full task arrays |
 | "I'm starting on \<project\>" | `octopus status <project>` first (read), then any writes | use `--activity` on every write that follows |
 
 Three rules that frame everything above:
@@ -197,35 +206,24 @@ Three rules that frame everything above:
 
 ---
 
+## Response templates
+
+Each common request type has a dedicated prompt file. Load only the one that matches.
+
+| Request | Load |
+|---|---|
+| "what to work on" / top tasks / tomorrow | `references/prompts/next-tasks.md` |
+| "what's going on" / dashboard / overview | `references/prompts/dashboard.md` |
+| "how's [project]" / project status | `references/prompts/project-status.md` |
+| "what did I work on" / recent activity | `references/prompts/recent-activity.md` |
+| "what's blocked" / stuck | `references/prompts/blocked-stuck.md` |
+
+---
+
 ## Triage rituals
 
-Recurring patterns the agent should suggest or run autonomously when the user invites them:
-
-### Morning review
-1. `octopus dashboard` — what's loud right now.
-2. `octopus next` — the top 3 things the heuristic surfaces.
-3. Drill into the top item: `octopus status <slug>` or `octopus get activity <id>` for full context.
-4. Pick one, `octopus start <slug>` (use `--activity` if running from outside).
-
-### End of day
-1. `octopus list activities --touched-within 1` — what got worked on today.
-2. For each touched activity, `octopus memory append <id> "<one-line>"` for what changed.
-3. If a work block needs continuity: `octopus session end --handoff` to leave a router note.
-
-### Inbox triage
-1. `octopus bridge pull --all` — drain TODO.md, Reminders, etc.
-2. `octopus list activities --has-now --has-pinned` — see where the pulled items landed.
-3. Promote anything that's really a project, not a task: `octopus promote <slug> --to spectacular:<slug>`.
-
-### Weekly stale check
-1. `octopus stale` (default: next-bucket tasks not touched in >14 days).
-2. For each, decide: `octopus park <slug>` (back to backlog), `octopus archive <slug>` (hide), or `octopus drop <slug>` (acknowledge it's not happening).
-3. `octopus list activities --include-archived --touched-within 60` to spot zombies.
-
-### Cross-project sweep
-- `octopus impact --limit 0 --show-score` — full ranked list.
-- `octopus list activities --priority urgent` — the projects that should be loudest.
-- Mismatch (urgent project with no high-priority tasks)? → review whether the priority is still right.
+Morning review · end of day · inbox triage · weekly stale check · cross-project sweep.
+Load `references/triage-rituals.md` when the user asks for any of these patterns.
 
 ---
 
@@ -284,7 +282,9 @@ Goal of the move?
 What does the user want to see?
   ├─ Quick "what's the state of X" for a human?
   │     → octopus status <path-or-id>
-  ├─ JSON for programmatic consumption?
+  ├─ JSON for programmatic consumption (lean — metadata + counts + previews)?
+  │     → octopus status <path-or-id> --json
+  ├─ JSON with full task arrays (all fields, every task)?
   │     → octopus get activity <path-or-id>
   ├─ Just the tasks in X?
   │     → octopus list tasks <path-or-id>
@@ -310,321 +310,14 @@ What does the user want to see?
 
 ---
 
-## Task naming — F1 imperative
+## Write mechanics
 
-Every task title is **`verb result`** in lowercase, imperative voice. No prefixes (`Friction:`, `Bug:`), no parenthetical suffixes (`(request NN)`), no trailing qualifiers.
-
-### Rules
-- Start with a concrete imperative verb. Common set: `build / wire / port / pull / push / migrate / refactor / fix / drop / polish / verify / define / clarify / document / lint / link / add`.
-- **Don't over-use `add`.** It's the fallback when nothing more specific applies. If you can say `wire`, `build`, `pull`, `port`, `link`, or `migrate`, pick the sharper verb — it tells the reader what *kind* of work it is. `add` is correct when the task really is "make a new thing appear" with no transformation of existing pieces (e.g. a new flag, a new column, a new section).
-- Lowercase by default. Sentence case only for proper nouns or identifiers in backticks.
-- ~50-character soft cap. If you can't fit, split the task.
-- Use backticks around CLI verbs, flag names, or schema field names: `` `run_state` ``, `` `--activity-relative` ``.
-- Drop noise words: "and styling", "with a real", "to associate", "between section content and next section heading" — say what changes, not how.
-
-### Examples (good)
-
-```
-build apple reminders pull adapter
-wire obsidian symlink bridge
-add `--activity-relative` scoped view filter
-fix duplicate timestamps in rapid session log entries
-clarify "N sessions" output in `reindex`
-polish error messages + rich output
-verify `run_state` in a real automation
-drop "(request NN)" suffix from task titles
-```
-
-### Examples (avoid)
-
-```
-Add Apple Reminders pull adapter (request 09)       ← parenthetical link belongs in frontmatter, not title
-Friction: titles with 'request NN' duplicate…       ← "Friction:" is a kind label; goes in metadata
-Decide forget verb semantics                         ← prefer concrete verb: "define"
-Consider an --activity-relative scoped view…        ← "consider" hides the actual action
-Memory show: missing blank line between section…    ← burying the verb behind a noun-phrase prefix
-```
-
-Kind/area metadata (bug, feat, polish, etc.) is **out of scope for the title** — it lives in the `kind` frontmatter field (D46), rendered as a `[kind]` chip in TUI rows and chat layouts. See "Task `kind`" below.
-
----
-
-## Task `kind` (D46)
-
-Optional work-classification field on every task. Soft enum:
-
-| `kind` | When to use |
-|---|---|
-| `feat` | new capability shipped to users |
-| `bug` | something is broken |
-| `spec` | a decision needs locking before code |
-| `polish` | UX/output quality, not behavior |
-| `test` | verification work |
-| `chore` | maintenance, cleanup, deps, refactor, docs |
-
-Rules:
-- Optional. Tasks without `kind` render with no chip — fully backward-compatible.
-- One value per task. Mutable via `octopus set <slug> --kind=<value>`.
-- Soft validation — unknown values log a warning, don't reject.
-- Indexed. Filter via `octopus list --kind <enum>` (comma-sep for multi).
-- Survives promotion. Hidden from default scope (because promoted tasks live in `done/`); surface via `--all`, `--promoted`, or `--spec`.
-
----
-
-## Tags (D76)
-
-Tags are stored with leading `#` in frontmatter to match Obsidian:
-
-```yaml
-tags:
-  - "#bug"
-  - "#tui/marquee"        # nested via /
-  - "#release/p0"
-```
-
-The reader accepts both `#bug` and `bug` (silent normalization on write). All tag flag values accept input with or without `#`.
-
-### Tag flag matrix
-
-The same four flag families exist on both `capture` and `set`:
-
-| Flag | Behavior |
-|---|---|
-| `--tag <X>` / `--tags <X[,Y…]>` | **Replace** the tag list |
-| `--add-tag <X>` / `--add-tags <X[,Y…]>` | **Append** (dedup) |
-| `--remove-tag <X>` / `--remove-tags <X[,Y…]>` | **Remove** (no-op if absent) |
-| `--clear-tags` | **Empty** the tag list |
-
-Singular and plural are aliases. All accept three input forms, interchangeable:
-- comma-separated: `--tag X,Y,Z`
-- space-separated within quotes: `--tag "X Y Z"`
-- repeated invocation: `--tag X --tag Y --tag Z`
-
-**Mutex:** `--tag/--tags` (replace) cannot be combined with `--add-tag/--remove-tag/--clear-tags` (incremental). Mixing them errors with a clear message. When combining incremental flags, the apply order is `clear → remove → add`.
-
-### Tag filtering
-
-`octopus list --tag parent` matches both `#parent` and any `#parent/*` (prefix match on `/` boundary, Obsidian convention).
-
----
-
-## Slug renames and references (D78, D79)
-
-Slugs are filenames — they're CLI-owned. To change one safely, use `octopus set <old> --slug <new>`. This is the **only** way to rename a task.
-
-The rename cascades automatically:
-- Filesystem rename (`tasks/<bucket>/<old>.md` → `tasks/<bucket>/<new>.md`)
-- SQLite index update
-- `waiting_for: <old>` rewrites in any other task's frontmatter
-- `related_tasks: [..., <old>, ...]` and `promoted_from: <old>` rewrites in spectacular PLAN.md files
-- `→ octopus:<old>` arrow rewrites in any TODO.md the activity has
-
-User-prose bodies are NOT auto-fixed but ARE named in the warning:
-- session bodies, memory body, handoff bodies
-
-Without `-y`, the rename prompts with a full preview. Pass `-y` to skip.
-
-**Companion verb:** `octopus refs find <slug>` is a read-only grep over every Octopus-managed text file in the activity (`--all` for cross-activity). Splits output into managed refs and user-prose mentions. Useful after a rename to spot residual references, or just to answer "where does this slug appear?"
-
----
-
-## `set` vs `mv` vs lifecycle verbs (D77)
-
-These three categories overlap on `bucket`, and the boundary is intentional:
-
-| Use this when… | Verb | Side effects |
-|---|---|---|
-| You want to change frontmatter only — no file move | `set --bucket <x>` | Frontmatter only. Soft warning if folder mismatches in folder-mode storage. |
-| You want to physically move the file (and update frontmatter) | `octopus move <slug> <bucket>` / `mv` | File move + frontmatter. **No date stamps, no other side effects.** |
-| You want lifecycle side effects (date stamps, clearing pinned/issue/run_state) | `start` / `finish` (alias `end`) / `drop` | File move + frontmatter + lifecycle bookkeeping. |
-
-`mv` will reject a move to `done`/`dropped` without the required dates and points the user at `finish`/`drop`.
-
----
-
-## Capture flag surface (v0.6.0)
-
-`octopus capture <title>` accepts:
-
-| Flag | Field set |
-|---|---|
-| `--next` / `--now` | `bucket` (mutually exclusive). `--now` does **NOT** auto-pin (D81). |
-| `--slug <x>` | Override the auto-generated slug |
-| `--priority <urgent\|high\|low>` | `priority` (use `normal`/`none`/`""` to clear) |
-| `--due <YYYY-MM-DD>` | `due` |
-| `--scheduled <YYYY-MM-DD>` | `scheduled` |
-| `--start-date <YYYY-MM-DD>` | `start_date` (does NOT trigger the `start` verb) |
-| `--end-date <YYYY-MM-DD>` | `end_date` (validation will reject this without a terminal bucket) |
-| `--actor <ai\|automation>` | `actor` (use `human`/`""` to clear — human is the default) |
-| `--energy <low\|mid\|high>` | `energy` |
-| `--owner <name>` | `owner` |
-| `--stage <text>` | `stage` (per-activity workflow stage) |
-| `--tag/--tags/--add-tag/...` | full tag flag matrix (see above) |
-
-Empty body by default (D82) — no more hardcoded `## References`.
-
----
-
-## Task promotion (D47–D54)
-
-When an Octopus task graduates to a Spectacular request (or another external target), promote it — don't duplicate it.
-
-```
-octopus promote <slug> [<slug>...] --to <target>     # promote
-octopus promote <slug> --to <target> --force         # repoint already-promoted
-octopus promote <slug> --revert                      # soft-clear (returns to backlog)
-```
-
-### When to use
-
-- A backlog idea has matured enough that you're ready to write a real spec for it.
-- A small task naturally folds into a larger build that needs a PLAN.md + decisions.
-- Multiple related tasks should be addressed in one cohesive request — promote them all to the same target.
-
-### When NOT to use
-
-- The task is small and self-contained — just `finish` it.
-- You're not ready to write the spec yet — leave it in `backlog/`.
-- The work doesn't need Spectacular-style ceremony (PLAN, decisions, deliverables).
-
-### `--to` input forms
-
-| Form | Meaning |
-|---|---|
-| `--to spectacular:20-task-promotion` | explicit existing/new request |
-| `--to spec:20-task-promotion` | chip alias accepted |
-| `--to 20-task-promotion` | uses `[providers.default]` (= `spectacular`) |
-| `--to spec` | single-task only — uses task slug as request slug |
-| `--to spec:new --slug 21-foo` | explicit new request |
-
-If the target request doesn't exist, `promote` scaffolds it. If `auto_number` is on (default), the slug gets a leading `NN-` based on the next free integer.
-
-### What promote does
-
-1. Sets `promoted_to: <provider>:<id>` on the task.
-2. Sets `end_date: <today>` and `bucket: done`.
-3. Moves the file to `tasks/done/<slug>.md`.
-4. Replaces the body with a 3-line stub pointing at the PLAN.md.
-5. Scaffolds `.spectacular/requests/<slug>/PLAN.md` if absent, with `promoted_from: <task-slug>`.
-6. Reindex regenerates `related_tasks:` on the request side (read-only, derived).
-
-### Idempotency
-
-Already-promoted tasks reject with exit 4 unless `--force` (repoint) or `--revert` (soft-clear). The PLAN.md and `promoted_from` field are **historical** — never cleared on repoint.
-
-### Multi-task
-
-`octopus promote A B C --to spec:obsidian-bridge` folds three tasks into one request atomically. Pre-flight validates everything before any write. Provider-only shorthand (`--to spec`) is rejected with 2+ tasks (ambiguous).
-
-### Reverse flow
-
-If a shipped request leaves stragglers, those become **new** Octopus tasks linking back via `promoted_to`. Promotion is one-way; reverse promotion (request → task) is not a thing.
+Task naming · kind · tags · slug renames · set vs mv · capture flags · promotion · bridges.
+Load `references/write-mechanics.md` when: naming a new task, setting kind/tags, renaming a slug, using capture flags, promoting a task, or working with bridge adapters.
 
 ---
 
 ## Presenting tasks in chat
 
-When the user asks to see their tasks (overview, status, what's in backlog, focus view, board, kanban, etc.), render them as **ASCII layouts** that mirror the `octopus tui` glyphs and structure — not generic markdown lists. Visual continuity with the TUI is part of the brand.
-
-### Sourcing
-- Always pull from `octopus list` (or read `.octopus/tasks/<bucket>/*.md` directly when the CLI isn't enough). Never invent rows.
-- For counts, prefer `octopus status` output. For per-task chips, read frontmatter (`pinned`, `run_state`).
-
-### Glyphs (match the TUI exactly)
-- `▢` task row · `▸` cursor (only if you're highlighting a specific task)
-- `⚐` pinned · `⏸` blocked · `✓` done · `✗` dropped
-- `●` NOW · `○` NEXT (bucket headers)
-- `[kind]` work-classification chip (cyan in TUI; plain in chat)
-- `→ chip:id` promotion arrow on tasks with `promoted_to` (dim in TUI; plain in chat)
-- `…N more` when truncating
-
-### Chip + arrow rendering rules
-- **`[kind]` chip:** show in compact list and Focus quadrants. In Board (narrow columns), omit if it forces title truncation past the 50% mark.
-- **Promotion arrow:** only show in `--all` / `--promoted` / `--spec` scopes. Use the configured chip alias (`spec:` not `spectacular:`).
-- Both chips are inline AFTER the title in compact list (`▢ pull apple reminders into backlog [feat] · reminders`), or as a right-aligned suffix in quadrant/board cells when space permits.
-
-### Layout routing
-
-Pick the layout based on the user's phrasing — don't ask, just match.
-
-| User phrasing contains… | Use layout |
-|---|---|
-| "focus", "overview", "what should I work on", "active" | **Focus quadrants (A)** |
-| "board", "kanban", "all buckets", "everything" | **Board kanban (B)** |
-| "backlog", "what's in X", "list", default | **Compact list (C)** |
-
-### Layout A — Focus quadrants (BACKLOG | NOW/NEXT)
-
-```
-┌─ BACKLOG ──────────────────────────┬─ ● NOW ────────────────────────────┐
-│   ▢ wire obsidian symlink bridge   │   ▢ ship the TUI                   │
-│   ⚐ polish error messages          │   ⏸ verify run_state semantics     │
-│   ▢ apple reminders pull adapter   ├─ ○ NEXT ───────────────────────────┤
-│   …5 more                          │   ▢ build sqlite migrations        │
-└────────────────────────────────────┴────────────────────────────────────┘
-  9 backlog · 2 now · 1 next · 1 blocked
-```
-
-### Layout B — Board kanban (four columns)
-
-```
-┌─ BACKLOG ──────┬─ ○ NEXT ───────┬─ ● NOW ────────┬─ ✓ DONE ───────┐
-│ ▢ wire obsid…  │ ▢ verify run…  │ ▢ ship the…    │ ✓ add textual… │
-│ ⚐ polish err…  │                │ ⏸ build sqli…  │ ✓ build sqli…  │
-│ ▢ apple remi…  │                │                │ ✓ implement…   │
-│ …5 more        │                │                │ …2 more        │
-└────────────────┴────────────────┴────────────────┴────────────────┘
-```
-
-### Layout C — Compact list (default)
-
-```
-backlog (9)
-  ▢ [feat] wire obsidian symlink bridge
-  ⚐ [polish] polish error messages and rich output
-  ▢ [feat] pull apple reminders into backlog
-  …6 more — ask to see all
-
-next (1)
-  ▢ [test] verify run_state in a real automation
-
-now (0)
-  (empty — use m from next to activate)
-```
-
-If the user asked for `--promoted` or `--spec <slug>`, append the arrow:
-
-```
-promoted (2)
-  ✓ [chore] drop "(request NN)" suffix → spec:20-task-promotion
-  ✓ [feat]  wire obsidian symlink bridge → spec:20-task-promotion
-```
-
-### Rendering rules
-- Truncate titles to fit the column. Use `…` to indicate truncation; never wrap.
-- Cap each column at **5 rows** in chat — append `…N more` if exceeded. Show the full list only when the user explicitly asks ("show all", "everything in backlog").
-- One blank line between buckets in layout C.
-- Strip the "(request NN)" suffix from titles when it crowds the column.
-- Wrap the block in a code fence so monospace renders correctly.
-- After the block, add **one short sentence** of context (next action, what's blocked) — not a re-summary of what's already on screen.
-
----
-
-## Bridges (v1 scope)
-
-Adapters bridge Octopus to external systems. v1 ships pull-only. Operating via the `octopus bridge` verb group (`list / enable / disable / status / peek / pull / search`).
-
-Two distinct verbs for reading:
-- **`peek`** — read-only display, no files created. Safe exploration.
-- **`pull`** — imports as Octopus task files, deduped via `task_external_refs`.
-
-When the user wants to "see what's there" → `peek`. When they want to "bring it in" → `pull`. For full operational guidance, see `references/adapter-framework.md`.
-
-### Adapters shipping with v1
-
-- **Obsidian** (#07): viewer via symlinks. `octopus link` symlinks `.octopus/` into a configured vault location. Read-only.
-- **Apple Reminders** (#09): pull-only via `osascript`. Pulls from configured `lists`.
-- **TODO.md** (#21): pull-only. Reads `- [ ]` lines from `TODO.md` at activity root.
-- **Claude Code plugin**: NOT an adapter — it's a *client* of Octopus. Slash commands (`/octopus:start`, `/octopus:end`, `/octopus:handoff`, `/octopus:where`, `/octopus:memory`, `/octopus:log`) wrap the CLI.
-
-Two-way external sync (Reminders push, GitHub, ICS) is v2.
+Render as ASCII layouts (Focus / Board / Compact) matching the TUI glyphs — not generic markdown lists.
+Load `references/chat-rendering.md` before rendering any task layout in chat.

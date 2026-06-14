@@ -218,17 +218,13 @@ def _row_text(
 
 
 def _row_subtask_count(row) -> int:
-    """Return the number of subtasks for this row, or 0 if not a parent.
-
-    `subtasks` is not a DB column — read from raw_frontmatter JSON.
-    """
+    """Return the number of subtasks for this row, or 0 if not a parent."""
     import json
-    raw = row["raw_frontmatter"] if _row_has(row, "raw_frontmatter") else None
+    raw = row["subtasks"] if _row_has(row, "subtasks") else None
     if not raw:
         return 0
     try:
-        payload = json.loads(raw)
-        v = payload.get("subtasks") if isinstance(payload, dict) else None
+        v = json.loads(raw)
         return len(v) if isinstance(v, list) else 0
     except Exception:
         return 0
@@ -289,18 +285,9 @@ def _block_reason(row: sqlite3.Row) -> tuple[str, str, str] | None:
         return None
     key = "blocked_by" if issue == "blocked" else "waiting_for"
     color = "#FAB387" if issue == "blocked" else "#F5C76E"
-    raw = row["raw_frontmatter"] if _row_has(row, "raw_frontmatter") else None
-    value = ""
-    if raw:
-        try:
-            import json
-            payload = json.loads(raw)
-            v = payload.get(key)
-            if v:
-                value = str(v).strip()
-        except Exception:
-            value = ""
-    return (key, value or issue, color)
+    col = key  # promoted column — no JSON parsing needed
+    value = (row[col] if _row_has(row, col) else None) or ""
+    return (key, str(value).strip() or issue, color)
 
 
 def _row_preview(row: sqlite3.Row) -> Text:
