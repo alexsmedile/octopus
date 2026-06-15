@@ -40,8 +40,6 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import ListItem, ListView, Static
 
-from octopus.tui.keymap_bar import KeymapBar
-
 from octopus import actions
 from octopus.actions import ActionError
 from octopus.db.connection import get_db
@@ -56,6 +54,7 @@ from octopus.tui.focus import (
 )
 from octopus.tui.header_bar import HeaderBar
 from octopus.tui.help import HelpOverlay
+from octopus.tui.keymap_bar import KeymapBar
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
 from octopus.tui.toast import Toast

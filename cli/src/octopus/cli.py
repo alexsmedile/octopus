@@ -15,8 +15,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from octopus import __version__
-from octopus import actions
+from octopus import __version__, actions
 from octopus.config import (
     add_root as config_add_root,
 )
@@ -634,9 +633,6 @@ def _create_task_impl(
                 f"{_pt.parent!r}"
             )
             raise typer.Exit(EXIT_USER_ERROR)
-        if _pt.subtasks and False:  # parent may already have subtasks — that's fine
-            pass
-
     task = Task(
         title=title,
         created=date.today(),
@@ -3205,6 +3201,7 @@ def status(
 
     if json_flag:
         import json as _json
+        import sys
         doc = {
             "id": activity["id"],
             "title": activity["title"],

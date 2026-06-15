@@ -32,12 +32,9 @@ from pathlib import Path
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual.containers import VerticalScroll
 from textual.widgets import ListItem, ListView, Static
-
-from octopus.tui.keymap_bar import KeymapBar
 
 from octopus import actions
 from octopus.actions import ActionError
@@ -48,11 +45,16 @@ from octopus.tui.filter_bar import FilterBar
 from octopus.tui.header_bar import HeaderBar
 from octopus.tui.help import HelpOverlay
 from octopus.tui.icons import (
-    BLOCKED, CURSOR, PINNED,
-    SUBTASK_BRANCH, SUBTASK_CHILD, SUBTASK_CHILD_LAST,
-    status_glyph, status_glyph_color,
+    BLOCKED,
+    CURSOR,
+    PINNED,
+    SUBTASK_BRANCH,
+    SUBTASK_CHILD,
+    SUBTASK_CHILD_LAST,
+    status_glyph,
+    status_glyph_color,
 )
-from octopus.tui.overlay import TaskDetailOverlay
+from octopus.tui.keymap_bar import KeymapBar
 from octopus.tui.prompts import BucketPickerModal, ConfirmModal, InputModal
 from octopus.tui.status_bar import StatusBar
 from octopus.tui.toast import Toast
@@ -61,7 +63,7 @@ from octopus.tui.toast import Toast
 def _row_has(row, key: str) -> bool:
     """sqlite3.Row's __contains__ checks values, not column names. Use keys()."""
     try:
-        return key in row.keys()
+        return key in row.keys()  # noqa: SIM118
     except AttributeError:
         return key in row
 

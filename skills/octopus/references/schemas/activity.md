@@ -19,8 +19,7 @@ area:                     # optional, free-form (e.g. "work", "personal")
 priority:                 # optional enum (D87): low | high | urgent. Omit = normal.
 spec_version: 1           # required, integer. v1 = 1.
 
-# discovery / linking
-last_known_path:          # required, string — last absolute path Octopus saw the folder at
+# discovery / linking  (D110: last_known_path NOT in activity.md — see config.local.toml)
 source_of_truth: "."      # required, string — usually "." (this folder is canonical)
 locations: []             # optional, list of alternate paths (e.g. mirrored copy)
 linked_activities: []     # optional, list of activity IDs
@@ -48,9 +47,17 @@ tags: []                  # optional
 - `id` should be kebab-case and unique within the Octopus index (`~/.local/share/octopus/index.db`).
 - Slug collisions across activities are allowed; `id` is the disambiguator.
 
-## Path tracking
+## Path tracking (D110)
 
-`last_known_path` is updated by `octopus reindex` whenever the activity is rediscovered at a new absolute path. Hand-editing is allowed but the next reindex will rewrite it. Don't fight it.
+`last_known_path` is **not in `activity.md`**. It lives in `.octopus/config.local.toml`:
+
+```toml
+last_known_path = "/absolute/path/to/activity"
+```
+
+- `octopus reindex` writes this file when it first sees the activity (migration) or when the path changes (rename detection).
+- Add `.octopus/config.local.toml` to `.gitignore` — it's machine-local.
+- Backwards compat: if `config.local.toml` is absent, reindex reads `last_known_path` from `activity.md` and migrates it.
 
 `locations: []` is for **deliberate** multi-path scenarios (e.g. the same activity exists at `/Users/alex/work/foo` and `/Users/alex/Dropbox/work/foo`). Reindex preserves entries here.
 
@@ -62,7 +69,7 @@ tags: []                  # optional
 ## Validation summary
 
 The parser hard-rejects:
-- Missing `id`, `title`, `last_known_path`, or `kind`.
+- Missing `id`, `title`, or `kind`.
 - `type` not in enum.
 - `status` not in enum.
 - `kind != "activity"`.

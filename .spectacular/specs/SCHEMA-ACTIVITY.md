@@ -48,7 +48,7 @@ area:                         # optional, string (free-form with discovery)
 last_reviewed:                # optional, ISO date (defaults to `created` on init)
 
 # ── location ─────────────────────────────────────────────────────────
-last_known_path:              # required, absolute path
+# last_known_path is NOT in activity.md — lives in .octopus/config.local.toml (D110)
 source_of_truth: "."          # required, string — "." means this folder
 locations: []                 # optional, list of additional paths/URLs
 
@@ -163,11 +163,14 @@ tags: []                      # optional, list of strings
 
 ### Location
 
-#### `last_known_path` — required
+#### `last_known_path` — machine-local, NOT in activity.md (D110)
 
-- Type: absolute path string
+- Stored in `.octopus/config.local.toml` as `last_known_path = "/absolute/path"`.
+- **Not written to `activity.md`** — keeps the activity shareable/committable.
+- Read precedence: `config.local.toml` → `activity.md` fallback (backwards compat) → empty.
 - Updated on reindex when path differs from current. ID does not change.
 - Enables rename detection (see SPEC.md §9.3).
+- Users should add `.octopus/config.local.toml` to `.gitignore`.
 
 #### `source_of_truth` — required
 
@@ -227,7 +230,7 @@ The two axes don't constrain each other.
 
 - Missing any required field.
 - `type` or `status` values outside their enum.
-- `created`, `last_reviewed`, or `last_known_path` malformed.
+- `created` or `last_reviewed` malformed.
 - `spec_version` greater than supported.
 
 ### SHOULD warn

@@ -90,8 +90,8 @@ class Activity:
             errors.append(f"activity.status={self.status!r} not in {sorted(ACTIVITY_STATUSES)}")
         if self.kind != "activity":
             errors.append(f"activity.kind={self.kind!r} must be 'activity' in v1")
-        if not self.last_known_path:
-            errors.append("activity.last_known_path is required")
+        # last_known_path is no longer required in activity.md (D110).
+        # It may come from config.local.toml instead.
         if self.spec_version != 1:
             errors.append(f"activity.spec_version={self.spec_version} not supported")
         # D87 — strict enum on activity priority (same set as tasks, None = normal)

@@ -9,6 +9,7 @@ captures have 3-line frontmatter.
 
 from __future__ import annotations
 
+import tomllib
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,27 @@ from octopus.core.models import (
     Activity,
     Task,
 )
+
+# ── config.local.toml helpers (D110) ─────────────────────────────────
+
+_LOCAL_STATE_FILE = "config.local.toml"
+
+
+def _read_local_state(octopus_dir: Path) -> dict:
+    """Read .octopus/config.local.toml. Returns empty dict if absent or invalid."""
+    path = octopus_dir / _LOCAL_STATE_FILE
+    if not path.is_file():
+        return {}
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError:
+        return {}
+
+
+def write_local_state(octopus_dir: Path, *, last_known_path: str) -> None:
+    """Write (or overwrite) .octopus/config.local.toml with machine-local state."""
+    path = octopus_dir / _LOCAL_STATE_FILE
+    path.write_text(f'last_known_path = "{last_known_path}"\n', encoding="utf-8")
 
 
 def _coerce_date(value: Any) -> date | None:
@@ -46,10 +68,23 @@ ACTIVITY_FIELDS = {
 
 
 def read_activity(path: Path) -> tuple[Activity, str]:
-    """Read activity.md. Returns (Activity, body)."""
+    """Read activity.md. Returns (Activity, body).
+
+    D110: last_known_path is read from .octopus/config.local.toml first;
+    falls back to activity.md frontmatter for backwards compat.
+    """
     post = frontmatter.load(path)
     data = post.metadata
     extra = {k: v for k, v in data.items() if k not in ACTIVITY_FIELDS}
+
+    # D110: prefer config.local.toml; fall back to activity.md value.
+    octopus_dir = path.parent
+    local_state = _read_local_state(octopus_dir)
+    last_known_path = str(
+        local_state.get("last_known_path")
+        or data.get("last_known_path")
+        or ""
+    )
 
     activity = Activity(
         id=str(data.get("id", "")),
@@ -62,7 +97,7 @@ def read_activity(path: Path) -> tuple[Activity, str]:
         area=data.get("area"),
         priority=data.get("priority"),
         last_reviewed=_coerce_date(data.get("last_reviewed")),
-        last_known_path=str(data.get("last_known_path", "")),
+        last_known_path=last_known_path,
         source_of_truth=str(data.get("source_of_truth", ".")),
         locations=list(data.get("locations") or []),
         linked_activities=list(data.get("linked_activities") or []),
@@ -90,7 +125,7 @@ def write_activity(path: Path, activity: Activity, body: str) -> None:
         data["priority"] = activity.priority
     if activity.last_reviewed is not None:
         data["last_reviewed"] = activity.last_reviewed.isoformat()
-    data["last_known_path"] = activity.last_known_path
+    # D110: last_known_path is NOT written to activity.md — it lives in config.local.toml.
     data["source_of_truth"] = activity.source_of_truth
     if activity.locations:
         data["locations"] = activity.locations

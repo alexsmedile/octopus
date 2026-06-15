@@ -35,8 +35,6 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static, TextArea
 
-from octopus.tui.icons import ACTIVITY
-
 # Bucket → border color. Mirrors theme.tcss panel focus colors.
 _BUCKET_COLORS: dict[str, str] = {
     "backlog": "#8A8D9A",
@@ -95,7 +93,7 @@ class _Split:
     body: str
 
     @classmethod
-    def parse(cls, raw: str) -> "_Split":
+    def parse(cls, raw: str) -> _Split:
         if not raw.startswith("---\n"):
             return cls(has_frontmatter=False, frontmatter="", body=raw)
         rest = raw[4:]

@@ -15,12 +15,10 @@ Covers:
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 
 import pytest
-
-import importlib
-
 from typer.testing import CliRunner
 
 from octopus.cli import app
@@ -466,7 +464,6 @@ def _write_lint_task(
     extra: dict | None = None,
 ) -> Path:
     """Write a minimal task file for lint tests."""
-    import yaml as _yaml  # noqa: PLC0415 — local import for test helper
 
     path = activity_root / ".octopus" / "tasks" / bucket / f"{slug}.md"
     fm: dict = {"title": slug, "created": "2026-05-26", "bucket": bucket}

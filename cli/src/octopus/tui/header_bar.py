@@ -133,7 +133,7 @@ def _counts_two_rows(counts: HeaderCounts, *, with_labels: bool) -> tuple[Text, 
     on row 2 (aligned under each glyph cell, same color, dim)."""
     cells = _counts_cells(counts)
     # Each cell pads to max(glyph_width, label_width) so labels sit under glyphs.
-    widths = [max(len(c), len(l)) for c, l, _ in cells]
+    widths = [max(len(c), len(lbl)) for c, lbl, _ in cells]
     gap = "   "
 
     row_glyphs = Text(no_wrap=True, overflow="ellipsis")

@@ -15,7 +15,7 @@ import frontmatter
 from octopus.db.stale import prune_missing
 from octopus.db.upsert import upsert_activity, upsert_session, upsert_task
 from octopus.fs.discover import SKIP_DIRS, find_all_activities
-from octopus.fs.io import read_activity, read_task
+from octopus.fs.io import read_activity, read_task, write_local_state
 
 
 @dataclass
@@ -99,6 +99,13 @@ def _process_activity(
         result.renames.append((activity.id, Path(activity.last_known_path), folder))
         if accept_renames:
             activity.last_known_path = str(folder)
+            # D110: persist the new path in config.local.toml, not activity.md.
+            write_local_state(folder / ".octopus", last_known_path=str(folder))
+    elif not activity.last_known_path:
+        # D110 migration: no local state yet — write it now so future reindexes
+        # use config.local.toml and stop reading from activity.md.
+        write_local_state(folder / ".octopus", last_known_path=str(folder))
+        activity.last_known_path = str(folder)
 
     upsert_activity(conn, activity)
     result.activities_seen += 1

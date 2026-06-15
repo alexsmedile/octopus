@@ -27,7 +27,6 @@ task is *idle* on that bucket (no progress field, no session, no exception).
 from __future__ import annotations
 
 import sqlite3
-from typing import Optional
 
 # ── Slot 1 — Progress ladder ───────────────────────────────────────────
 # Used when a task has an explicit `progress` value (0.0..1.0).
@@ -118,7 +117,7 @@ FLAG_TAGGED    = "#"      # reserved
 # ── Slot-1 resolver ────────────────────────────────────────────────────
 
 def status_glyph(
-    row: "sqlite3.Row | dict",
+    row: sqlite3.Row | dict,
     *,
     active_session: bool = False,
     progress_stages: int = 4,
@@ -172,7 +171,7 @@ def status_glyph(
     # ── 3. Progress active ────────────────────────────────────────────
     # Progress overrides bucket idle. Done bucket has its own glyph (●)
     # which happens to be the top of the ladder, so we handle that first.
-    progress: Optional[float] = _get("progress")
+    progress: float | None = _get("progress")
     if bucket == "done":
         return BUCKET_DONE
 

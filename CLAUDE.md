@@ -32,7 +32,8 @@ octopus/
 │   ├── PRD.md                      # canonical product spec (single source of truth)
 │   ├── SPEC.md                     # the .octopus/ folder contract (versioned, frozen)
 │   ├── STACK.md                    # locked language/library choices
-│   ├── DECISIONS.md                # append-only decisions log (D1, D2, …)
+│   ├── DECISIONS.md                # decisions index — one line per decision (D1, D2, …)
+│   ├── decisions/                  # per-decision detail files (D1.md, D2.md, …)
 │   ├── AGENTS.md                   # agent rules for spectacular work
 │   ├── config.yaml                 # spectacular project config
 │   ├── specs/                      # spec breakouts (authoritative companions to SPEC.md)
@@ -75,13 +76,14 @@ All design specs live under `.spectacular/`. There is no separate `specs/` or `d
 | Validation rules across all schemas | `.spectacular/specs/CRITICAL-DEPENDENCIES.md` |
 | TODO.md Layer 1 + Layer 2 format contract | `.spectacular/specs/TODO-MD-FORMAT.md` |
 | Language/library choices | `.spectacular/STACK.md` |
-| Locked decisions log | `.spectacular/DECISIONS.md` |
+| Decisions index (one line per decision) | `.spectacular/DECISIONS.md` |
+| Full ADR prose for a specific decision | `.spectacular/decisions/D<N>.md` |
 
 ## Read order before editing
 
 1. Read this file.
 2. Read `.spectacular/PRD.md` for product context.
-3. Read `.spectacular/DECISIONS.md` to see what's already locked.
+3. Read `.spectacular/DECISIONS.md` (index — one line per decision) to see what's already locked. Load `decisions/D<N>.md` only if that specific decision is directly relevant.
 4. Read `.spectacular/SPEC.md` for the on-disk contract.
 5. If touching a schema, read the relevant `.spectacular/specs/SCHEMA-*.md`.
 6. If activating or working on a request, read its `.spectacular/requests/<slug>/PLAN.md` and `TASKS.md`.

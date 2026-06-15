@@ -695,7 +695,7 @@ class ActivitiesScreen(Screen):
         extras["linked_count"] = len(linked)
         return [ActivityOverview(row, counts, extras)]
 
-    def _gather_current_extras(self, conn: "sqlite3.Connection", activity_id: str | None) -> dict:
+    def _gather_current_extras(self, conn: sqlite3.Connection, activity_id: str | None) -> dict:
         """Collect attention-surface signals for the CURRENT panel overview."""
         if not activity_id:
             return {}
@@ -883,7 +883,7 @@ class ActivitiesScreen(Screen):
             self._spill_to_neighbor(direction=-1)
             return
         current = lv.index if lv.index is not None else 0
-        if current <= 0:
+        if current <= 0:  # noqa: SIM102
             # Top of list — spill into previous populated panel (lands on
             # its last item). Falls through to wrap if no neighbor has items.
             if self._spill_to_neighbor(direction=-1):
@@ -898,7 +898,7 @@ class ActivitiesScreen(Screen):
             self._spill_to_neighbor(direction=1)
             return
         current = lv.index if lv.index is not None else -1
-        if current >= n - 1:
+        if current >= n - 1:  # noqa: SIM102
             # Bottom of list — spill into next populated panel (lands on
             # its first item). Falls through to wrap if no neighbor has items.
             if self._spill_to_neighbor(direction=1):
