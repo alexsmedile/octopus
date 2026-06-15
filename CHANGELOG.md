@@ -9,6 +9,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [1.5.0] — 2026-06-15
+
+**Inbox activity type + capture routing fallback (D109).**
+
+### Added
+
+- **`inbox` activity type**: `type: inbox` is now a valid enum value in the activity schema (`ACTIVITY_TYPES`, `init --type`, `add activity --type`, validation). Inbox activities are catch-all task capture points, scoped per brand via `area`.
+- **`[inbox] default` config key**: `~/.config/octopus/config.toml` now accepts an `[inbox]` block with a `default` path. `Config.inbox_default` is populated on load.
+- **Capture routing fallback (D109)**: `octopus capture` and `add task` now fall back to the configured inbox when run outside any activity. Priority: cwd activity wins → `[inbox].default` → error. Prints `→ inbox: <path>` when routing to the fallback.
+- **`octopus list activities --type inbox`**: filter for inbox activities (no new code — `inbox` in enum makes it work automatically).
+
+---
+
 ## [1.4.0] — 2026-06-14
 
 **Agent JSON outputs, DB performance indexes, and progressive disclosure skill rewrite.**
