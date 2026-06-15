@@ -37,7 +37,7 @@ tags: []                  # optional
 
 | Field | Values |
 |---|---|
-| `type` | `code`, `business`, `content`, `skill`, `automation`, `research`, `personal`, `other` |
+| `type` | `code`, `business`, `content`, `skill`, `automation`, `research`, `personal`, `inbox`, `other` |
 | `status` | `active`, `next`, `paused`, `planning`, `maintenance`, `reference`, `archive`, `unknown` |
 | `kind` | `activity` (literal — no other value is valid in v1) |
 | `priority` | `low`, `high`, `urgent` (omit for normal — D87) |

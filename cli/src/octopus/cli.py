@@ -472,11 +472,28 @@ def _resolve_activity_root(activity_token: str | None) -> Path:
     """Return an activity root either from cwd-walk or from --activity token.
 
     D86: when activity_token is given, resolve via core/identify.py and return
-    that activity's path; otherwise walk up from cwd. Errors are printed and
-    raise typer.Exit on failure.
+    that activity's path; otherwise walk up from cwd.
+    D109: when no cwd activity and no --activity, fall back to [inbox].default
+    from the system config before erroring.
     """
     if activity_token is None:
-        return _require_activity()
+        root = find_activity_root(Path.cwd())
+        if root is not None:
+            return root
+        # D109 inbox fallback: check system config for a default inbox path.
+        sys_cfg = load_config()
+        if sys_cfg.inbox_default is not None:
+            inbox_root = sys_cfg.inbox_default
+            if (inbox_root / ".octopus" / "activity.md").exists():
+                console.print(f"[dim]→ inbox:[/] {inbox_root}")
+                return inbox_root
+            err_console.print(
+                f"[red]✗[/] inbox.default={inbox_root} has no .octopus/activity.md — "
+                "run `octopus init --type inbox` there first"
+            )
+            raise typer.Exit(EXIT_USER_ERROR)
+        err_console.print("[red]✗[/] not inside an octopus activity (no .octopus/ found by walking up)")
+        raise typer.Exit(EXIT_NOT_IN_ACTIVITY)
     from octopus.core.identify import (
         ActivityAmbiguous,
         ActivityNotFound,

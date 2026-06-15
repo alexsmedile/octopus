@@ -20,7 +20,7 @@ from typing import Any
 
 ACTIVITY_TYPES = {
     "code", "business", "content", "skill",
-    "automation", "research", "personal", "other",
+    "automation", "research", "personal", "inbox", "other",
 }
 ACTIVITY_STATUSES = {
     "active", "next", "paused", "planning",

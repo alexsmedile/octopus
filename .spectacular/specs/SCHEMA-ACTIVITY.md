@@ -39,7 +39,7 @@ spec_version: 1               # required, integer
 
 # ── classification ───────────────────────────────────────────────────
 type: other                   # required, enum: code | business | content | skill |
-                              #                automation | research | personal | other
+                              #                automation | research | personal | inbox | other
 status: active                # required, enum: active | next | paused | planning |
                               #                 maintenance | reference | archive | unknown
 area:                         # optional, string (free-form with discovery)
@@ -113,7 +113,7 @@ tags: []                      # optional, list of strings
 #### `type` — required
 
 - Type: enum
-- Range: `code` | `business` | `content` | `skill` | `automation` | `research` | `personal` | `other`
+- Range: `code` | `business` | `content` | `skill` | `automation` | `research` | `personal` | `inbox` | `other`
 - Default: `other`
 - Drives type-based filters and grouping.
 
