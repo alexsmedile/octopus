@@ -162,6 +162,25 @@ Rules:
 | `kind` | `kind` | `feat` \| `bug` \| `spec` \| `polish` \| `test` \| `chore` |
 | `tags` | `tags` | list or comma-separated string; merged with sigil tags |
 
+### Subtasks (indented checkboxes) — D105
+
+An indented checkbox line (2+ spaces or 1 tab) immediately following a top-level checkbox is treated as a subtask of the item above it.
+
+```markdown
+- [ ] Parent task ~next
+  - [ ] Sub-step one
+  - [ ] Sub-step two !high
+    > Optional body block on the sub-item.
+```
+
+**Inheritance:** sub-items inherit `bucket`, `kind`, `actor`, `stage`, `priority`, `energy` from the resolved parent (after sigils + YAML + section_map) unless the sub-item's own sigils/YAML override them.
+
+**Not inherited:** `pinned`, `issue`, `blocked_by`, `waiting_for`, `due`, `scheduled` — per-item only.
+
+**Pull annotation:** the `→ octopus:<slug>` arrow is written on the sub-item line when pulled. The parent's arrow is written only after all its sub-items are also pulled.
+
+**`suggested_parent`:** the parser sets `suggested_parent` on each `ExternalTask` to the slug of the most recently seen top-level item. The pipeline creates the child with `parent: <slug>` and updates the parent's `subtasks:` index on next `reindex`.
+
 ---
 
 ## Precedence (high → low)
@@ -206,7 +225,7 @@ Per-activity override: `.octopus/config.toml` (wins over global).
 ## Pull behaviour — parser walk
 
 1. `## Heading` → sets `source_group`; slug used for `section_filter` and `section_map`.
-2. `- [X] title sigils...` → parse checkbox state → bucket; extract sigils from body.
+2. `- [X] title sigils...` → parse checkbox state → bucket; extract sigils from body. Track indent level: indent > 0 = sub-item; set `suggested_parent` to the most recently seen top-level item's slug (D105).
 3. Immediately following `> ...` lines → captured as `body`.
 4. Immediately following ` ```yaml ` ... ` ``` ` block → parsed as YAML overrides.
 5. `section_map` defaults applied last (lowest precedence).

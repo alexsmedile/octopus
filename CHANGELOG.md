@@ -7,6 +7,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+**Subtasks — 1-level-deep parent/child tasks (D104–D107).**
+
+### Added
+
+- **`parent` field** on Task: optional slug of the parent task (activity-scoped, no `/`). Source of truth for the subtask relationship.
+- **`subtasks` field** on Task: managed index of child slugs, auto-maintained by CLI and `reindex`. Omitted when empty (default-omission).
+- **`octopus capture --parent <slug>`**: create a child task directly under a parent.
+- **`octopus set <slug> --parent <slug>`**: attach an existing task as a child. `--parent ""` detaches.
+- **`octopus subtasks <slug>`**: list children of a parent task.
+- **`octopus finish --cascade`** / **`octopus drop --cascade`**: finish/drop all open children first, then the parent.
+- **`--force` guard on finish/drop**: warns when a parent has open subtasks; `--force` proceeds anyway (children orphaned on drop).
+- **Three lint rules**: `subtask-depth` (depth > 1 forbidden), `subtask-orphan` (`parent:` slug not found), `subtask-cross-activity` (`parent:` contains `/`).
+- **TUI subtask display (D106)**: parent rows show `⎇N` decoration always; `Space` toggles expand/collapse; children render as indented rows with `├─`/`└─` prefix in Focus and Board views.
+- **TODO.md Layer 2 — indented checkboxes (D105)**: `  - [ ] ...` lines nested under a top-level checkbox are parsed as subtasks with `suggested_parent` set.
+- **Spec/docs**: D104–D107 locked in DECISIONS.md; SCHEMA-TASK.md, TODO-MD-FORMAT.md, TUI-GLYPHS.md, TUI-KEYS.md, CRITICAL-DEPENDENCIES.md, and skill references updated.
+
 ---
 
 ## [1.5.0] — 2026-06-15

@@ -366,7 +366,8 @@ Explicitly excluded — see `TODO.md` and `_archive/docs/_task.schema.md`.
 - `status` — collapsed into `bucket` (terminal states) + dates (lifecycle).
 - `kind` (file-type sense) — folder location determines artifact type. Tasks live in `tasks/`, handoffs in `handoffs/`, notes in `memory.md`. The `kind` field that IS in the schema (added in D46) is a *work-classification* field (`feat`/`bug`/etc.), not a file-type discriminator.
 - `recurrence`, `last_run`, `next_run` — routines are deferred (see TODO.md).
-- `needs`, `project`, `subtasks`, `parent`, `children`, `see_also`, `ai_status`, `handoff_to`, `handoff_status`, `handoff_at`, `reviewed_at`, `reviewed_by`, `estimate`, `time_spent` — dropped from archive.
+- `needs`, `project`, `children`, `see_also`, `ai_status`, `handoff_to`, `handoff_status`, `handoff_at`, `reviewed_at`, `reviewed_by`, `estimate`, `time_spent` — dropped from archive.
+- `subtasks` and `parent` were in this list until D104 — they are now v1 fields (1-level-deep subtask graph).
 
 ---
 

@@ -2,7 +2,7 @@
 id: "47"
 slug: subtasks
 title: "Subtasks — 1-level-deep parent/child tasks"
-status: draft
+status: done
 created: 2026-06-05
 gates: []
 relates_to:

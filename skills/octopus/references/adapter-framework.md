@@ -270,6 +270,21 @@ priority = "low"
 
 Allowed keys: `bucket` · `kind` · `priority` · `energy` · `actor` · `stage`.
 
+#### Subtasks — indented checkboxes (D105)
+
+Indented checkboxes (2+ spaces or 1 tab) immediately under a top-level checkbox become subtasks of that item:
+
+```markdown
+- [ ] Parent task ~next
+  - [ ] Sub-step one
+  - [ ] Sub-step two !high
+    > Optional body on the sub-item.
+```
+
+Sub-items inherit `bucket`, `kind`, `actor`, `stage`, `priority`, `energy` from the resolved parent unless their own sigils/YAML override. `pinned`, `issue`, `blocked_by`, `waiting_for`, `due`, `scheduled` are per-item only and not inherited.
+
+The parser sets `suggested_parent` on each sub-item `ExternalTask`; the pipeline creates it with `parent: <slug>`. The parent's `subtasks:` index is rebuilt by `octopus reindex`.
+
 ---
 
 **Full Layer 2 example:**
