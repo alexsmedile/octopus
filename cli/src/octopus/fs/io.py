@@ -45,6 +45,57 @@ def write_local_state(octopus_dir: Path, *, last_known_path: str) -> None:
     path.write_text(f'last_known_path = "{last_known_path}"\n', encoding="utf-8")
 
 
+# Path of the local-state file relative to the activity folder — the line we
+# add to .gitignore so the machine-local absolute path is never committed.
+_LOCAL_STATE_IGNORE = f".octopus/{_LOCAL_STATE_FILE}"
+
+
+def _find_git_root(folder: Path) -> Path | None:
+    """Walk up from `folder` to the nearest dir containing `.git`. None if not a repo."""
+    p = folder.resolve()
+    while True:
+        if (p / ".git").exists():
+            return p
+        if p.parent == p:
+            return None
+        p = p.parent
+
+
+def ensure_gitignored(folder: Path) -> bool:
+    """Ensure `.octopus/config.local.toml` is gitignored for the repo containing `folder`.
+
+    D110: the local-state file holds a machine-local absolute path and must never
+    be committed. Adds the ignore rule to the git root's `.gitignore`, creating the
+    file if absent. Idempotent — a no-op if the rule is already present. Returns
+    True if it wrote (created or appended), False if nothing was needed.
+
+    Does nothing and returns False when `folder` is not inside a git repo — there
+    is no history to leak into.
+    """
+    git_root = _find_git_root(folder)
+    if git_root is None:
+        return False
+    gitignore = git_root / ".gitignore"
+    if gitignore.exists():
+        existing = gitignore.read_text(encoding="utf-8")
+        # Match the exact rule on its own line — avoid duplicating on re-runs.
+        if any(line.strip() == _LOCAL_STATE_IGNORE for line in existing.splitlines()):
+            return False
+        sep = "" if existing.endswith("\n") else "\n"
+        block = (
+            f"{sep}\n# Octopus machine-local activity state (absolute paths) — D110\n"
+            f"{_LOCAL_STATE_IGNORE}\n"
+        )
+        gitignore.write_text(existing + block, encoding="utf-8")
+        return True
+    gitignore.write_text(
+        "# Octopus machine-local activity state (absolute paths) — D110\n"
+        f"{_LOCAL_STATE_IGNORE}\n",
+        encoding="utf-8",
+    )
+    return True
+
+
 def _coerce_date(value: Any) -> date | None:
     if value is None:
         return None

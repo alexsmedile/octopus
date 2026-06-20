@@ -7,6 +7,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+**D110.1 — definitively close the `last_known_path` git leak.** `activity.md` no longer leaks a machine-local absolute path into git history, at the source.
+
+### Added
+
+- **`octopus init` auto-gitignores `.octopus/config.local.toml`**: after writing the machine-local state file, init adds the ignore rule to the git root's `.gitignore` (creating it if absent), idempotently. No-op outside a git repo. Replaces the old manual "add it yourself" step that kept re-leaking the path.
+- **`octopus reindex` self-heals pre-D110 activities**: when an `activity.md` still physically carries a `last_known_path` line, reindex moves the value to `config.local.toml`, rewrites `activity.md` to drop the line, and gitignores the local file. Old repos converge to clean on the next reindex — no manual migration. Surfaced in CLI output and counted in `ReindexResult.migrated_local_state`.
+- **`ensure_gitignored()` helper** (`fs/io.py`): repo-aware, idempotent gitignore-rule writer shared by `init` and `reindex`.
+
+### Fixed
+
+- **`activity.md` no longer leaks `/Users/<you>/...`** into committed history. The path lives only in the gitignored `config.local.toml` (machine-local) and the local index DB (never committed). Rename detection is unaffected — the value is preserved, just relocated.
+
+---
+
 **Subtasks spec + skill sync — close request #47.** Documentation alignment for the subtask feature already shipped in v1.3.0; no behavior change.
 
 ### Changed

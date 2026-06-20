@@ -56,7 +56,8 @@ last_known_path = "/absolute/path/to/activity"
 ```
 
 - `octopus reindex` writes this file when it first sees the activity (migration) or when the path changes (rename detection).
-- Add `.octopus/config.local.toml` to `.gitignore` — it's machine-local.
+- **`octopus init` auto-adds `.octopus/config.local.toml` to `.gitignore`** (git repos only) — no manual step. It's machine-local; never commit it.
+- **Self-heal:** if an old `activity.md` still carries a `last_known_path` line, `octopus reindex` strips it (and gitignores the local file). Run `octopus reindex` once on legacy repos to converge them.
 - Backwards compat: if `config.local.toml` is absent, reindex reads `last_known_path` from `activity.md` and migrates it.
 
 `locations: []` is for **deliberate** multi-path scenarios (e.g. the same activity exists at `/Users/alex/work/foo` and `/Users/alex/Dropbox/work/foo`). Reindex preserves entries here.

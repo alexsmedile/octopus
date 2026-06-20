@@ -12,7 +12,7 @@ from octopus.core.models import (
     TASK_BUCKETS,
     Activity,
 )
-from octopus.fs.io import write_activity, write_local_state
+from octopus.fs.io import ensure_gitignored, write_activity, write_local_state
 
 # Subfolder names in folder-storage mode. Equals TASK_BUCKETS since v1.
 BUCKET_FOLDERS = TASK_BUCKETS
@@ -88,6 +88,8 @@ def init_activity(
     write_activity(activity_md, activity, body)
     # D110: machine-local path lives in config.local.toml, not activity.md.
     write_local_state(octopus_dir, last_known_path=str(folder))
+    # D110: never let the machine-local path get committed — gitignore it now.
+    ensure_gitignored(folder)
 
     # Per-activity config (only emit if non-default)
     if storage_mode != DEFAULT_STORAGE_MODE:

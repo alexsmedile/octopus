@@ -54,6 +54,8 @@ CLAUDE.local.md
 
 # ── Octopus runtime / soft-delete ───────────────────────────────────
 .octopus/.trash/
+# Machine-local activity state (absolute paths) — D110, never commit
+.octopus/config.local.toml
 
 # ── Screenshots (local feedback artifacts) ──────────────────────────
 Screenshot*.png

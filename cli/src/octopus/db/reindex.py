@@ -15,7 +15,13 @@ import frontmatter
 from octopus.db.stale import prune_missing
 from octopus.db.upsert import upsert_activity, upsert_session, upsert_task
 from octopus.fs.discover import SKIP_DIRS, find_all_activities
-from octopus.fs.io import read_activity, read_task, write_local_state
+from octopus.fs.io import (
+    ensure_gitignored,
+    read_activity,
+    read_task,
+    write_activity,
+    write_local_state,
+)
 
 
 @dataclass
@@ -34,6 +40,8 @@ class ReindexResult:
     related_tasks_propagated: int = 0
     # D48: malformed promoted_to values seen (slug → value).
     promoted_to_warnings: list[tuple[str, str]] = field(default_factory=list)
+    # D110: count of activity.md files self-healed (stale last_known_path stripped).
+    migrated_local_state: int = 0
 
 
 def reindex_all(
@@ -85,9 +93,10 @@ def _process_activity(
     accept_renames: bool,
 ) -> None:
     """Upsert one activity + all its tasks + all its sessions."""
-    activity_md = folder / ".octopus" / "activity.md"
+    octopus_dir = folder / ".octopus"
+    activity_md = octopus_dir / "activity.md"
     try:
-        activity, _ = read_activity(activity_md)
+        activity, body = read_activity(activity_md)
     except Exception as e:
         result.errors.append(f"{activity_md}: {e}")
         return
@@ -100,12 +109,24 @@ def _process_activity(
         if accept_renames:
             activity.last_known_path = str(folder)
             # D110: persist the new path in config.local.toml, not activity.md.
-            write_local_state(folder / ".octopus", last_known_path=str(folder))
+            write_local_state(octopus_dir, last_known_path=str(folder))
     elif not activity.last_known_path:
         # D110 migration: no local state yet — write it now so future reindexes
         # use config.local.toml and stop reading from activity.md.
-        write_local_state(folder / ".octopus", last_known_path=str(folder))
+        write_local_state(octopus_dir, last_known_path=str(folder))
         activity.last_known_path = str(folder)
+
+    # D110 self-heal: if activity.md still physically carries last_known_path,
+    # ensure config.local.toml holds the value, then rewrite activity.md to
+    # drop the line (write_activity never emits it) and gitignore the local file.
+    # Old/pre-D110 repos converge to clean on the next reindex — no manual step.
+    if _activity_md_has_last_known_path(activity_md):
+        local_toml = octopus_dir / "config.local.toml"
+        if not local_toml.is_file():
+            write_local_state(octopus_dir, last_known_path=activity.last_known_path)
+        write_activity(activity_md, activity, body)  # strips the field
+        ensure_gitignored(folder)
+        result.migrated_local_state += 1
 
     upsert_activity(conn, activity)
     result.activities_seen += 1
@@ -154,6 +175,21 @@ def _process_activity(
                 result.sessions_seen += 1
             except Exception as e:
                 result.errors.append(f"{session_file}: {e}")
+
+
+def _activity_md_has_last_known_path(activity_md: Path) -> bool:
+    """True if activity.md physically carries a `last_known_path` frontmatter key.
+
+    Checks the raw file, NOT the parsed Activity — the Activity object always has
+    last_known_path populated (from config.local.toml fallback), so it can't tell
+    us whether the committable file still leaks the path. D110 self-heal pivots on
+    this: only rewrite the file when the stale line is actually present.
+    """
+    try:
+        post = frontmatter.load(activity_md)
+    except Exception:
+        return False
+    return "last_known_path" in post.metadata
 
 
 def _propagate_related_tasks(

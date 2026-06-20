@@ -3754,6 +3754,12 @@ def reindex(
             f"  [cyan]→[/] propagated related_tasks to "
             f"{result.related_tasks_propagated} request(s)"
         )
+    if result.migrated_local_state:
+        console.print(
+            f"  [cyan]→[/] D110: moved last_known_path out of "
+            f"{result.migrated_local_state} activity.md file(s) "
+            f"→ config.local.toml (gitignored)"
+        )
     if result.promoted_to_warnings:
         for task_slug, value in result.promoted_to_warnings:
             err_console.print(

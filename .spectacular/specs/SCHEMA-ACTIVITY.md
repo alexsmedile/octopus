@@ -170,7 +170,7 @@ tags: []                      # optional, list of strings
 - Read precedence: `config.local.toml` → `activity.md` fallback (backwards compat) → empty.
 - Updated on reindex when path differs from current. ID does not change.
 - Enables rename detection (see SPEC.md §9.3).
-- Users should add `.octopus/config.local.toml` to `.gitignore`.
+- `octopus init` auto-gitignores `.octopus/config.local.toml` (git repos only). `octopus reindex` self-heals pre-D110 files: strips a stale `last_known_path` from `activity.md` and gitignores the local file. (D110.1)
 
 #### `source_of_truth` — required
 
