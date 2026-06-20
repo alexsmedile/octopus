@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Folder-native task and continuity system. Captures tasks, sessions, memory, and handoffs as plain markdown next to your work.",
-    "version": "1.5.1"
+    "version": "1.6.0"
   },
   "plugins": [
     {
       "name": "octopus",
       "source": "./",
       "description": "Folder-native task and continuity system. Activities, tasks, sessions, memory, handoffs — all as markdown.",
-      "version": "1.5.1",
+      "version": "1.6.0",
       "author": {
         "name": "Alessandro Smedile"
       },

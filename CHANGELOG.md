@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+---
+
+## [1.6.0] — 2026-06-20
+
 **D110.1 — definitively close the `last_known_path` git leak.** `activity.md` no longer leaks a machine-local absolute path into git history, at the source.
 
 ### Added

@@ -11,7 +11,7 @@
 *Octopus reaches into each folder, understands what it is, smartly organizes the tasks inside it — and also acts as the central system that ties them all together. One brain, eight arms. Backed by a CLI and a Claude Code skill.*
 
 ![Status](https://img.shields.io/badge/status-active%20build-CBA6F7)
-![Version](https://img.shields.io/badge/version-v1.2.0-CBA6F7)
+![Version](https://img.shields.io/badge/version-v1.6.0-CBA6F7)
 ![Spec](https://img.shields.io/badge/spec-v1-5EEAD4)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Local-first](https://img.shields.io/badge/local--first-yes-success)
