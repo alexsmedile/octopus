@@ -36,6 +36,7 @@ title:                        # required, string                       (default:
 created:                      # required, ISO date
 kind: activity                # required, fixed value (reserved for future activity kinds)
 spec_version: 1               # required, integer
+octopus_version:              # auto-managed, string — CLI version that last wrote this folder (D111)
 
 # ── classification ───────────────────────────────────────────────────
 type: other                   # required, enum: code | business | content | skill |
@@ -66,7 +67,7 @@ tags: []                      # optional, list of strings
 
 | Group | Question | Fields |
 |---|---|---|
-| Identity | What is this and when? | `id`, `title`, `created`, `kind`, `spec_version` |
+| Identity | What is this and when? | `id`, `title`, `created`, `kind`, `spec_version`, `octopus_version` |
 | Classification | What kind, in what state, in what area? | `type`, `status`, `area` |
 | Lifecycle | When was this last reviewed? | `last_reviewed` |
 | Location | Where on disk does this live, where else? | `last_known_path`, `source_of_truth`, `locations` |
@@ -107,6 +108,18 @@ tags: []                      # optional, list of strings
 
 - Type: integer
 - v1 value: `1`
+
+#### `octopus_version` — auto-managed (D111)
+
+- Type: string (semver of the Octopus CLI, e.g. `1.6.0`).
+- **Records the CLI version that last wrote this folder** — "which Octopus touched this project last."
+- **Never set by hand.** Stamped automatically on *every* `activity.md` write (init, reindex self-heal, status/field edits) with the running CLI's `__version__`. A stale value carried in memory is always overwritten, never preserved.
+- Recorded in **two places** (mirrors the D110 split):
+  - `activity.md` — the **shared** stamp, committed to git. "Last version that wrote this in any clone."
+  - `.octopus/config.local.toml` — the **machine-local** stamp, gitignored. "Last version on *this* machine."
+- **Read precedence:** `config.local.toml` → `activity.md` → `""`. The machine-local stamp wins; the committed one is the fallback; empty when a pre-D111 file carries no stamp.
+- Surfaced by `octopus status` (rich row "Octopus version" and `--json` key `octopus_version`).
+- Not validated (any string accepted) — it is a record, not a constraint. Pre-D111 activities read as `""` and gain a stamp on their next write.
 
 ### Classification
 

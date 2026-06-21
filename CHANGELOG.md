@@ -7,6 +7,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+**D111 — record the Octopus version that last wrote each project.** A per-project manifest of "which CLI touched this last," updated automatically on the next edit.
+
+### Added
+
+- **`octopus_version` field on `activity.md`**: auto-stamped with the running CLI version on *every* `activity.md` write (init, reindex, status/field edits). Records "which Octopus version last wrote this folder." Committed to git — shared across clones. Distinct from `spec_version` (the folder *contract* version).
+- **Machine-local mirror in `config.local.toml`**: `octopus_version = "X.Y.Z"` written alongside `last_known_path`, gitignored — "last version on *this* machine." Read precedence: `config.local.toml` → `activity.md` → `""`.
+- **`octopus status` surfaces the stamp**: rich view row `Octopus version`; `--json` key `octopus_version`. Read from the index's stored frontmatter — no DB migration.
+
 ---
 
 ## [1.6.0] — 2026-06-20

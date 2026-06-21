@@ -16,6 +16,7 @@ from typing import Any
 
 import frontmatter
 
+from octopus import __version__
 from octopus.core.models import (
     DEFAULT_ACTOR,
     DEFAULT_BUCKET,
@@ -40,9 +41,18 @@ def _read_local_state(octopus_dir: Path) -> dict:
 
 
 def write_local_state(octopus_dir: Path, *, last_known_path: str) -> None:
-    """Write (or overwrite) .octopus/config.local.toml with machine-local state."""
+    """Write (or overwrite) .octopus/config.local.toml with machine-local state.
+
+    D111: also stamps `octopus_version` — the CLI version that last wrote this
+    folder on THIS machine. This is the machine-local sibling of the shared
+    `octopus_version` recorded in activity.md.
+    """
     path = octopus_dir / _LOCAL_STATE_FILE
-    path.write_text(f'last_known_path = "{last_known_path}"\n', encoding="utf-8")
+    path.write_text(
+        f'last_known_path = "{last_known_path}"\n'
+        f'octopus_version = "{__version__}"\n',
+        encoding="utf-8",
+    )
 
 
 # Path of the local-state file relative to the activity folder — the line we
@@ -111,7 +121,7 @@ def _coerce_date(value: Any) -> date | None:
 # ── Activity ─────────────────────────────────────────────────────────
 
 ACTIVITY_FIELDS = {
-    "id", "title", "created", "kind", "spec_version",
+    "id", "title", "created", "kind", "spec_version", "octopus_version",
     "type", "status", "area", "priority", "last_reviewed",
     "last_known_path", "source_of_truth", "locations",
     "linked_activities", "tags",
@@ -136,6 +146,12 @@ def read_activity(path: Path) -> tuple[Activity, str]:
         or data.get("last_known_path")
         or ""
     )
+    # D111: machine-local stamp wins; fall back to the shared activity.md value.
+    octopus_version = str(
+        local_state.get("octopus_version")
+        or data.get("octopus_version")
+        or ""
+    )
 
     activity = Activity(
         id=str(data.get("id", "")),
@@ -143,6 +159,7 @@ def read_activity(path: Path) -> tuple[Activity, str]:
         created=_coerce_date(data.get("created")) or date.today(),
         kind=str(data.get("kind", "activity")),
         spec_version=int(data.get("spec_version", 1)),
+        octopus_version=octopus_version,
         type=str(data.get("type", "other")),
         status=str(data.get("status", "active")),
         area=data.get("area"),
@@ -167,6 +184,9 @@ def write_activity(path: Path, activity: Activity, body: str) -> None:
         "created": activity.created.isoformat(),
         "kind": activity.kind,
         "spec_version": activity.spec_version,
+        # D111: always stamp the running CLI version — this is "the last Octopus
+        # version that wrote this folder". Override any (stale) value read in.
+        "octopus_version": __version__,
         "type": activity.type,
         "status": activity.status,
     }

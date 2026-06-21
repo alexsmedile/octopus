@@ -3120,6 +3120,25 @@ def _print_task_rows(rows: list, *, show_ids: bool = False, show_activity: bool 
             )
 
 
+def _activity_octopus_version(activity) -> str:
+    """D111: the CLI version that last wrote this folder, read from the index.
+
+    Pulled out of the stored `raw_frontmatter` JSON so no DB column is needed.
+    Returns "" if the row predates D111 or carries no stamp.
+    """
+    try:
+        raw = activity["raw_frontmatter"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    if not raw:
+        return ""
+    import json as _json
+    try:
+        return str(_json.loads(raw).get("octopus_version") or "")
+    except (ValueError, TypeError):
+        return ""
+
+
 @app.command()
 def status(
     target: str | None = typer.Argument(
@@ -3210,6 +3229,7 @@ def status(
             "status": activity["status"],
             "priority": activity["priority"],
             "area": activity["area"],
+            "octopus_version": _activity_octopus_version(activity),
             "last_touched_at": str(activity["last_touched_at"]) if activity["last_touched_at"] else None,
             "counts": counts,
             "now": [_task_chip(r) for r in now_rows],
@@ -3248,6 +3268,9 @@ def status(
         lt = None
     if lt:
         tbl.add_row("Last touched", str(lt))
+    ov = _activity_octopus_version(activity)
+    if ov:
+        tbl.add_row("Octopus version", ov)
     console.print(tbl)
 
     if counts:

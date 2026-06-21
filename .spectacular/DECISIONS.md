@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-15
+updated: 2026-06-20
 mode: index
 ---
 
@@ -82,6 +82,7 @@ Full ADR prose: `decisions/D<N>.md` (or `decisions/DTUI-<N>.md` for TUI key deci
 - **D108** — TODO.md Layer 2: `%kind` inline sigil — `%feat`, `%bug`, etc. Sets `kind` field. `%` chosen to avoid markdown conflicts.
 - **D109** — Inbox activity type + default capture routing — `type: inbox` first-class; `[inbox].default` config fallback when outside any activity.
 - **D110** — Machine-local state in config.local.toml — `last_known_path` removed from `activity.md`; lives in `.octopus/config.local.toml` (gitignored).
+- **D111** — `octopus_version` stamp — every `activity.md` write records the CLI version that last touched the folder. Mirrored to `config.local.toml`; surfaced by `octopus status`.
 
 ---
 

@@ -18,6 +18,7 @@ status: active            # required, enum. Default "active".
 area:                     # optional, free-form (e.g. "work", "personal")
 priority:                 # optional enum (D87): low | high | urgent. Omit = normal.
 spec_version: 1           # required, integer. v1 = 1.
+octopus_version:          # auto-managed (D111): CLI version that last wrote this folder. Never set by hand.
 
 # discovery / linking  (D110: last_known_path NOT in activity.md — see config.local.toml)
 source_of_truth: "."      # required, string — usually "." (this folder is canonical)
@@ -61,6 +62,17 @@ last_known_path = "/absolute/path/to/activity"
 - Backwards compat: if `config.local.toml` is absent, reindex reads `last_known_path` from `activity.md` and migrates it.
 
 `locations: []` is for **deliberate** multi-path scenarios (e.g. the same activity exists at `/Users/alex/work/foo` and `/Users/alex/Dropbox/work/foo`). Reindex preserves entries here.
+
+## Version stamp (D111)
+
+`octopus_version` records **which CLI version last wrote the folder**. Auto-managed — never set it by hand.
+
+- Stamped with the running CLI version on *every* `activity.md` write (init, reindex, status/field edits). A stale value is always overwritten.
+- Written to **two places** (same split as D110):
+  - `activity.md` → shared, committed. "Last version in any clone."
+  - `.octopus/config.local.toml` → `octopus_version = "1.6.0"`, machine-local, gitignored. "Last version on this machine."
+- **Read precedence:** `config.local.toml` → `activity.md` → `""`.
+- See it: `octopus status` shows the row `Octopus version`; `octopus status --json` emits key `octopus_version`. Pre-D111 folders read `""` until their next write.
 
 ## Forbidden / reserved
 

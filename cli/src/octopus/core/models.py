@@ -65,6 +65,7 @@ class Activity:
     created: date
     kind: str = "activity"
     spec_version: int = 1
+    octopus_version: str = ""           # D111 — CLI version that last wrote this folder
     type: str = "other"
     status: str = "active"
     area: str | None = None
