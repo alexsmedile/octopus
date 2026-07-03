@@ -193,6 +193,8 @@ Verify the item count and titles look right. If the count is wrong:
 
 ## Step 7 — Pull
 
+**Confirm before pulling (D112).** Peek first (Step 6), show the user how many items would import, and ask for explicit confirmation before running the pull. Do not pull silently — the user may want to fix the TODO.md format first.
+
 ```bash
 cd <project_root>
 octopus bridge pull todo-md

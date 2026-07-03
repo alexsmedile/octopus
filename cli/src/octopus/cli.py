@@ -8,6 +8,7 @@ no status/kind, pinned (not open), stage, run_state, default-omission.
 
 from __future__ import annotations
 
+import sys
 from datetime import date, datetime
 from pathlib import Path
 
@@ -71,7 +72,7 @@ from octopus.fs.scaffold import (
 app = typer.Typer(
     name="octopus",
     help="A folder-native task system. Local-first project & task orchestration.",
-    no_args_is_help=True,
+    invoke_without_command=True,  # D113: bare `octopus` launches the app
     add_completion=False,
 )
 task_app = typer.Typer(name="task", help="Task operations.", no_args_is_help=True)
@@ -99,6 +100,58 @@ def _require_activity() -> Path:
     return root
 
 
+# Files a cwd may hold whose tasks the migrate skill can import (D112).
+_MIGRATABLE_FILES = ("TODO.md", "TASKS.md", "TASK.md")
+
+
+def _warn_migratable(cwd: Path) -> None:
+    """If cwd holds a TODO/TASK file, suggest the migrate skill. Warning only."""
+    for name in _MIGRATABLE_FILES:
+        if (cwd / name).is_file():
+            err_console.print(
+                f"[yellow]⚠[/] found {name} — run the [bold]octopus-migrate[/] "
+                f"skill to import its tasks."
+            )
+            return
+
+
+def _offer_adopt_cwd(cwd: Path) -> Path | None:
+    """D112: on a missing-activity read, offer to adopt cwd.
+
+    Interactive TTY  → prompt y/N; on yes, `octopus init` here and return the
+                       new activity root so the caller can show its (empty) list.
+    Non-interactive  → never prompt (agents/pipes must not hang). Print a hint
+                       and return None so the caller falls through as before.
+
+    Always surfaces a migrate-skill hint if cwd holds a TODO/TASK file.
+    """
+    _warn_migratable(cwd)
+
+    interactive = sys.stdin.isatty() and sys.stdout.isatty()
+    if not interactive:
+        err_console.print(
+            f"[dim]not an octopus activity: {cwd} — run `octopus init` to adopt it.[/]"
+        )
+        return None
+
+    if not typer.confirm(
+        f"No octopus activity in {cwd}.\nAdopt this folder as an activity?",
+        default=False,
+    ):
+        return None
+
+    try:
+        activity = init_activity(cwd)  # folder-name title, type=other, folders mode
+    except (ActivityExistsError, ValueError) as e:
+        err_console.print(f"[red]✗[/] {e}")
+        return None
+    err = sync_activity_after_write(cwd)
+    if err:
+        err_console.print(f"[yellow]⚠[/] {err} (run `octopus reindex` to reconcile)")
+    console.print(f"[green]✓[/] Initialized activity [bold]{short_form(activity.id)}[/] at {cwd}")
+    return cwd
+
+
 def _version_callback(value: bool) -> None:
     if value:
         console.print(f"octopus {__version__}")
@@ -107,6 +160,7 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def _root(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False, "--version", callback=_version_callback, is_eager=True,
         help="Print version and exit.",
@@ -114,6 +168,18 @@ def _root(
 ) -> None:
     """Root command."""
     setup_logging()
+    if ctx.invoked_subcommand is not None:
+        return
+    # D113: bare `octopus` launches the app.
+    #   interactive TTY → the TUI; non-TTY (agent/pipe) → context-aware `list`.
+    # `octopus --help` still prints the menu (--help short-circuits before here).
+    # Re-dispatch through the built Click sub-command. make_context resolves
+    # each param's declared default (invoking the raw Typer function would
+    # leak OptionInfo/ArgumentInfo sentinels as values).
+    name = "tui" if (sys.stdin.isatty() and sys.stdout.isatty()) else "list"
+    sub = ctx.command.commands[name]
+    with sub.make_context(name, [], parent=ctx) as subctx:
+        sub.invoke(subctx)
 
 
 # ── init ─────────────────────────────────────────────────────────────
@@ -2941,6 +3007,11 @@ def list_cmd(
     cwd_activity = None if all_ else find_activity_root(Path.cwd())
     kinds = [k.strip() for k in kind.split(",")] if kind else None
     task_view = bool(bucket or kinds or promoted or spec)
+    # D112: cwd not an activity, no forcing flags → offer to adopt it.
+    if cwd_activity is None and not all_ and not task_view:
+        adopted = _offer_adopt_cwd(Path.cwd())
+        if adopted is not None:
+            cwd_activity = adopted
     if cwd_activity is not None and not task_view:
         # In-activity → default to tasks
         _list_tasks(
@@ -3174,6 +3245,9 @@ def status(
                 raise typer.Exit(EXIT_USER_ERROR) from exc
         else:
             root = find_activity_root(Path.cwd())
+            if root is None:
+                # D112: offer to adopt cwd before erroring.
+                root = _offer_adopt_cwd(Path.cwd())
             if root is None:
                 if _is_empty_index():
                     console.print(EMPTY_INDEX_HINT)

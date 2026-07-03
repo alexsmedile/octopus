@@ -307,8 +307,13 @@ Multi-field invocations atomic: all validations against proposed final state; an
 ## Cross-activity reads & dashboards (D89/D90)
 
 ```
+# Bare invocation (D113)
+octopus                                  # no subcommand: TUI on a TTY, else context-aware `list`
+octopus --help                           # the command menu (still available)
+
 # Noun-explicit list (D90)
 octopus list                             # context-aware: tasks inside / activities outside
+                                         # cwd not an activity + interactive TTY → offer to adopt it (D112)
 octopus list tasks [<path-or-id>]        # tasks in cwd activity or named activity
 octopus list activities                  # the activity dashboard list
 octopus list activities --priority urgent          # priority filter (D87)

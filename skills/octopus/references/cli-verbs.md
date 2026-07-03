@@ -116,7 +116,9 @@ octopus pin focus-this --activity /Users/alex/projects/work
 
 ```
 # Noun-explicit forms (D90)
+octopus                                 # bare (D113): TUI on a TTY, else context-aware `list`; --help = menu
 octopus list                            # context-aware: tasks in activity, activities outside
+                                        # cwd not an activity + interactive TTY → offer to adopt it (D112)
 octopus list tasks [<path-or-id>]       # tasks in cwd or named activity
 octopus list activities [filters]       # the dashboard list with filter flags
 

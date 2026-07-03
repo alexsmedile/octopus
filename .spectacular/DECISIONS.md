@@ -83,6 +83,8 @@ Full ADR prose: `decisions/D<N>.md` (or `decisions/DTUI-<N>.md` for TUI key deci
 - **D109** — Inbox activity type + default capture routing — `type: inbox` first-class; `[inbox].default` config fallback when outside any activity.
 - **D110** — Machine-local state in config.local.toml — `last_known_path` removed from `activity.md`; lives in `.octopus/config.local.toml` (gitignored).
 - **D111** — `octopus_version` stamp — every `activity.md` write records the CLI version that last touched the folder. Mirrored to `config.local.toml`; surfaced by `octopus status`.
+- **D112** — Interactive adopt-on-read — bare `octopus list`/`status` in a folder with no `.octopus/` offer to adopt it (`octopus init`) on an interactive TTY only; non-TTY callers never prompt (print a hint, fall through). A `TODO.md`/`TASKS.md`/`TASK.md` in cwd triggers a warning suggesting the `octopus-migrate` skill. The skill runs the same `octopus init` and confirms before pulling todos.
+- **D113** — Bare `octopus` launches the app — running `octopus` with no subcommand launches the TUI on an interactive TTY, or falls back to context-aware `list` when non-TTY (agent/pipe/script). `octopus --help`/`-h` still prints the command menu; `--version` still works. Replaces the previous `no_args_is_help` menu-on-bare behavior (verb-on-bare, like `vim`/`lazygit`/`k9s`).
 
 ---
 
