@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+---
+
+## [1.7.0] — 2026-07-04
+
 **D111 — record the Octopus version that last wrote each project.** A per-project manifest of "which CLI touched this last," updated automatically on the next edit.
 
 ### Added
@@ -14,6 +18,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **`octopus_version` field on `activity.md`**: auto-stamped with the running CLI version on *every* `activity.md` write (init, reindex, status/field edits). Records "which Octopus version last wrote this folder." Committed to git — shared across clones. Distinct from `spec_version` (the folder *contract* version).
 - **Machine-local mirror in `config.local.toml`**: `octopus_version = "X.Y.Z"` written alongside `last_known_path`, gitignored — "last version on *this* machine." Read precedence: `config.local.toml` → `activity.md` → `""`.
 - **`octopus status` surfaces the stamp**: rich view row `Octopus version`; `--json` key `octopus_version`. Read from the index's stored frontmatter — no DB migration.
+
+**D112 — adopt a folder straight from a read.** Run a read in an un-tracked folder and Octopus offers to make it an activity, instead of silently doing nothing.
+
+### Added
+
+- **Interactive adopt-on-read**: bare `octopus list`/`status` in a folder with no `.octopus/` now offers to adopt it (`octopus init`) — but only on an interactive terminal. Non-TTY callers (agents, pipes, scripts) never prompt; they print a one-line hint and fall through as before, so nothing hangs.
+- **Migrate-skill hint**: a `TODO.md`/`TASKS.md`/`TASK.md` in the folder triggers a warning suggesting the `octopus-migrate` skill to import its tasks. The skill now confirms before pulling todos.
+
+**D113 — bare `octopus` launches the app.** Type the name, get the tool — like `vim` or `lazygit`.
+
+### Changed
+
+- **`octopus` with no subcommand** now launches the TUI on an interactive terminal, or falls back to the context-aware `list` when non-TTY (agent/pipe/script). Previously it printed the command menu. `octopus --help`/`-h` still shows the menu; `--version` is unchanged.
+- **`SCHEMA-INDEX.md` synced to schema v6**: the index spec now matches the live SQLite schema (activity `priority`/`last_touched_at`, task `parent`/`subtasks`/`blocked_by`/`waiting_for`, the composite/partial indexes) and documents the real v1→v6 migration chain. Internal spec catch-up — no runtime change.
 
 ---
 

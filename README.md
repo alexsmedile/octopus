@@ -11,7 +11,7 @@
 *Octopus reaches into each folder, understands what it is, smartly organizes the tasks inside it — and also acts as the central system that ties them all together. One brain, eight arms. Backed by a CLI and a Claude Code skill.*
 
 ![Status](https://img.shields.io/badge/status-active%20build-CBA6F7)
-![Version](https://img.shields.io/badge/version-v1.6.0-CBA6F7)
+![Version](https://img.shields.io/badge/version-v1.7.0-CBA6F7)
 ![Spec](https://img.shields.io/badge/spec-v1-5EEAD4)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Local-first](https://img.shields.io/badge/local--first-yes-success)
@@ -66,6 +66,7 @@ How commands flow follows the hierarchy:
 
 **GLOBAL CONTEXT** (cwd ~/user)
 ```
+  octopus                    → launches the app (TUI on a terminal, else `list`)
   octopus list               → activities (the default at global scope)
   octopus list activities    → explicit form
   octopus list tasks         → cross-activity tasks (rare; use filters)
@@ -75,6 +76,7 @@ How commands flow follows the hierarchy:
 
 **INSIDE AN ACTIVITY** (cwd has .octopus/)
 ```
+  octopus                    → launches the app (TUI on a terminal, else `list`)
   octopus list               → tasks (the default at activity scope)
   octopus list tasks         → explicit form
   octopus list activities    → still works — shows all activities
