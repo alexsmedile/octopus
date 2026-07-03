@@ -1,10 +1,11 @@
 ---
 status: draft
-updated: 2026-05-23
+updated: 2026-07-03
+schema_version: 6
 relates_to: SPEC.md, SCHEMA-TASK.md, SCHEMA-ACTIVITY.md, SCHEMA-SESSION.md, CLI-VERBS.md, CRITICAL-DEPENDENCIES.md
 ---
 
-# SQLite index schema — v1
+# SQLite index schema — v6
 
 The derived index at `~/.local/share/octopus/index.db`. Source of truth is the filesystem; the index is rebuildable at any time via `octopus reindex`.
 
@@ -42,7 +43,9 @@ CREATE TABLE activities (
   created         DATE,
   last_reviewed   DATE,
   raw_frontmatter TEXT,                       -- JSON blob of the full frontmatter
-  indexed_at      DATETIME NOT NULL
+  indexed_at      DATETIME NOT NULL,
+  priority        TEXT,                       -- v4 (D87): low | high | urgent | NULL
+  last_touched_at DATETIME                    -- v4 (D88): last mutation, feeds ranking
 );
 
 -- Tasks: one row per tasks/<slug>.md
@@ -68,6 +71,12 @@ CREATE TABLE tasks (
   owner           TEXT,
   raw_frontmatter TEXT,                       -- JSON blob of the full frontmatter
   indexed_at      DATETIME NOT NULL,
+  kind            TEXT,                       -- v2 (D46): task | request | …
+  promoted_to     TEXT,                       -- v2 (D48): activity ID a request promoted into
+  parent          TEXT,                       -- v5 (D104): parent task slug (subtask graph)
+  subtasks        TEXT,                       -- v6: JSON array of child slugs (derived)
+  blocked_by      TEXT,                       -- v6: JSON array of blocking task refs
+  waiting_for     TEXT,                       -- v6: JSON array of external waits
   UNIQUE(activity_id, slug)
 );
 
@@ -83,28 +92,39 @@ CREATE TABLE sessions (
   indexed_at      DATETIME NOT NULL
 );
 
--- Indexes for query-shaped reads
-CREATE INDEX idx_tasks_bucket           ON tasks(bucket);
-CREATE INDEX idx_tasks_pinned           ON tasks(pinned);
-CREATE INDEX idx_tasks_due              ON tasks(due);
-CREATE INDEX idx_tasks_activity         ON tasks(activity_id);
-CREATE INDEX idx_tasks_kind             ON tasks(kind);          -- D46
-CREATE INDEX idx_tasks_promoted_to      ON tasks(promoted_to);   -- D48
-CREATE INDEX idx_activities_status      ON activities(status);
-CREATE INDEX idx_sessions_activity      ON sessions(activity_id);
-CREATE INDEX idx_sessions_ended         ON sessions(ended);  -- NULL filter for open sessions
-
--- External refs dedup index (schema v3, D63)
+-- External refs dedup table (schema v3, D63)
 CREATE TABLE task_external_refs (
   task_id     TEXT     NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   adapter     TEXT     NOT NULL,
   external_id TEXT     NOT NULL,
   PRIMARY KEY (adapter, external_id)
 );
+
+-- Indexes for query-shaped reads
+CREATE INDEX idx_tasks_bucket           ON tasks(bucket);
+CREATE INDEX idx_tasks_pinned           ON tasks(pinned);
+CREATE INDEX idx_tasks_due              ON tasks(due);
+CREATE INDEX idx_tasks_activity         ON tasks(activity_id);
+CREATE INDEX idx_tasks_kind             ON tasks(kind);          -- v2 (D46)
+CREATE INDEX idx_tasks_promoted_to      ON tasks(promoted_to);   -- v2 (D48)
+CREATE INDEX idx_tasks_parent           ON tasks(parent);        -- v5 (D104)
+CREATE INDEX idx_activities_status      ON activities(status);
+CREATE INDEX idx_activities_priority    ON activities(priority);       -- v4 (D87)
+CREATE INDEX idx_activities_last_touch  ON activities(last_touched_at);-- v4 (D88)
+CREATE INDEX idx_sessions_activity      ON sessions(activity_id);
+CREATE INDEX idx_sessions_ended         ON sessions(ended);  -- NULL filter for open sessions
 CREATE INDEX idx_task_external_refs_task ON task_external_refs(task_id);
 
+-- v6: composite + partial indexes for the hot list/next queries
+CREATE INDEX idx_tasks_activity_bucket
+  ON tasks(activity_id, bucket, archived, pinned DESC, due, slug);
+CREATE INDEX idx_tasks_open
+  ON tasks(bucket, activity_id, pinned DESC, due, slug)
+  WHERE bucket NOT IN ('done', 'dropped')
+    AND (archived IS NULL OR archived = 0);
+
 -- Pragmas applied on every connection open
-PRAGMA user_version  = 3;     -- bumped by D46/D48 (v2) and D63 (v3)
+PRAGMA user_version  = 6;     -- see §5 for the v1→v6 migration chain
 PRAGMA journal_mode  = WAL;
 PRAGMA foreign_keys  = ON;
 ```
@@ -230,12 +250,21 @@ This means AI agents call `octopus reindex --prune --format json` and parse the 
 
 ## 5. Migration policy
 
-- Initial schema is `user_version = 1`.
-- v2 schema changes (new columns, table renames, etc.) bump `user_version` to 2 and ship a migration runner.
-- In v1, the only "migration" is **drop and rebuild**: delete `index.db`, run `octopus reindex`.
-- If the CLI opens an index with `user_version > supported`, it MUST refuse to write (read-only fallback or error, implementation choice).
+Migrations run **in-place** on every connection open (`db/connection.py`), forward-chained: each block reads `PRAGMA user_version`, applies its `ALTER TABLE` / `CREATE` statements, and bumps `user_version` by one. A fresh DB is created at the current `SCHEMA_VERSION` directly; an existing DB is walked up one version at a time. No drop-and-rebuild is required for a schema bump — though deleting `index.db` and running `octopus reindex` is always a valid recovery, since the index is fully derivable.
 
-The index file is **always derivable**. Users should never fear losing it.
+Migration chain to date (`SCHEMA_VERSION = 6`):
+
+| From→To | Decision | Change |
+|---|---|---|
+| 1→2 | D46/D48 | `tasks.kind`, `tasks.promoted_to` + their indexes |
+| 2→3 | D63 | `task_external_refs` join table (adapter dedup) |
+| 3→4 | D87/D88 | `activities.priority`, `activities.last_touched_at` + their indexes |
+| 4→5 | D104 | `tasks.parent` (subtask graph) + `idx_tasks_parent` |
+| 5→6 | — | `tasks.subtasks`, `tasks.blocked_by`, `tasks.waiting_for` + composite/partial task indexes |
+
+Rules:
+- If the CLI opens an index with `user_version > SCHEMA_VERSION` (DB written by a newer CLI), it MUST refuse rather than corrupt it — see `connection.py`.
+- The index file is **always derivable**. Users should never fear losing it.
 
 ---
 
