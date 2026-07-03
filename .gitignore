@@ -70,3 +70,6 @@ Screenshot*.jpg
 *.log
 *.tmp
 *.bak
+
+# Session scratch
+tmp/
