@@ -1,13 +1,15 @@
 ---
-bucket: backlog
+bucket: done
 created: '2026-06-20'
+end_date: '2026-07-07'
 kind: chore
-priority: medium
-title: Prune stale pytest-temp activities from the index DB
+priority: low
+start_date: '2026-07-07'
 tags:
-  - index
-  - reindex
-  - test-hygiene
+- index
+- reindex
+- test-hygiene
+title: Prune stale pytest-temp activities from the index DB
 ---
 
 ## Problem

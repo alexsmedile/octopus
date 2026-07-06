@@ -213,17 +213,25 @@ exit codes:
 
 See `D47`–`D51` in `DECISIONS.md` for the full model.
 
-## Forget verb — pending decision
+## Forget verb (D83 — shipped)
 
 ```
-octopus forget <slug>         [DRAFT — soft-delete to .trash]
+octopus forget activity <path-or-id> [--archive|--also-archive] [-y]
 
-  Proposed behavior:
-    - Moves file to .octopus/.trash/<original-path>.
-    - Excluded from all retrieval.
-    - Recoverable via `octopus restore --from-trash <slug>` (not yet specified).
+  Behavior:
+    - Removes the activity's row (+ its tasks/sessions/external-refs) from
+      the SQLite index. Hard delete from the index — not reversible via a
+      restore command; the index can be rebuilt from disk with `reindex`.
+    - Files on disk are NOT touched by default.
+    - --archive also moves the activity folder to <parent>/_archive/<name>/.
+    - Interactive confirm unless -y is passed. -y alone means "no archive";
+      combine `--archive -y` to skip the prompt and archive.
 
-  Status: kept pending until v2 confirms behavior. Use `archive` for v1.
+  Resolution: path-like tokens (`/`, `~`, or containing `/`) resolve as a
+  filesystem path; otherwise as an activity ID (exact or unambiguous prefix).
+
+  There is no soft-delete/.trash tier and no `restore --from-trash` — that
+  earlier draft was superseded by the --archive flag above.
 ```
 
 ## Storage verbs (v1)
