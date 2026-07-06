@@ -7,6 +7,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+### Fixed
+
+- **`octopus impact`/`next`/`dashboard` no longer crash** on a `str` vs `datetime` sort error. The `last_touched_at` values read from the index could be either strings or datetimes; the ranked-task sort tiebreaker now coerces them to strings.
+- **Test suite no longer writes into the live user index.** An autouse fixture points `$XDG_DATA_HOME` at a throwaway dir, so CLI-level tests calling `get_db()` with no path no longer leak pytest-tmp activities into `~/.local/share/octopus/index.db`.
+
 ---
 
 ## [1.7.0] — 2026-07-04
