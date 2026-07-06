@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+---
+
+## [1.7.1] — 2026-07-07
+
 ### Fixed
 
 - **`octopus impact`/`next`/`dashboard` no longer crash** on a `str` vs `datetime` sort error. The `last_touched_at` values read from the index could be either strings or datetimes; the ranked-task sort tiebreaker now coerces them to strings.
