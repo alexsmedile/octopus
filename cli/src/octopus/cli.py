@@ -3523,7 +3523,7 @@ def _gather_ranked_tasks(conn) -> list[dict]:
     # Sort: score desc, then activity last_touched asc (older = stale = up)
     ranked.sort(key=lambda x: (
         -x["score"],
-        x["last_touched_at"] or "9999",
+        str(x["last_touched_at"]) if x["last_touched_at"] else "9999",
     ))
     return ranked
 
