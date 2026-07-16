@@ -147,7 +147,7 @@ The identity file for an activity. Exactly one per `.octopus/` directory.
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | string | `<slug>-<4-hex-hash>` (see §9). Immutable. |
+| `id` | string | `<slug>-<6-hex-hash>` (see §9). Immutable. |
 | `title` | string | Human display name. |
 | `created` | ISO date | Set once at init. |
 | `kind` | enum | `activity` (fixed in v1). |
@@ -396,7 +396,7 @@ Blocked by [[shift/draft-landing-page-copy]] until pricing is validated.
 
 Resolution rules:
 
-- `<activity-slug>` matches against activity `id` by **unambiguous prefix**. `shift` resolves to `shift-a3f9` if no other activity has slug `shift-*`.
+- `<activity-slug>` matches against activity `id` by **unambiguous prefix**. `shift` resolves to `shift-a3f9b2` if no other activity has slug `shift-*`.
 - Ambiguous prefixes MUST produce an error listing all candidates.
 - The full `id` (with hash) MAY always be used and MUST always be unambiguous.
 - `<task-slug>` matches against task filename without `.md`.
@@ -441,15 +441,15 @@ Rules:
 ### 9.1 Format
 
 ```
-<slug>-<4-hex-hash>
+<slug>-<6-hex-hash>
 ```
 
 Where:
 
 - `<slug>` is the slugified folder name at creation time (lowercase ASCII, hyphens, see §10).
-- `<4-hex-hash>` is the first four hexadecimal characters of `sha256(absolute_path + iso8601_creation_timestamp)`.
+- `<6-hex-hash>` is the first six hexadecimal characters of `sha256(absolute_path + iso8601_creation_timestamp)`.
 
-Example: `shift-a3f9`.
+Example: `shift-a3f9b2`.
 
 ### 9.2 Persistence and stability
 
@@ -468,7 +468,7 @@ On reindex:
 
 ### 9.4 Display rules
 
-- Everyday user-facing output (CLI, TUI, web) SHOULD display the slug portion only (`shift`, not `shift-a3f9`).
+- Everyday user-facing output (CLI, TUI, web) SHOULD display the slug portion only (`shift`, not `shift-a3f9b2`).
 - Machine-readable output (`--format json`, log lines, error messages on collision) MUST include the full `id`.
 - An explicit user option (e.g. `--show-ids`) MUST be available to reveal full IDs on demand.
 
@@ -597,7 +597,7 @@ my-project/
 
 ```markdown
 ---
-id: my-project-a3f9
+id: my-project-a3f9b2
 title: My Project
 type: other
 status: active

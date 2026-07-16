@@ -10,7 +10,7 @@ Full ADR prose: `decisions/D<N>.md` (or `decisions/DTUI-<N>.md` for TUI key deci
 
 ---
 
-- **D1** — Activity ID format — IDs are `<slugified-folder-name>-<4-hex-hash>`, stable across renames.
+- **D1** — Activity ID format — IDs are `<slugified-folder-name>-<6-hex-hash>`, stable across renames.
 - **D2** — Sessions — Multiple open per activity; one "active" tracked in `~/.cache/octopus/active-sessions.json`.
 - **D3** — Areas taxonomy — Free-form strings; Levenshtein ≤ 2 warnings on reindex. `type:` stays enumerated.
 - **D4** — Task slugs — Auto-slugify, 50-char cap, noise-word trim, collision counter (`-2`, `-3`).

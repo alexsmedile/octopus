@@ -83,7 +83,7 @@ tags: []                      # optional, list of strings
 #### `id` — required
 
 - Type: string
-- Format: `<slug>-<4-hex-hash>` (see SPEC.md §9.1)
+- Format: `<slug>-<6-hex-hash>` (see SPEC.md §9.1)
 - Immutable after creation. Folder renames update `last_known_path`, not `id`.
 - Default-hidden in everyday UX (slug only); revealed with `--show-ids`.
 

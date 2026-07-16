@@ -34,7 +34,7 @@ The system-wide DB at this single path is the only derived store. There is **no*
 ```sql
 -- Activities: one row per discovered .octopus/activity.md
 CREATE TABLE activities (
-  id              TEXT    PRIMARY KEY,        -- <slug>-<4-hex>
+  id              TEXT    PRIMARY KEY,        -- <slug>-<6-hex>
   path            TEXT    NOT NULL UNIQUE,    -- absolute folder path
   title           TEXT,
   type            TEXT,                       -- code | business | content | …
@@ -147,9 +147,9 @@ Files under `.octopus/.trash/` MUST NOT be inserted into the index. The reindexe
 
 | Table | ID format | Stability |
 |---|---|---|
-| `activities` | `<slug>-<4-hex>` (e.g. `shift-a3f9`) | Immutable from creation. Folder renames update `path`, not `id`. |
-| `tasks` | `<activity_id>/<slug>` (e.g. `shift-a3f9/fix-bug`) | Slug is the filename (sans `.md`). Bucket moves don't change the ID. |
-| `sessions` | `<activity_id>/<filename>` (e.g. `shift-a3f9/2026-05-22-debug`) | Filename includes date prefix. |
+| `activities` | `<slug>-<6-hex>` (e.g. `shift-a3f9b2`) | Immutable from creation. Folder renames update `path`, not `id`. |
+| `tasks` | `<activity_id>/<slug>` (e.g. `shift-a3f9b2/fix-bug`) | Slug is the filename (sans `.md`). Bucket moves don't change the ID. |
+| `sessions` | `<activity_id>/<filename>` (e.g. `shift-a3f9b2/2026-05-22-debug`) | Filename includes date prefix. |
 
 ### Slug stability under bucket moves
 

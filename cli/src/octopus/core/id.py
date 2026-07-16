@@ -1,7 +1,7 @@
 """Activity ID derivation per SPEC.md §9.
 
-Format: <slug>-<4-hex-hash>
-where hash = sha256(absolute_path + iso8601_creation_timestamp)[:4]
+Format: <slug>-<6-hex-hash>
+where hash = sha256(absolute_path + iso8601_creation_timestamp)[:6]
 """
 
 from __future__ import annotations
@@ -41,9 +41,9 @@ def derive_activity_id(
 
     seed = f"{folder_path.resolve()}{created_at.isoformat()}"
     digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
-    hash4 = digest[:4]
+    hash6 = digest[:6]
 
-    return f"{slug}-{hash4}"
+    return f"{slug}-{hash6}"
 
 
 def parse_activity_id(activity_id: str) -> tuple[str, str]:
@@ -51,8 +51,8 @@ def parse_activity_id(activity_id: str) -> tuple[str, str]:
     if not activity_id or "-" not in activity_id:
         raise ValueError(f"malformed activity id: {activity_id!r}")
     slug, _, hash_part = activity_id.rpartition("-")
-    if len(hash_part) != 4 or not all(c in "0123456789abcdef" for c in hash_part):
-        raise ValueError(f"activity id hash must be 4 hex chars: {activity_id!r}")
+    if len(hash_part) not in {4, 6} or not all(c in "0123456789abcdef" for c in hash_part):
+        raise ValueError(f"activity id hash must be 4 or 6 hex chars: {activity_id!r}")
     if not slug:
         raise ValueError(f"activity id has empty slug: {activity_id!r}")
     return slug, hash_part

@@ -425,7 +425,7 @@ Full authoritative schema lives in `specs/SCHEMA-INDEX.md`. Summary:
 
 ```sql
 CREATE TABLE activities (
-  id TEXT PRIMARY KEY,              -- <slug>-<4-hex>
+  id TEXT PRIMARY KEY,              -- <slug>-<6-hex>
   path TEXT NOT NULL UNIQUE,
   title TEXT, type TEXT, status TEXT, area TEXT,
   created DATE, last_reviewed DATE,
@@ -640,12 +640,12 @@ All ten v1 open questions were resolved through structured review on 2026-05-21.
 
 ### 13.1 Activity IDs
 
-- **Format**: `<slugified-folder-name>-<4-hex-hash>`, where the hash is `sha256(absolute_path + creation_timestamp)[:4]`. Example: `shift-a3f9`.
+- **Format**: `<slugified-folder-name>-<6-hex-hash>`, where the hash is `sha256(absolute_path + creation_timestamp)[:6]`. Example: `shift-a3f9b2`.
 - **Persistence**: written into `activity.md` frontmatter at `octopus init` and never changes thereafter — folder renames do not change the ID.
 - **Override**: `octopus init --id <custom-slug>` accepts any unique slug.
 - **Collisions**: `octopus reindex` surfaces duplicates as errors showing both paths; resolved via `octopus rename`.
 - **Rename detection**: `activity.md` carries `last_known_path:`. On reindex, mismatch prompts the user to update path + cross-references. ID itself never changes.
-- **Display rules**: all everyday UX shows the slug only (`shift`, not `shift-a3f9`). Full ID surfaces only in `--format json`, in `--show-ids`, in collision errors, and inside frontmatter / SQLite. CLI accepts unambiguous prefix-match (`--activity shift`).
+- **Display rules**: all everyday UX shows the slug only (`shift`, not `shift-a3f9b2`). Full ID surfaces only in `--format json`, in `--show-ids`, in collision errors, and inside frontmatter / SQLite. CLI accepts unambiguous prefix-match (`--activity shift`).
 
 ### 13.2 Sessions
 

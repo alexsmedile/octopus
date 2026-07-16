@@ -218,8 +218,8 @@ Tracks one active session per activity (PRD §13.2).
 
 ```json
 {
-  "shift-a3f9": "2026-05-22-debugging-export",
-  "carousel-studio-b71c": "2026-05-20-export-bugs"
+  "shift-a3f9b2": "2026-05-22-debugging-export",
+  "carousel-studio-b71c2e": "2026-05-20-export-bugs"
 }
 ```
 

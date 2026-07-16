@@ -26,7 +26,7 @@ summary      = "tldr"
 
 ```markdown
 ---
-activity: shift-a3f9
+activity: shift-a3f9b2
 last_updated: 2026-05-22
 summary: |
   The Shift project is the rebrand of the office automation product.
@@ -95,7 +95,7 @@ summary:                      # optional, string (single line or YAML block scal
 
 - Type: string
 - Range: the parent activity's `id` (or unambiguous slug).
-- Cross-file grep-ability: enables `grep -r "activity: shift-a3f9"` across the index.
+- Cross-file grep-ability: enables `grep -r "activity: shift-a3f9b2"` across the index.
 
 ### `last_updated` — required
 
