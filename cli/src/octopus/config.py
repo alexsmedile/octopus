@@ -51,6 +51,9 @@ class Config:
     # Inbox fallback (D109): path to the default inbox activity root.
     # Unset by default — user must configure via `[inbox] default = "~/..."`.
     inbox_default: Path | None = None
+    # Background watcher daemon config (v1.5)
+    watcher_enabled: bool = False
+    watcher_polling_fallback: bool = False
 
 
 # Registered providers — extend here when new adapters land.
@@ -115,6 +118,10 @@ def _merge(base: Config, data: dict) -> Config:
     raw_inbox_default = inbox_block.get("default")
     inbox_default = _expand(raw_inbox_default) if raw_inbox_default else base.inbox_default
 
+    watcher_block = data.get("watcher", {})
+    watcher_enabled = bool(watcher_block.get("enabled", base.watcher_enabled))
+    watcher_polling_fallback = bool(watcher_block.get("polling_fallback", base.watcher_polling_fallback))
+
     return Config(
         storage_mode=storage_mode,
         noise_words=noise_words,
@@ -127,6 +134,8 @@ def _merge(base: Config, data: dict) -> Config:
         spectacular_auto_number=auto_number,
         restore_last_view=restore_last_view,
         inbox_default=inbox_default,
+        watcher_enabled=watcher_enabled,
+        watcher_polling_fallback=watcher_polling_fallback,
     )
 
 
@@ -188,6 +197,15 @@ def _write_system_config(data: dict) -> None:
         for k, v in sessions.items():
             if isinstance(v, int):
                 lines.append(f"{k} = {v}")
+            else:
+                lines.append(f'{k} = "{v}"')
+        lines.append("")
+    watcher = data.get("watcher")
+    if watcher:
+        lines.append("[watcher]")
+        for k, v in watcher.items():
+            if isinstance(v, bool):
+                lines.append(f"{k} = {'true' if v else 'false'}")
             else:
                 lines.append(f'{k} = "{v}"')
         lines.append("")

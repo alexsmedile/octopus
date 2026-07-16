@@ -87,6 +87,11 @@ stale_activity_days = 60         # status: active with no task touched
 unreviewed_activity_days = 90    # last_reviewed too long ago
 aging_handoff_days = 30          # handoff status: open
 
+# ── background watcher daemon (v1.5) ─────────────────────────────────
+[watcher]
+enabled = false                  # default: false (off by default)
+polling_fallback = false         # fallback if fsevents/inotify not available
+
 # ── adapters (opt-in) — D58 hybrid layout ────────────────────────────
 # Main config holds ONLY the enabled flag per adapter.
 # Adapter-specific content (vault, lists, default_activity, etc.) lives

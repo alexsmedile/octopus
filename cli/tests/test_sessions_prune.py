@@ -111,3 +111,19 @@ def test_config_overrides_via_toml(monkeypatch, tmp_path):
     cfg = load_config()
     assert cfg.session_stale_warn_days == 3
     assert cfg.session_prune_days == 21
+
+
+def test_watcher_config_overrides(monkeypatch, tmp_path):
+    """`[watcher]` block in config.toml merges correctly."""
+    from octopus import config as cfgmod
+    cfg_dir = tmp_path / "cfg"
+    cfg_dir.mkdir()
+    (cfg_dir / "config.toml").write_text(
+        "[watcher]\nenabled = true\npolling_fallback = true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cfgmod, "SYSTEM_CONFIG_DIR", cfg_dir)
+    monkeypatch.setattr(cfgmod, "SYSTEM_CONFIG_PATH", cfg_dir / "config.toml")
+    cfg = load_config()
+    assert cfg.watcher_enabled is True
+    assert cfg.watcher_polling_fallback is True

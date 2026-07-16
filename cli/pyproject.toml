@@ -30,6 +30,7 @@ dependencies = [
     "textual>=8.2,<9",
     "rich-pixels>=3.0",
     "pillow>=10.0",
+    "watchdog>=4.0",
 ]
 
 [project.optional-dependencies]

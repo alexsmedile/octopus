@@ -3888,6 +3888,62 @@ def reindex(
         raise typer.Exit(4)
 
 
+# ── watch (v1.5) ──────────────────────────────────────────────────────
+
+watch_app = typer.Typer(name="watch", help="Background fsevents watcher daemon.", no_args_is_help=True)
+app.add_typer(watch_app, name="watch")
+
+
+@watch_app.command("start")
+def watch_start(
+    root: str | None = typer.Option(None, "--root", help="Override configured roots."),
+) -> None:
+    """Start the background watcher daemon (opt-in, off by default)."""
+    from octopus.watcher.daemon import start as watcher_start
+
+    cfg = load_config()
+    if root:
+        roots = [Path(root).expanduser().resolve()]
+    else:
+        roots = cfg.roots
+    if not roots:
+        err_console.print(
+            "[red]✗[/] no roots configured. Add one with:\n"
+            "  octopus config root add <path>"
+        )
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    started, message = watcher_start(roots, polling_fallback=cfg.watcher_polling_fallback)
+    if not started:
+        err_console.print(f"[yellow]⚠[/] {message}")
+        raise typer.Exit(1)
+    console.print(f"[green]✓[/] {message}")
+
+
+@watch_app.command("stop")
+def watch_stop() -> None:
+    """Stop the background watcher daemon."""
+    from octopus.watcher.daemon import stop as watcher_stop
+
+    stopped, message = watcher_stop()
+    if not stopped:
+        err_console.print(f"[yellow]⚠[/] {message}")
+        raise typer.Exit(1)
+    console.print(f"[green]✓[/] {message}")
+
+
+@watch_app.command("status")
+def watch_status() -> None:
+    """Report whether the watcher daemon is running."""
+    from octopus.watcher.daemon import status as watcher_status
+
+    result = watcher_status()
+    if result.running:
+        console.print(f"[green]●[/] watcher running (pid {result.pid})")
+    else:
+        console.print("[dim]○[/] watcher not running")
+
+
 # ── diagnose ──────────────────────────────────────────────────────────
 
 
