@@ -1,0 +1,5 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "octopus",
+  "description": "Folder-native task and continuity system. Captures tasks, sessions, memory, and handoffs as plain markdown next to your work."
+}
