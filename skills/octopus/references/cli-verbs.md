@@ -19,7 +19,7 @@
 | Sessions | 410–442 | `session start/end/switch/list/show/prune`, `log` |
 | Memory | 443–466 | `memory show/append/summary/state` |
 | Handoffs | 467–482 | `handoff new/list/show` |
-| Indexing | 483–495 | `reindex`, `config root add/list/remove` |
+| Indexing | 483–495 | `reindex`, `config root add/list/remove`, `watch start/stop/status` |
 | Config | 496–505 | `config show`, config.toml fields |
 | Lint | 506–535 | `octopus lint` flags and severity levels |
 | TUI launcher | 536–552 | `octopus tui` flags |
@@ -517,6 +517,16 @@ octopus reindex [--prune] [--root <path>]
 octopus config root add <path>
 octopus config root list
 octopus config root remove <path>
+
+octopus watch start | stop | status
+  Opt-in background daemon for real-time index sync. Off by default.
+  Engine: watchdog (native fsevents/inotify); falls back to mtime-diff
+  polling when watchdog is unavailable or [watcher] polling_fallback=true.
+  Scope: configured roots only, filtered to .octopus/**/*.md.
+  On change: single-file re-parse + upsert (no full reindex).
+  State: PID at ~/.cache/octopus/watcher.pid,
+         log at ~/.local/share/octopus/logs/watcher.log.
+  Config: [watcher] enabled (default false), polling_fallback (default false).
 ```
 
 ## Config

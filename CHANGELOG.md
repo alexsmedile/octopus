@@ -7,6 +7,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+### Added
+
+- **`octopus watch start | stop | status`** — opt-in background daemon for real-time index sync (PRD §13.5). Prefers `watchdog` (native fsevents/inotify); falls back to mtime-diff polling when unavailable or `[watcher] polling_fallback` is set. Off by default. PID at `~/.cache/octopus/watcher.pid`, log at `~/.local/share/octopus/logs/watcher.log`.
+
+### Fixed
+
+- **Activity ID hash widened from 4 to 6 hex chars (D1)** — reduces collision risk as activity count grows. `parse_activity_id` still accepts legacy 4-char hashes for backward compatibility.
+
+### Changed
+
+- Closed 7 stale/verified backlog items; reconciled the `forget` spec.
+- Added Antigravity plugin marker at repo root, completing the plugin manifest set alongside `.claude-plugin/plugin.json`.
+
 ---
 
 ## [1.7.1] — 2026-07-07

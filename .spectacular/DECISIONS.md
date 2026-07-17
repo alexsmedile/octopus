@@ -32,7 +32,7 @@ Full ADR prose: `decisions/D<N>.md` (or `decisions/DTUI-<N>.md` for TUI key deci
 - **D20** — Memory append-only, two-zone — Frontmatter `summary:` (user-curated). Body: managed below marker.
 - **D21** — Session lifecycle — `ended:` empty/populated = open/closed. One "active" at a time per activity.
 - **D22** — Handoff lifecycle — Status: `open → received → resolved` (or `stale`).
-- **D23** — `.trash/` for soft delete — `octopus forget <slug>` moves to `.octopus/.trash/` (v2 feature).
+- **D23** — `forget` is a hard delete, no `.trash/` tier — `octopus forget activity` removes the index row only (not reversible via restore; rebuildable via `reindex`); files untouched unless `--archive` moves them to `_archive/`. Supersedes the earlier soft-delete-to-`.trash` draft.
 - **D24** — SPEC.md as conceptual map — SPEC.md §3-§7 are summaries; schema docs in `specs/` are authoritative.
 - **D25** — `set` verb is hand-edit equivalent — Accepts any frontmatter field; strict type/format/cross-field validation.
 - **D26** — Symmetric start/end date rules — `status: doing` MUST have `start_date` set.

@@ -544,6 +544,24 @@ octopus config root remove <path>
   notes  : `add` errors on duplicate; `remove` errors if not present
 ```
 
+## Watcher verb (v1.5) — background daemon
+
+```
+octopus watch start | stop | status
+  intent : opt-in background daemon for real-time index sync (PRD §13.5)
+  engine : watchdog (native fsevents/inotify) by default; falls back to
+           mtime-diff polling when watchdog is unavailable or
+           [watcher] polling_fallback = true is set
+  scope  : subscribes only to configured roots, filters to .octopus/**/*.md
+  on change : single-file re-parse + upsert (no full reindex)
+  state  : PID at ~/.cache/octopus/watcher.pid
+           log at ~/.local/share/octopus/logs/watcher.log
+  config : [watcher] enabled (default false), polling_fallback (default false)
+           see SCHEMA-CONFIG.md §5.2/5.3
+  notes  : off by default; not required for v1 responsiveness — improves
+           real-time sync for those who opt in (e.g. the web viewer)
+```
+
 ---
 
 ## Lint verb (v1) — corpus hygiene audit

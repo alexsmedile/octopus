@@ -252,6 +252,9 @@ octopus task show <slug>        # the raw file
 octopus reindex                 # rebuild the SQLite index from disk
 octopus config root add <path>  # tell Octopus where to look
 octopus config root list
+octopus watch start             # opt-in daemon: real-time index sync on file change
+octopus watch stop
+octopus watch status
 ```
 
 ### Escape hatch
