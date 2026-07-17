@@ -48,7 +48,7 @@ _Machine-actionable. Pick one and run it._
 ## References
 - `[[task-slug]]`
 - `sessions/<filename>`
-- `.spectacular/DECISIONS.md#D<n>` if a decision is in flight
+- `.spectacular/decisions/index.md#D<n>` if a decision is in flight
 - External URLs, paths.
 ```
 

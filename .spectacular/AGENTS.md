@@ -11,7 +11,7 @@ This file governs how AI agents (Claude Code, Codex, others) work inside the Oct
 ## Read order before editing
 
 1. `.spectacular/PRD.md` — current product spec.
-2. `.spectacular/DECISIONS.md` — what's already locked.
+2. `.spectacular/decisions/index.md` — what's already locked.
 3. `.spectacular/STACK.md` — language/library choices.
 4. The PLAN.md of the current request.
 5. Any AGENTS.md / CLAUDE.md in the folder you're about to touch.

@@ -176,5 +176,5 @@ The help overlay text is generated from a single in-code table (`cli/src/octopus
 
 - [TUI-GLYPHS.md](TUI-GLYPHS.md) — companion spec for the read-side glyph vocabulary
 - [CLI-VERBS.md](CLI-VERBS.md) — the CLI verbs the TUI delegates to
-- [DECISIONS.md](../DECISIONS.md) — locked decisions D1-D7
+- [DECISIONS.md](../decisions/index.md) — locked decisions D1-D7
 - [docs/KEYS.md](../../docs/KEYS.md) — public-facing mirror (lighter prose)

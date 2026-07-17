@@ -75,4 +75,3 @@ Six discrete deliverables, smallest-to-largest:
 - **Wheel doesn't include `schema.sql`** — already addressed by `force-include` in pyproject; verify it survives the version bump.
 - **Logging silently fills disk** — rotation policy mitigates; cap at 6 MB total (1 MB × 5 backups + active).
 - **CI matrix flakiness on 3.13** — register_adapter fix should hold; if not, drop 3.13 from matrix and document.
-

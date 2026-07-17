@@ -286,4 +286,4 @@ Known quirk: `▣` (U+25A3, filled inner square) renders correctly in all of the
 
 - [TUI-KEYS.md](TUI-KEYS.md) — companion spec for the keybinding layer
 - [SCHEMA-TASK.md](SCHEMA-TASK.md) — task fields the renderer reads (`bucket`, `run_state`, `issue`, `promoted_to`; `progress` is forward-spec)
-- [DECISIONS.md](../DECISIONS.md) — locked decisions G1–G4, D91, and v1 glyph allocations
+- [DECISIONS.md](../decisions/index.md) — locked decisions G1–G4, D91, and v1 glyph allocations

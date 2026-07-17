@@ -28,15 +28,16 @@ octopus/
 ├── CLAUDE.md                       # this file — agent rules
 ├── AGENTS.md                       # repo-wide agent rules
 │
-├── .spectacular/                   # design workspace + shipped specs
+├── .spectacular/                   # design workspace + shipped specs (OKF v2 layout)
 │   ├── PRD.md                      # canonical product spec (single source of truth)
-│   ├── SPEC.md                     # the .octopus/ folder contract (versioned, frozen)
 │   ├── STACK.md                    # locked language/library choices
-│   ├── DECISIONS.md                # decisions index — one line per decision (D1, D2, …)
-│   ├── decisions/                  # per-decision detail files (D1.md, D2.md, …)
 │   ├── AGENTS.md                   # agent rules for spectacular work
-│   ├── config.yaml                 # spectacular project config
-│   ├── specs/                      # spec breakouts (authoritative companions to SPEC.md)
+│   ├── config.yaml                 # spectacular project config (workspace_schema: 2.0)
+│   ├── decisions/                  # decisions collection
+│   │   ├── index.md                # decisions index — one line per decision (D1, D2, …)
+│   │   └── D<N>-<slug>.md          # per-decision detail files
+│   ├── specs/                      # spec collection (authoritative)
+│   │   ├── index.md                # the .octopus/ folder contract (versioned, frozen)
 │   │   ├── SCHEMA-TASK.md
 │   │   ├── SCHEMA-ACTIVITY.md
 │   │   ├── SCHEMA-SESSION.md
@@ -63,7 +64,7 @@ All design specs live under `.spectacular/`. There is no separate `specs/` or `d
 | What you need | Where to find it |
 |---|---|
 | Product spec / vision / scope | `.spectacular/PRD.md` |
-| `.octopus/` folder contract (top-level) | `.spectacular/SPEC.md` |
+| `.octopus/` folder contract (top-level) | `.spectacular/specs/index.md` |
 | Task frontmatter schema | `.spectacular/specs/SCHEMA-TASK.md` |
 | Activity frontmatter schema | `.spectacular/specs/SCHEMA-ACTIVITY.md` |
 | Session schema | `.spectacular/specs/SCHEMA-SESSION.md` |
@@ -76,15 +77,15 @@ All design specs live under `.spectacular/`. There is no separate `specs/` or `d
 | Validation rules across all schemas | `.spectacular/specs/CRITICAL-DEPENDENCIES.md` |
 | TODO.md Layer 1 + Layer 2 format contract | `.spectacular/specs/TODO-MD-FORMAT.md` |
 | Language/library choices | `.spectacular/STACK.md` |
-| Decisions index (one line per decision) | `.spectacular/DECISIONS.md` |
-| Full ADR prose for a specific decision | `.spectacular/decisions/D<N>.md` |
+| Decisions index (one line per decision) | `.spectacular/decisions/index.md` |
+| Full ADR prose for a specific decision | `.spectacular/decisions/D<N>-<slug>.md` |
 
 ## Read order before editing
 
 1. Read this file.
 2. Read `.spectacular/PRD.md` for product context.
-3. Read `.spectacular/DECISIONS.md` (index — one line per decision) to see what's already locked. Load `decisions/D<N>.md` only if that specific decision is directly relevant.
-4. Read `.spectacular/SPEC.md` for the on-disk contract.
+3. Read `.spectacular/decisions/index.md` (index — one line per decision) to see what's already locked. Load `decisions/D<N>-<slug>.md` only if that specific decision is directly relevant.
+4. Read `.spectacular/specs/index.md` for the on-disk contract.
 5. If touching a schema, read the relevant `.spectacular/specs/SCHEMA-*.md`.
 6. If activating or working on a request, read its `.spectacular/requests/<slug>/PLAN.md` and `TASKS.md`.
 7. If touching `/Users/alex/vault/tasks`, also read `/Users/alex/vault/tasks/AGENTS.md`.
@@ -93,9 +94,9 @@ All design specs live under `.spectacular/`. There is no separate `specs/` or `d
 
 When two docs disagree, this is the order of authority:
 
-1. `.spectacular/DECISIONS.md` — locked decisions win over speculative text.
+1. `.spectacular/decisions/index.md` — locked decisions win over speculative text.
 2. `.spectacular/specs/*.md` — the detailed contract.
-3. `.spectacular/SPEC.md` — conceptual map; should track the schema docs.
+3. `.spectacular/specs/index.md` — conceptual map; should track the schema docs.
 4. `.spectacular/PRD.md` — product spec; older than schema docs in some places.
 
 If you find a conflict, surface it to Alessandro before resolving. Do not silently rewrite.
@@ -107,7 +108,7 @@ If you find a conflict, surface it to Alessandro before resolving. Do not silent
 - Keep live user tasks in `/Users/alex/vault/tasks`.
 - Preserve links and old-path compatibility when moving docs.
 - Prefer small, explicit changes over broad rewrites.
-- If changing routing or schema, update the authoritative spec document(s) and `DECISIONS.md`.
+- If changing routing or schema, update the authoritative spec document(s) and `.spectacular/decisions/index.md`.
 - **Skill-reference sync rule**: when editing any spec under `.spectacular/specs/SCHEMA-*.md`, `CLI-VERBS.md`, `TUI-GLYPHS.md`, `TUI-KEYS.md`, or `CRITICAL-DEPENDENCIES.md`, also update the matching file under `skills/octopus/references/` (or `references/schemas/` for schema specs). The skill must remain self-contained — agents installing the plugin do not get access to `.spectacular/`. Mapping:
   | Spec changed | Update |
   |---|---|
@@ -136,7 +137,7 @@ When activating a request:
 2. Confirm gates (other requests listed in `gates:` are done).
 3. Generate `TASKS.md` if not present.
 4. Work top-to-bottom, marking tasks as you go.
-5. When done, set `status: done` in `PLAN.md` frontmatter and update `DECISIONS.md` if any decision was locked.
+5. When done, set `status: done` in `PLAN.md` frontmatter and update `.spectacular/decisions/index.md` if any decision was locked.
 
 ## Authority on safety
 

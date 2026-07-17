@@ -46,12 +46,12 @@ octopus/
 | If you want… | Read |
 |---|---|
 | Product vision and scope | [`.spectacular/PRD.md`](../.spectacular/PRD.md) |
-| The on-disk `.octopus/` contract | [`.spectacular/SPEC.md`](../.spectacular/SPEC.md) |
+| The on-disk `.octopus/` contract | [`.spectacular/specs/index.md`](../.spectacular/specs/index.md) |
 | Task frontmatter schema | [`.spectacular/specs/SCHEMA-TASK.md`](../.spectacular/specs/SCHEMA-TASK.md) |
 | Activity / session / memory / handoff schemas | [`.spectacular/specs/SCHEMA-*.md`](../.spectacular/specs/) |
 | The four-axis task model | [`.spectacular/specs/AXIS-MODEL.md`](../.spectacular/specs/AXIS-MODEL.md) |
 | All CLI verbs and views | [`.spectacular/specs/CLI-VERBS.md`](../.spectacular/specs/CLI-VERBS.md) |
-| Locked decisions, dated | [`.spectacular/DECISIONS.md`](../.spectacular/DECISIONS.md) |
+| Locked decisions, dated | [`.spectacular/decisions/index.md`](../.spectacular/decisions/index.md) |
 | What we built and when | [`docs/ROADMAP.md`](ROADMAP.md) |
 | TUI key bindings | [`docs/TUI.md`](TUI.md) |
 | Stack choices and rationale | [`.spectacular/STACK.md`](../.spectacular/STACK.md) |

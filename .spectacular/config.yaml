@@ -6,3 +6,10 @@ agents:
 prd:
   file: PRD.md
   version: 0.1.0
+
+# Structural version of .spectacular/ layout. Migrations bump this.
+workspace_schema: "2.0"
+
+# Provenance (backfilled — created_with unknown for pre-provenance workspaces).
+created_with: "unknown"
+last_touched_with: "1.35.0"

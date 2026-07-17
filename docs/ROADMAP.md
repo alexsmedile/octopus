@@ -2,7 +2,7 @@
 
 v1 ships when phases **06** (adapter framework) and **07** (Obsidian symlink bridge) are done. The protocol — `.octopus/` on disk — is the lock-in, not the Python. Anything that speaks the contract is "Octopus".
 
-For per-release detail see [CHANGELOG.md](../CHANGELOG.md). For locked decisions see [`.spectacular/DECISIONS.md`](../.spectacular/DECISIONS.md).
+For per-release detail see [CHANGELOG.md](../CHANGELOG.md). For locked decisions see [`.spectacular/decisions/index.md`](../.spectacular/decisions/index.md).
 
 ## Build phases
 
