@@ -900,7 +900,13 @@ def _scan_tasks(octopus_dir: Path, storage_mode: str) -> list[Task]:
 
 
 @task_app.command("show")
-def task_show(slug: str = typer.Argument(..., help="Task slug.")) -> None:
+def task_show(
+    slug: str = typer.Argument(..., help="Task slug."),
+    glyphs: bool = typer.Option(
+        False, "--glyphs",
+        help="Prefix the title with the task's status glyph (G3). Default off; opt-in only.",
+    ),
+) -> None:
     """Print a task's frontmatter and body."""
     root = _require_activity()
     octopus_dir = root / ".octopus"
@@ -909,6 +915,17 @@ def task_show(slug: str = typer.Argument(..., help="Task slug.")) -> None:
     if task_path is None:
         err_console.print(f"[red]✗[/] task not found: {slug}")
         raise typer.Exit(EXIT_USER_ERROR)
+    if glyphs:
+        from octopus.tui.icons import render_glyph_prefix
+        task, _ = read_task(task_path)
+        cfg = load_config(octopus_dir)
+        glyph = render_glyph_prefix(
+            task,
+            style=cfg.glyphs_style,
+            progress_stages=cfg.glyphs_progress_stages,
+            use_color=cfg.glyphs_use_color,
+        )
+        console.print(f"{glyph} {slug}\n")
     console.print(task_path.read_text(encoding="utf-8"))
 
 
@@ -2965,6 +2982,10 @@ def list_cmd(
         help="Include activities with status: archived (hidden by default — D83).",
     ),
     show_ids: bool = typer.Option(False, "--show-ids", "-i", help="Reveal full activity IDs."),
+    glyphs: bool = typer.Option(
+        False, "--glyphs",
+        help="Prefix each task with its status glyph (G3). Default off; opt-in only.",
+    ),
 ) -> None:
     """List activities or tasks. Context-aware (use --all to force cross-activity).
 
@@ -2984,7 +3005,7 @@ def list_cmd(
         _list_tasks(
             target=target, all_=all_, bucket=bucket, kind=kind,
             promoted=promoted, spec=spec, include_archived=include_archived,
-            show_ids=show_ids,
+            show_ids=show_ids, glyphs=glyphs,
         )
         return
     if noun == "activities":
@@ -3017,7 +3038,7 @@ def list_cmd(
         _list_tasks(
             target=None, all_=False, bucket=bucket, kind=kind,
             promoted=promoted, spec=spec, include_archived=include_archived,
-            show_ids=show_ids,
+            show_ids=show_ids, glyphs=glyphs,
         )
         return
     if task_view:
@@ -3031,7 +3052,8 @@ def list_cmd(
                 conn, bucket=bucket,
                 kinds=kinds, promoted=promoted, spec=spec,
             )
-            _print_task_rows(rows, show_ids=show_ids, show_activity=True)
+            glyphs_cfg = load_config() if glyphs else None
+            _print_task_rows(rows, show_ids=show_ids, show_activity=True, glyphs=glyphs, glyphs_cfg=glyphs_cfg)
         finally:
             conn.close()
         return
@@ -3048,6 +3070,7 @@ def list_cmd(
 def _list_tasks(
     *, target: str | None, all_: bool, bucket: str | None, kind: str | None,
     promoted: bool, spec: str | None, include_archived: bool, show_ids: bool,
+    glyphs: bool = False,
 ) -> None:
     """Implementation for `octopus list tasks [<path-or-id>]`."""
     kinds = [k.strip() for k in kind.split(",")] if kind else None
@@ -3067,7 +3090,8 @@ def _list_tasks(
                 kinds=kinds, promoted=promoted, spec=spec,
                 include_archived=include_archived,
             )
-            _print_task_rows(rows, show_ids=show_ids)
+            glyphs_cfg = load_config(root / ".octopus") if glyphs else None
+            _print_task_rows(rows, show_ids=show_ids, glyphs=glyphs, glyphs_cfg=glyphs_cfg)
             return
         # No target: cwd-walk-up if available, else cross-activity
         cwd_activity = None if all_ else find_activity_root(Path.cwd())
@@ -3078,7 +3102,8 @@ def _list_tasks(
                 kinds=kinds, promoted=promoted, spec=spec,
                 include_archived=include_archived,
             )
-            _print_task_rows(rows, show_ids=show_ids)
+            glyphs_cfg = load_config(cwd_activity / ".octopus") if glyphs else None
+            _print_task_rows(rows, show_ids=show_ids, glyphs=glyphs, glyphs_cfg=glyphs_cfg)
         else:
             if _is_empty_index():
                 console.print(EMPTY_INDEX_HINT)
@@ -3088,7 +3113,8 @@ def _list_tasks(
                 kinds=kinds, promoted=promoted, spec=spec,
                 include_archived=include_archived,
             )
-            _print_task_rows(rows, show_ids=show_ids, show_activity=True)
+            glyphs_cfg = load_config() if glyphs else None
+            _print_task_rows(rows, show_ids=show_ids, show_activity=True, glyphs=glyphs, glyphs_cfg=glyphs_cfg)
     finally:
         conn.close()
 
@@ -3160,7 +3186,10 @@ def _print_activity_rows(
     console.print(table)
 
 
-def _print_task_rows(rows: list, *, show_ids: bool = False, show_activity: bool = False) -> None:
+def _print_task_rows(
+    rows: list, *, show_ids: bool = False, show_activity: bool = False,
+    glyphs: bool = False, glyphs_cfg=None,
+) -> None:
     if not rows:
         console.print("[dim]no tasks[/]")
         return
@@ -3178,6 +3207,18 @@ def _print_task_rows(rows: list, *, show_ids: bool = False, show_activity: bool 
                 "🔥" if r["priority"] == "urgent" else
                 "!" if r["priority"] == "high" else " "
             )
+            glyph_prefix = ""
+            if glyphs:
+                from octopus.tui.icons import status_glyph
+                style = glyphs_cfg.glyphs_style if glyphs_cfg else "collapsed"
+                use_color = glyphs_cfg.glyphs_use_color if glyphs_cfg else True
+                stages = glyphs_cfg.glyphs_progress_stages if glyphs_cfg else 4
+                if not use_color or style == "minimal":
+                    from octopus.tui.icons import _minimal_glyph
+                    glyph = _minimal_glyph(dict(r))
+                else:
+                    glyph = status_glyph(r, progress_stages=stages)
+                glyph_prefix = f"{glyph} "
             prefix = ""
             if show_activity:
                 act = r["activity_id"] if show_ids else short_form(r["activity_id"])
@@ -3187,7 +3228,7 @@ def _print_task_rows(rows: list, *, show_ids: bool = False, show_activity: bool 
             if r["promoted_to"]:
                 promoted_str = f"  [dim]→ {_promoted_chip(r['promoted_to'])}[/]"
             console.print(
-                f"  {marker} {prefix}[cyan]{r['slug']}[/]{kind_chip}  {r['title']}{promoted_str}"
+                f"  {glyph_prefix}{marker} {prefix}[cyan]{r['slug']}[/]{kind_chip}  {r['title']}{promoted_str}"
             )
 
 

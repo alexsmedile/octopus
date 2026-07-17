@@ -92,6 +92,16 @@ aging_handoff_days = 30          # handoff status: open
 enabled = false                  # default: false (off by default)
 polling_fallback = false         # fallback if fsevents/inotify not available
 
+# ── glyph rendering (G3/G4, request 49-tui-glyph-parity) ─────────────
+# Resolution: --glyphs CLI flag > per-activity config.toml > this file > defaults.
+# Only affects octopus list/show when --glyphs is passed. TUI always renders
+# glyphs (Focus + Board); this block does not gate TUI rendering.
+[ui.glyphs]
+style = "collapsed"              # collapsed (default, Unicode) | combined | minimal (ASCII)
+progress_stages = 4              # 2 | 3 | 4 — progress-ladder granularity
+use_color = true                 # false forces "minimal" glyphs regardless of style
+session_marker = "arrow"         # arrow | none
+
 # ── adapters (opt-in) — D58 hybrid layout ────────────────────────────
 # Main config holds ONLY the enabled flag per adapter.
 # Adapter-specific content (vault, lists, default_activity, etc.) lives

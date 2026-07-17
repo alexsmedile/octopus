@@ -390,16 +390,21 @@ octopus status [<activity-prefix>]
   output : full activity record + task breakdown + open sessions + pinned items
   notes  : index-backed; uses stale-check on the activity's rows.
 
-octopus list [--all] [--kind <enum>] [--promoted] [--spec <slug>]
+octopus list [--all] [--kind <enum>] [--promoted] [--spec <slug>] [--glyphs]
   intent : list activities / tasks. CONTEXT-AWARE.
   scope  : if cwd is inside an activity → lists that activity's tasks (like task list)
            if cwd is NOT inside an activity → lists all indexed activities
            --all forces cross-activity listing regardless of cwd
   flags  : --all, --status STATUS, --type TYPE, --area AREA,
            --bucket BUCKET, --show-ids, --no-stale-check, --format json,
-           --kind <enum>, --promoted, --spec <slug>
+           --kind <enum>, --promoted, --spec <slug>, --glyphs
   notes  : if index is empty (no activities found), prints
            "no activities indexed — run `octopus reindex`".
+           --glyphs (G3, request 49-tui-glyph-parity): prefixes each task
+           row with its slot-1 status glyph (see TUI-GLYPHS.md). Default
+           off — no output change for scripts. Task-view only (activity
+           listings are unaffected). Style/color/progress-stage config
+           resolves via [ui.glyphs] in config.toml — see SCHEMA-CONFIG.md.
 
 octopus task list [--all] [--kind <enum>] [--promoted] [--spec <slug>]
   intent : list tasks. CONTEXT-AWARE (same scope rules as `list`).
@@ -407,6 +412,11 @@ octopus task list [--all] [--kind <enum>] [--promoted] [--spec <slug>]
            --all → tasks across every indexed activity
   flags  : --all, --bucket BUCKET, --no-stale-check, --format json,
            --kind <enum>, --promoted, --spec <slug>
+
+octopus task show <slug> [--glyphs]
+  intent : print one task's frontmatter + body verbatim
+  flags  : --glyphs (G3) — prefixes the slug line with the task's slot-1
+           status glyph, on its own line before the frontmatter dump.
 ```
 
 ### New filter flags (v1)

@@ -171,24 +171,27 @@ DONE header uses `●` (slot-1 glyph), not `✓` (chrome). Row-and-header consis
 
 ## Config
 
-```yaml
-ui:
-  glyphs:
-    style: collapsed         # collapsed | combined | minimal
-    progress_stages: 4       # 2 | 3 | 4
-    use_color: true          # false → ASCII-only
-    session_marker: arrow    # arrow | none
+TOML, not YAML — `config.toml` is the only config format in this project.
+
+```toml
+[ui.glyphs]
+style = "collapsed"          # collapsed | combined | minimal
+progress_stages = 4          # 2 | 3 | 4
+use_color = true             # false → ASCII-only
+session_marker = "arrow"     # arrow | none
 ```
 
-Resolution: `--glyphs` flag > `.octopus/config.yaml` > `~/.config/octopus/config.yaml` > defaults.
+Resolution: `--glyphs` flag presence > `.octopus/config.toml` > `~/.config/octopus/config.toml` > defaults.
 
 | `style` | Slot-1 set |
 |---|---|
-| `collapsed` (default) | `· □ ▣ ● ○ ◐ ◑ ▶ ✕ ! ? +` |
-| `combined` | two-cell bucket+progress (e.g. `▷○`, `▶◐`) |
-| `minimal` | ASCII `· [ ] # o O X` |
+| `collapsed` (default) | `· □ ▣ ● ○ ◐ ◑ ▶ ✕ ! ? +` — shared with TUI |
+| `combined` | not a distinct CLI rendering yet — falls back to `collapsed` |
+| `minimal` | ASCII, shipped in `icons.py`: idle `· o O X x`, progress `o o O X`, exceptions `! ? +`, session `>` |
 
 `use_color: false` → forces `minimal`.
+
+`--glyphs` ships on `octopus list tasks` and `octopus task show <slug>` (request 49-tui-glyph-parity). Default off — no output change for scripts unless passed.
 
 ## Implementation contract
 

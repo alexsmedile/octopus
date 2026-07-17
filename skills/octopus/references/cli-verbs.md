@@ -124,8 +124,12 @@ octopus pin focus-this --activity /Users/alex/projects/work
 octopus                                 # bare (D113): TUI on a TTY, else context-aware `list`; --help = menu
 octopus list                            # context-aware: tasks in activity, activities outside
                                         # cwd not an activity + interactive TTY → offer to adopt it (D112)
-octopus list tasks [<path-or-id>]       # tasks in cwd or named activity
+octopus list tasks [<path-or-id>] [--glyphs]   # tasks in cwd or named activity
 octopus list activities [filters]       # the dashboard list with filter flags
+
+# --glyphs (G3): prefixes each task row with its slot-1 status glyph.
+# Default off — no output change unless passed. Task views only.
+# Style/color resolve via [ui.glyphs] in config.toml.
 
 # Activity-level filter flags (D27, multi-value via comma)
 --status <a,b>          activity status (active|on_hold|done|cancelled|archived|...)
@@ -196,7 +200,8 @@ octopus show <slug>
   Full task content (frontmatter + body).
 
 octopus task list [--bucket <name>] [--pinned] [--kind <enum>] [--promoted] [--spec <slug>]
-octopus task show <slug>
+octopus task show <slug> [--glyphs]
+  --glyphs (G3): prints a slot-1 status glyph line before the frontmatter dump.
 ```
 
 ### Scope rules

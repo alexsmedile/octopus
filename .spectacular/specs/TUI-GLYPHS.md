@@ -232,27 +232,28 @@ A null `progress` falls through to the bucket idle glyph (see Slot 1 resolver st
 
 Override the rendering via config. Resolution order (highest wins):
 
-1. `--glyphs <style>` CLI flag
-2. `.octopus/config.yaml` `ui.glyphs.*` (per-activity)
-3. `~/.config/octopus/config.yaml` `ui.glyphs.*` (user-global)
+1. `--glyphs` CLI flag presence (CLI surface only — gates whether glyphs render at all)
+2. `.octopus/config.toml` `[ui.glyphs]` (per-activity)
+3. `~/.config/octopus/config.toml` `[ui.glyphs]` (user-global)
 4. Built-in defaults
 
-```yaml
-ui:
-  glyphs:
-    style: collapsed         # collapsed | combined | minimal
-    progress_stages: 4       # 2 | 3 | 4
-    use_color: true          # false → ASCII-only fallback
-    session_marker: arrow    # arrow | none
+**Note:** earlier drafts of this spec showed a `config.yaml` block. The project's config system is TOML-only (`config.toml`, matching `[watcher]`, `[sessions]`, etc.) — no YAML loader exists or was ever built. Shipped as TOML in request 49-tui-glyph-parity. See `SCHEMA-CONFIG.md` §2 for the canonical example.
+
+```toml
+[ui.glyphs]
+style = "collapsed"          # collapsed | combined | minimal
+progress_stages = 4          # 2 | 3 | 4
+use_color = true             # false → ASCII-only fallback
+session_marker = "arrow"     # arrow | none
 ```
 
 ### Style presets
 
 | `style` | Slot 1 dictionary |
 |---|---|
-| `collapsed` (default) | `· □ ▣ ● ○ ◐ ◑ ▶ ✕ ! ? +` — locked v1 set |
-| `combined` | Two-cell `bucket-arrow + progress-circle` (e.g. `▷○`, `▶◐`) for flat list views |
-| `minimal` | Pure-ASCII fallback `· [ ] # o O X` — for monochrome terminals or scripts |
+| `collapsed` (default) | `· □ ▣ ● ○ ◐ ◑ ▶ ✕ ! ? +` — locked v1 set, shared with the TUI |
+| `combined` | Not yet a distinct CLI rendering — currently falls back to `collapsed` output. The two-cell bucket-arrow variant (`▷○`, `▶◐`) remains TUI-only design intent, unbuilt for CLI. |
+| `minimal` | Pure-ASCII fallback, shipped in `icons.py`: idle `· o O X x`, progress `o o O X`, exceptions `! ? +`, session `>` — distinct per-state, no character reused across two different meanings |
 
 ### `use_color: false`
 
@@ -280,7 +281,7 @@ Known quirk: `▣` (U+25A3, filled inner square) renders correctly in all of the
 
 ## CLI adoption
 
-`octopus list` and `octopus show` accept a `--glyphs <style>` flag. Default: off (text-only output, backward-compatible with scripts). Flipping the default to `on` is deferred until v1 ships.
+`octopus list tasks` and `octopus task show <slug>` accept a `--glyphs` flag (shipped in request 49-tui-glyph-parity). Default: off (text-only output, backward-compatible with scripts). Style/color/progress-stage resolve via `[ui.glyphs]` in `config.toml` (TOML, not the YAML shown in earlier drafts of this spec — see `SCHEMA-CONFIG.md` §2 for the real key names). Precedence: `--glyphs` flag presence > per-activity `config.toml` > system-wide `config.toml` > built-in defaults. Flipping the default to `on` is deferred until real usage data justifies it (G3).
 
 ## See also
 

@@ -236,3 +236,93 @@ def status_glyph_color(glyph: str, bucket: str = "") -> str:
         return "#89DCEB"      # cyan
     # backlog / unknown
     return "#8A8D9A"          # grey
+
+
+# ── CLI adoption (G3/G4, request 49-tui-glyph-parity) ─────────────────
+# `octopus list --glyphs` / `octopus show --glyphs` reuse the resolver above
+# via a small adapter, since CLI rows are `Task` dataclass instances rather
+# than sqlite3.Row objects.
+
+# `minimal` style — pure-ASCII fallback for monochrome terminals / scripts.
+# Distinct dictionary from the default `collapsed` set (which uses Unicode
+# box-drawing/geometric glyphs). Locked by G4; never shipped in the TUI
+# because the TUI always has Unicode support — CLI output may not.
+MINIMAL_BUCKET_BACKLOG = "·"
+MINIMAL_BUCKET_NEXT = "o"
+MINIMAL_BUCKET_NOW = "O"
+MINIMAL_BUCKET_DONE = "X"
+MINIMAL_BUCKET_DROPPED = "x"
+MINIMAL_OPEN = "o"
+MINIMAL_HALF = "o"
+MINIMAL_MOSTLY = "O"
+MINIMAL_DONE_FULL = "X"
+MINIMAL_BLOCKED = "!"
+MINIMAL_WAITING = "?"
+MINIMAL_MIGRATED = "+"
+MINIMAL_SESSION = ">"
+
+
+def _task_to_glyph_row(task) -> dict:
+    """Adapt a `Task` dataclass instance into the dict shape `status_glyph()` expects."""
+    return {
+        "bucket": getattr(task, "bucket", None),
+        "run_state": getattr(task, "run_state", None),
+        "issue": getattr(task, "issue", None),
+        "promoted_to": getattr(task, "promoted_to", None),
+        "progress": getattr(task, "progress", None),
+    }
+
+
+def _minimal_glyph(row: dict, *, active_session: bool = False) -> str:
+    """Minimal-style resolver — same precedence as status_glyph(), ASCII glyphs."""
+    bucket = (row.get("bucket") or "").lower()
+    issue = (row.get("issue") or "").lower()
+    run_state = (row.get("run_state") or "").lower()
+    if issue == "blocked" or run_state == "blocked":
+        return MINIMAL_BLOCKED
+    if issue == "waiting" or run_state == "waiting":
+        return MINIMAL_WAITING
+    if row.get("promoted_to"):
+        return MINIMAL_MIGRATED
+    if bucket == "dropped":
+        return MINIMAL_BUCKET_DROPPED
+    if active_session:
+        return MINIMAL_SESSION
+    if bucket == "done":
+        return MINIMAL_BUCKET_DONE
+    progress = row.get("progress")
+    if progress is not None:
+        p = max(0.0, min(1.0, float(progress)))
+        if p >= 0.625:
+            return MINIMAL_DONE_FULL
+        if p > 0.0:
+            return MINIMAL_HALF
+    if bucket == "backlog":
+        return MINIMAL_BUCKET_BACKLOG
+    if bucket == "next":
+        return MINIMAL_BUCKET_NEXT
+    if bucket == "now":
+        return MINIMAL_BUCKET_NOW
+    return MINIMAL_BUCKET_BACKLOG
+
+
+def render_glyph_prefix(
+    task,
+    *,
+    style: str = "collapsed",
+    progress_stages: int = 4,
+    use_color: bool = True,
+    active_session: bool = False,
+) -> str:
+    """Render a slot-1 glyph prefix for a `Task`, for CLI output (`--glyphs`).
+
+    `style`: collapsed (default, Unicode) | minimal (ASCII) | combined (falls
+    back to collapsed — the two-cell bucket-arrow variant is TUI-only today).
+    `use_color=False` forces `minimal` regardless of `style`, per G4.
+    """
+    row = _task_to_glyph_row(task)
+    effective_style = "minimal" if not use_color else style
+    if effective_style == "minimal":
+        return _minimal_glyph(row, active_session=active_session)
+    # collapsed and combined both use the shipped Unicode resolver.
+    return status_glyph(row, active_session=active_session, progress_stages=progress_stages)

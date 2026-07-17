@@ -13,3 +13,5 @@ workspace_schema: "2.0"
 # Provenance (backfilled — created_with unknown for pre-provenance workspaces).
 created_with: "unknown"
 last_touched_with: "1.35.0"
+
+last_build: 1

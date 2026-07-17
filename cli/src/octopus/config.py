@@ -54,6 +54,13 @@ class Config:
     # Background watcher daemon config (v1.5)
     watcher_enabled: bool = False
     watcher_polling_fallback: bool = False
+    # Glyph rendering config (G4, request 34-tui-key-schema / 49-tui-glyph-parity).
+    # `style` selects the slot-1 dictionary: collapsed (default) | combined | minimal.
+    # `use_color: false` forces `minimal` regardless of `style` (ASCII-only fallback).
+    glyphs_style: str = "collapsed"
+    glyphs_progress_stages: int = 4
+    glyphs_use_color: bool = True
+    glyphs_session_marker: str = "arrow"
 
 
 # Registered providers — extend here when new adapters land.
@@ -122,6 +129,18 @@ def _merge(base: Config, data: dict) -> Config:
     watcher_enabled = bool(watcher_block.get("enabled", base.watcher_enabled))
     watcher_polling_fallback = bool(watcher_block.get("polling_fallback", base.watcher_polling_fallback))
 
+    glyphs_block = ui_block.get("glyphs", {})
+    glyphs_style = glyphs_block.get("style", base.glyphs_style)
+    if glyphs_style not in {"collapsed", "combined", "minimal"}:
+        glyphs_style = base.glyphs_style
+    glyphs_progress_stages = int(glyphs_block.get("progress_stages", base.glyphs_progress_stages))
+    if glyphs_progress_stages not in {2, 3, 4}:
+        glyphs_progress_stages = base.glyphs_progress_stages
+    glyphs_use_color = bool(glyphs_block.get("use_color", base.glyphs_use_color))
+    glyphs_session_marker = glyphs_block.get("session_marker", base.glyphs_session_marker)
+    if glyphs_session_marker not in {"arrow", "none"}:
+        glyphs_session_marker = base.glyphs_session_marker
+
     return Config(
         storage_mode=storage_mode,
         noise_words=noise_words,
@@ -136,6 +155,10 @@ def _merge(base: Config, data: dict) -> Config:
         inbox_default=inbox_default,
         watcher_enabled=watcher_enabled,
         watcher_polling_fallback=watcher_polling_fallback,
+        glyphs_style=glyphs_style,
+        glyphs_progress_stages=glyphs_progress_stages,
+        glyphs_use_color=glyphs_use_color,
+        glyphs_session_marker=glyphs_session_marker,
     )
 
 
