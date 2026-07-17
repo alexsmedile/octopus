@@ -6,6 +6,7 @@
 
 | Section | Approx. lines | Contents |
 |---|---|---|
+| Actions layer | — | Shared write path (`octopus.actions`) backing CLI + TUI mutations |
 | Exit codes | 5–13 | Return code meanings |
 | Global flags | 14–20 | `--version`, `--no-stale-check` |
 | Initialization & navigation | 21–32 | `init`, `where` |
@@ -25,6 +26,10 @@
 | TUI launcher | 536–552 | `octopus tui` flags |
 | Flag conventions | 553–559 | Common flag patterns |
 | Common patterns | 560+ | Chained command examples |
+
+## Actions layer
+
+Mutation logic lives in `octopus.actions` (result dataclasses, `ActionError` on failure). This is the single write path — TUI keybindings call these functions directly; CLI verbs are the source-of-truth doc for their contracts. CLI coverage is partial today: only `finish`, `drop`, subtask attach/detach/list, `promote`, `forget activity` route through `actions.py`; other verbs (`start`, `pin`/`unpin`, `block`/`unblock`, `capture`, session start) implement their delta directly in the CLI and are used via `actions.py` only by the TUI.
 
 ## Exit codes
 

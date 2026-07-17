@@ -5,9 +5,11 @@ Goal: keep mutation logic in one place. Each function:
   - returns a small result dataclass (no printing, no Typer.Exit)
   - raises ActionError on validation/not-found/conflict errors
 
-CLI commands today don't yet call into this layer — they're the source. Group 5
-ports only the verbs the TUI needs (start, finish, drop, move, pin, unpin,
-capture, start_session). Wider CLI ports are a follow-up.
+CLI coverage is partial: `finish`, `drop`, subtask attach/detach/list, `promote`,
+and `forget activity` route through this layer today. Other verbs (`start`,
+`pin`/`unpin`, `block`/`unblock`, `capture`, `start_session`) still implement
+their delta directly in the CLI and are used via this module only by the TUI.
+Widening CLI coverage to route every verb through here is a follow-up.
 """
 
 from __future__ import annotations

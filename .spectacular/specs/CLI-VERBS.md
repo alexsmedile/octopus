@@ -1,6 +1,6 @@
 ---
 status: draft
-updated: 2026-05-23
+updated: 2026-07-17
 relates_to: SPEC.md §4, SCHEMA-TASK.md, CRITICAL-DEPENDENCIES.md
 ---
 
@@ -11,6 +11,27 @@ The full set of verbs and views the `octopus` CLI exposes. The verbs are the **p
 Both `octopus` and `octo` are valid entry points (identical behavior).
 
 ---
+
+## Actions layer
+
+Mutation logic for the verbs below lives in `octopus.actions` (`cli/src/octopus/actions.py`) — pure functions that take an `activity_root` + args, return a result dataclass, and raise `ActionError` on failure. No printing, no CLI framework coupling.
+
+**This is the single write path the TUI keybindings use** (see [`TUI-KEYS.md`](TUI-KEYS.md) — "Mutations route through `octopus.actions`. No second write path."). TUI keys are a thin key→function mapping on top of this layer; glyphs ([`TUI-GLYPHS.md`](TUI-GLYPHS.md)) are a separate read-side rendering of the state these functions produce. Neither doc restates the verb contracts below — this file is the source.
+
+**Current CLI coverage is partial, not full.** Only `finish`, `drop`, `list-subtasks`, `attach`/`detach` route through `actions.py` today; the rest of the CLI verbs below still implement their delta directly. Widening CLI coverage to route every verb through `actions.py` is a known follow-up, not yet scheduled as a request.
+
+| Verb | Backing function |
+|---|---|
+| `finish` | `actions.finish_task` |
+| `drop` | `actions.drop_task` |
+| `start` | `actions.start_task` (TUI only — CLI implements separately) |
+| `pin` / `unpin` | `actions.pin_task` / `unpin_task` (TUI only) |
+| `block` / `unblock` | `actions.block_task` / `unblock_task` (TUI only) |
+| `capture` | `actions.capture_task` (TUI only) |
+| subtask attach/detach/list | `actions.attach_subtask` / `detach_subtask` / `list_subtasks` |
+| `promote` | `actions.promote_task` |
+| `forget activity` | `actions.forget_activity` |
+| session start | `actions.start_session_for` (TUI only) |
 
 ## Capture verbs (v1)
 

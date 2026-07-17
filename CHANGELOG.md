@@ -19,6 +19,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 - Closed 7 stale/verified backlog items; reconciled the `forget` spec.
 - Added Antigravity plugin marker at repo root, completing the plugin manifest set alongside `.claude-plugin/plugin.json`.
+- **`.spectacular/` workspace migrated to the OKF v2 layout** (schema 0.4 → 2.0, internal only — no CLI/runtime change). `DECISIONS.md` → `decisions/index.md`, `SPEC.md` → `specs/index.md`, all `decisions/D<N>.md` renamed to `D<N>-<slug>.md`. All path references updated across `CLAUDE.md`, `AGENTS.md`, and `docs/`.
 
 ---
 
