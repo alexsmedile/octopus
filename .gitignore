@@ -73,3 +73,7 @@ Screenshot*.jpg
 
 # Session scratch
 tmp/
+
+# Local-only: backups, snapshots, scratch — never committed
+_snapshots/
+_local/
