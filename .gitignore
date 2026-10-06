@@ -77,3 +77,7 @@ tmp/
 # Local-only: backups, snapshots, scratch — never committed
 _snapshots/
 _local/
+
+# OPF local companions (shared content is committed; personal notes stay local)
+*.local.*
+.octopus.local/

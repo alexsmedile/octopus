@@ -1,5 +1,7 @@
 ---
-updated: 2026-05-24
+schema: make-a-change/todo/v1
+extensions:
+  - "octopus:all"
 ---
 
 # TODO
@@ -14,8 +16,6 @@ Two zones in this file:
 ## Friction
 
 <!-- Add `- [ ]` items here. They get pulled into the backlog on `octopus bridge pull todo-md`. -->
-
-
 
 ---
 
