@@ -142,3 +142,65 @@ def test_todo_md_parses_otf_uuid_and_preserves_unchecked_on_otf_pull() -> None:
         keep_unchecked=True,
     )
     assert annotated == "- [ ] Ship OTF sync → octopus:ship-otf-sync <!-- otf:550e8400-e29b-41d4-a716-446655440888 -->"
+
+
+def test_otf_bridge_adapters_registered_and_delegate_json() -> None:
+    """github & plane adapters are registered in Octopus and delegate to otf JSON CLI."""
+    from octopus.adapters.base import Adapter
+    from octopus.adapters.otf_bridge import OtfGitHubAdapter, OtfPlaneAdapter
+    from octopus.adapters.registry import registered_names
+
+    names = registered_names()
+    assert "github" in names
+    assert "plane" in names
+
+    calls: list[list[str]] = []
+
+    def fake_runner(args: list[str]) -> dict:
+        calls.append(args)
+        if args[0] == "pull":
+            return {"ok": True, "count": 1}
+        if args[0] == "list":
+            return {
+                "ok": True,
+                "tasks": [
+                    {
+                        "type": "task",
+                        "otf_version": "0.1.0",
+                        "id": "550e8400-e29b-41d4-a716-446655440321",
+                        "title": "Remote synced task",
+                        "status": "in_progress",
+                        "stage": "In Review",
+                        "priority": "high",
+                        "labels": ["sync"],
+                        "external_refs": [
+                            {"system": "github", "scope": "alexsmedile/octopus", "id": "I_123", "role": "source"}
+                        ],
+                    }
+                ],
+            }
+        if args[0] == "push":
+            return {"ok": True, "issueUrl": "https://github.com/alexsmedile/octopus/issues/9", "issueNodeId": "I_9"}
+        return {"ok": True}
+
+    gh = OtfGitHubAdapter(runner=fake_runner)
+    pl = OtfPlaneAdapter(runner=fake_runner)
+    assert isinstance(gh, Adapter)
+    assert isinstance(pl, Adapter)
+
+    pulled = gh.pull(groups=["alexsmedile/octopus"])
+    assert not pulled.errors
+    assert len(pulled.tasks) == 1
+    assert pulled.tasks[0].external_id == "I_123"
+    assert pulled.tasks[0].suggested_bucket == "now"
+    assert pulled.tasks[0].suggested_stage == "In Review"
+
+    t = Task(title="Push via Octopus", created=date(2026, 11, 26), slug="push-via-octopus")
+    pushed = gh.push(t, repo="alexsmedile/octopus", project=2, apply=True)
+    assert pushed.error is None
+    assert pushed.ref == "https://github.com/alexsmedile/octopus/issues/9"
+    assert any(c[0] == "push" and "--project" in c and "2" in c for c in calls)
+
+    pl_pulled = pl.pull(groups=["acme/proj-1"])
+    assert not pl_pulled.errors
+    assert len(pl_pulled.tasks) == 1

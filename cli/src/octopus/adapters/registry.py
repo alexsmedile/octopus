@@ -26,11 +26,14 @@ log = logging.getLogger(__name__)
 # Deferred import to avoid forcing every CLI call to load all adapter modules.
 def _load_builtins() -> dict[str, type[Adapter]]:
     from octopus.adapters.obsidian import ObsidianAdapter
+    from octopus.adapters.otf_bridge import OtfGitHubAdapter, OtfPlaneAdapter
     from octopus.adapters.reminders import RemindersAdapter
     from octopus.adapters.todo_md import TodoMdAdapter
 
     return {
+        "github": OtfGitHubAdapter,
         "obsidian": ObsidianAdapter,
+        "plane": OtfPlaneAdapter,
         "reminders": RemindersAdapter,
         "todo-md": TodoMdAdapter,
     }
