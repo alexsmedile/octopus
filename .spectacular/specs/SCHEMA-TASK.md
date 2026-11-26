@@ -12,7 +12,7 @@ relates_to: SPEC.md §4, CLI-VERBS.md, CRITICAL-DEPENDENCIES.md, AXIS-MODEL.md, 
 
 **Default-omission principle.** Any optional field that equals its default or is unset is *omitted* from the frontmatter. The frontmatter only carries required OTF identity/lifecycle fields plus non-default signal.
 
-> **v1 → v2 (OTF 0.1.0) breaking alignment:** Required identity adds `type: task`, `otf_version: "0.1.0"`, and `id` (full lowercase UUID v4/v7). Universal lifecycle moves to `status` (`open | in_progress | done | cancelled`); `bucket` moves to `extensions.octopus.core.bucket` (personal pull horizon only: `inbox | backlog | next | now | someday`, never terminal `done`/`dropped`). `issue` + `blocked_by`/`waiting_for` flatten to `impediment` + `impediment_reason`; `tags` → `labels`; `priority` uses `none | low | medium | high | urgent` (matching Linear/Plane/Jira); `owner` (accountable DRI) moves to `extensions.octopus.core.owner` while executors use core `assignees`; `external_refs` uses OTF's scoped array `{system, scope, id, role, url?}`; runtime/personal fields (`run_state`, `pinned`, `energy`, `actor`, `promoted_to`, `start_date`, `subtasks`) live under `extensions.octopus.core`. Legacy v1 files remain read-migratable via explicit adapter mapping.
+> **v1 → v2 (OTF 0.1.0) breaking alignment:** Required identity adds `type: task`, `otf_version: "0.1.0"`, and `id` (full lowercase UUID v4/v7). Universal macro lifecycle moves to `state` (`inactive | active | closed`) + customizable `stage` + optional `outcome` (`completed | cancelled | duplicate` on `state: closed`); `bucket` moves to `extensions.octopus.core.bucket` (personal pull horizon only: `inbox | backlog | next | now | someday`, never terminal `done`/`dropped`). `issue` + `blocked_by`/`waiting_for` flatten to `impediment` + `impediment_reason`; `tags` → `labels`; `priority` uses `none | low | medium | high | urgent` (matching Linear/Plane/Jira); `owner` (accountable DRI) moves to `extensions.octopus.core.owner` while executors use core `assignees`; `external_refs` uses OTF's scoped array `{system, scope, id, role, url?}`; runtime/personal fields (`run_state`, `pinned`, `energy`, `actor`, `promoted_to`, `start_date`, `subtasks`) live under `extensions.octopus.core`. Legacy v1 files remain read-migratable via explicit adapter mapping.
 
 ---
 
@@ -51,16 +51,17 @@ type: task                    # required, literal: task
 otf_version: "0.1.0"          # required, literal: "0.1.0"
 id:                           # required, full lowercase RFC 9562 UUID v4 or v7
 title:                        # required, single-line string
-status: open                  # required, enum: open | in_progress | done | cancelled
+state: active                 # required, enum: inactive | active | closed
 
 # ── workflow & impediment (OTF core, flat for Obsidian/Bases) ────────
 description:                  # optional, concise summary string (long context in body)
-stage:                        # optional, free-form (per-activity pipeline step)
+stage:                        # optional, free-form (per-activity pipeline column inside state)
+outcome:                      # optional, enum: completed | cancelled | duplicate (valid iff state: closed)
 kind:                         # optional, open (conv: feat | bug | chore | spec | polish | test | docs | research | idea)
 priority:                     # optional, enum: none | low | medium | high | urgent
 impediment:                   # optional, enum: blocked | waiting
 impediment_reason:            # required iff impediment is present
-duplicate_of:                 # optional, surviving task UUID (valid iff status: cancelled)
+duplicate_of:                 # optional, surviving task UUID (valid iff state: closed & outcome: duplicate)
 archived:                     # optional, boolean: true (omit when active)
 
 # ── context, people & taxonomy ───────────────────────────────────────
@@ -72,7 +73,7 @@ labels:                       # optional, unique list of strings (Obsidian maps 
 scheduled:                    # optional, "YYYY-MM-DD" — intended work / do-date
 due:                          # optional, "YYYY-MM-DD" or RFC 3339 datetime — hard deadline
 created_at:                   # optional, "YYYY-MM-DD" or RFC 3339 UTC instant
-completed_at:                 # optional, "YYYY-MM-DD" or RFC 3339 UTC instant (valid iff status: done)
+completed_at:                 # optional, "YYYY-MM-DD" or RFC 3339 UTC instant (valid iff state: closed)
 
 # ── task graph ───────────────────────────────────────────────────────
 parent:                       # optional, parent task UUID
@@ -104,7 +105,7 @@ type: task
 otf_version: "0.1.0"
 id: "01936a1b-7c2d-7000-8000-000000000001"
 title: "Fix the webhook auth bug"
-status: "open"
+state: "active"
 priority: "urgent"
 extensions:
   octopus.core:

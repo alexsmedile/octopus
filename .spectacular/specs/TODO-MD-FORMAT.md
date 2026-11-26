@@ -56,7 +56,7 @@ Standard GitHub Flavored Markdown checkboxes. Works in every markdown viewer.
 
 Lines with `→` are skipped — already imported/promoted. Octopus writes `→ octopus:<slug>` on
 successful pull (D74) and **MUST keep the checkbox unchecked `[ ]`** (never tick `[x]` on pull;
-`[x]` is reserved strictly for delivered `status: done`). Legacy `- [x] Title → octopus:...`
+`[x]` is reserved strictly for delivered `state: closed` + `outcome: completed`). Legacy `- [x] Title → octopus:...`
 lines remain read-tolerated as already-imported. Users may hand-write `→` to exclude items from import.
 
 **Sections:**
@@ -153,8 +153,9 @@ Rules:
 | Key | Target | Type / enum |
 |-----|--------|-------------|
 | `description` | OTF core | optional concise summary string |
-| `status` | OTF core | `open` \| `in_progress` \| `done` \| `cancelled` |
-| `stage` | OTF core | free-form string |
+| `state` | OTF core | `inactive` \| `active` \| `closed` |
+| `stage` | OTF core | free-form string (custom column inside `state`) |
+| `outcome` | OTF core | `completed` \| `cancelled` \| `duplicate` (`state: closed` only) |
 | `kind` | OTF core | open (conv: `feat` \| `bug` \| `spec` \| `polish` \| `test` \| `chore` \| `docs` \| `research` \| `idea`) |
 | `priority` | OTF core | `none` \| `low` \| `medium` \| `high` \| `urgent` |
 | `assignees` | OTF core | list of actor refs |
