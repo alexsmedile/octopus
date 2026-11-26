@@ -143,6 +143,7 @@ When the user's request crosses any threshold below, read the named reference **
 | Choose a CLI verb or flag, or interpret an exit code | `references/cli-verbs.md` |
 | Debug a CLI validation error or check an invariant before writing | `references/critical-dependencies.md` |
 | Set up, peek into, pull from, or search a bridge/adapter | `references/adapter-framework.md` |
+| Create or clone a GitHub Project V2 board for a repo (zero red workflows + OTF profile) | `references/github-project-boards.md` |
 | Migrate an existing project folder to Octopus (init + TODO.md rewrite + pull) | use `/octopus-migrate` skill |
 | Run a morning review / EOD / inbox triage / weekly stale / cross-project sweep | `references/triage-rituals.md` |
 | Render tasks in chat as ASCII layouts (Focus / Board / Compact) | `references/chat-rendering.md` |
