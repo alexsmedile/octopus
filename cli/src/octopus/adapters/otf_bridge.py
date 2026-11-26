@@ -32,11 +32,10 @@ from octopus.fs.io import write_task
 
 OtfRunner = Callable[[list[str]], dict[str, Any]]
 
-_OTF_STATUS_TO_BUCKET = {
-    "open": "backlog",
-    "in_progress": "now",
-    "done": "done",
-    "cancelled": "dropped",
+_OTF_STATE_TO_BUCKET = {
+    "inactive": "backlog",
+    "active": "now",
+    "closed": "done",
 }
 
 
@@ -60,8 +59,9 @@ def _otf_dict_to_external_task(item: dict[str, Any], source_group: str) -> Exter
     source_ref = next((r for r in refs if isinstance(r, dict) and r.get("role") == "source"), None)
     external_id = str(source_ref.get("id") if source_ref else item.get("id", ""))
 
-    status = str(item.get("status", "open"))
-    bucket = _OTF_STATUS_TO_BUCKET.get(status, "backlog")
+    state = str(item.get("state", "active"))
+    outcome = item.get("outcome")
+    bucket = "dropped" if state == "closed" and outcome in {"cancelled", "duplicate"} else _OTF_STATE_TO_BUCKET.get(state, "backlog")
     impediment = item.get("impediment")
     reason = item.get("impediment_reason")
 

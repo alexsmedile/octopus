@@ -8,6 +8,7 @@ kind: feat
 otf_version: 0.1.0
 project: octopus
 slug: add-activity-relative-scoped-view-filter
+state: inactive
 status: open
 title: add `--activity-relative` scoped view filter
 type: task

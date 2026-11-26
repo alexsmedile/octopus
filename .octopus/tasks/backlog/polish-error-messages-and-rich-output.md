@@ -9,6 +9,7 @@ kind: polish
 otf_version: 0.1.0
 project: octopus
 slug: polish-error-messages-and-rich-output
+state: inactive
 status: open
 title: polish error messages + rich output
 type: task

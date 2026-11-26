@@ -8,6 +8,7 @@ kind: feat
 otf_version: 0.1.0
 project: octopus
 slug: wire-obsidian-symlink-bridge
+state: inactive
 status: open
 title: wire obsidian symlink bridge
 type: task

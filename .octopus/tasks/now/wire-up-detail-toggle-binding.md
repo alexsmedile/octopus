@@ -8,6 +8,7 @@ impediment: blocked
 impediment_reason: needs key schema review
 otf_version: 0.1.0
 project: octopus
+state: active
 status: in_progress
 title: wire up , detail toggle binding
 type: task

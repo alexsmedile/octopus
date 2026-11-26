@@ -1,14 +1,16 @@
 ---
-completed_at: '2026-06-20'
 created_at: '2026-06-20'
+extensions:
+  octopus.core:
+    bucket: now
 id: d802953d-5c5f-4977-9733-3b9f2a6117a2
 kind: feat
 labels:
 - d110
 - migration
 otf_version: 0.1.0
-priority: medium
 project: octopus
+state: active
 status: done
 title: reindex should actively strip last_known_path from activity.md
 type: task

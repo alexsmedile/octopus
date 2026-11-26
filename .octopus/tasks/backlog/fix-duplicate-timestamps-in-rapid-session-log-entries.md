@@ -8,6 +8,7 @@ kind: bug
 otf_version: 0.1.0
 project: octopus
 slug: fix-duplicate-timestamps-in-rapid-session-log-entries
+state: inactive
 status: open
 title: fix duplicate timestamps in rapid session log entries
 type: task

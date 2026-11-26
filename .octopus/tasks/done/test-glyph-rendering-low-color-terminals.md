@@ -1,13 +1,14 @@
 ---
-completed_at: '2026-07-07'
 created_at: '2026-05-25'
 extensions:
   octopus.core:
+    bucket: now
     start_date: '2026-07-07'
 id: a2bf603a-604a-400c-a731-633cbf12cd98
 otf_version: 0.1.0
 priority: high
 project: octopus
+state: active
 status: done
 title: test glyph rendering in low-color terminals
 type: task

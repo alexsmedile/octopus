@@ -1,6 +1,8 @@
 ---
-completed_at: '2026-06-20'
 created_at: '2026-06-20'
+extensions:
+  octopus.core:
+    bucket: now
 id: 6e5a1176-3cd3-4065-b681-65bcc7167113
 kind: feat
 labels:
@@ -9,6 +11,7 @@ labels:
 otf_version: 0.1.0
 priority: high
 project: octopus
+state: active
 status: done
 title: octopus init should auto-add config.local.toml to .gitignore
 type: task

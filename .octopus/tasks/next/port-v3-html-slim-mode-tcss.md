@@ -8,6 +8,7 @@ impediment: waiting
 impediment_reason: v3 visual confirm
 otf_version: 0.1.0
 project: octopus
+state: active
 status: open
 title: port v3.html slim mode to TCSS
 type: task

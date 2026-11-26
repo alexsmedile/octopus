@@ -8,6 +8,7 @@ kind: test
 otf_version: 0.1.0
 project: octopus
 slug: verify-run-state-in-a-real-automation
+state: active
 status: open
 title: verify `run_state` in a real automation
 type: task

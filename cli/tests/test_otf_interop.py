@@ -25,13 +25,13 @@ def test_read_native_otf_fixtures() -> None:
     minimal, body = read_task(OTF_FIXTURES / "minimal.md")
     assert minimal.otf_id == "550e8400-e29b-41d4-a716-446655440000"
     assert minimal.title == "Prepare the revised draft"
-    assert minimal.bucket == "backlog"
+    assert minimal.bucket == "now"
     assert "ordinary Markdown" in body
 
     full, _ = read_task(OTF_FIXTURES / "full-with-dlcs.md")
     assert full.otf_id == "550e8400-e29b-41d4-a716-446655440001"
     assert full.bucket == "now"
-    assert full.stage == "in_review"
+    assert full.stage == "In Review"
     assert full.kind == "docs"
     assert full.issue == "waiting"
     assert full.waiting_for == "Waiting on editor sign-off"
@@ -95,7 +95,7 @@ def test_roundtrip_octopus_task_as_otf_and_validate_schema(tmp_path: Path) -> No
     otf_dict = task_to_otf_dict(task, project_id="octopus")
     assert otf_dict["type"] == "task"
     assert otf_dict["otf_version"] == "0.1.0"
-    assert otf_dict["status"] == "in_progress"
+    assert otf_dict["state"] == "active"
     assert otf_dict["impediment"] == "blocked"
     assert otf_dict["impediment_reason"] == "Waiting on schema review"
     if OTF_SCHEMA.exists():
@@ -104,7 +104,7 @@ def test_roundtrip_octopus_task_as_otf_and_validate_schema(tmp_path: Path) -> No
 
 
 def test_sqlite_v7_stores_otf_id_and_status(tmp_path: Path) -> None:
-    """SQLite schema v7 persists otf_id and canonical OTF status."""
+    """SQLite schema v7 persists otf_id and canonical OTF macro state."""
     from octopus.core.models import Activity
 
     db_path = tmp_path / "index.db"
@@ -124,7 +124,7 @@ def test_sqlite_v7_stores_otf_id_and_status(tmp_path: Path) -> None:
     upsert_task(conn, "demo", t)
     row = conn.execute("SELECT otf_id, status FROM tasks WHERE slug = 'indexed-otf-task'").fetchone()
     assert row["otf_id"] == "550e8400-e29b-41d4-a716-446655440999"
-    assert row["status"] == "in_progress"
+    assert row["status"] == "active"
     conn.close()
 
 
@@ -169,7 +169,7 @@ def test_otf_bridge_adapters_registered_and_delegate_json() -> None:
                         "otf_version": "0.1.0",
                         "id": "550e8400-e29b-41d4-a716-446655440321",
                         "title": "Remote synced task",
-                        "status": "in_progress",
+                        "state": "active",
                         "stage": "In Review",
                         "priority": "high",
                         "labels": ["sync"],

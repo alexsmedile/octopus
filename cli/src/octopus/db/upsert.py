@@ -15,11 +15,11 @@ from typing import Any
 from octopus.core.models import Activity, Task
 
 _BUCKET_TO_OTF_STATUS = {
-    "backlog": "open",
-    "next": "open",
-    "now": "in_progress",
-    "done": "done",
-    "dropped": "cancelled",
+    "backlog": "inactive",
+    "next": "active",
+    "now": "active",
+    "done": "closed",
+    "dropped": "closed",
 }
 
 

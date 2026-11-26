@@ -19,23 +19,22 @@ from octopus.core.models import DEFAULT_ACTOR, DEFAULT_BUCKET, Task
 
 OTF_VERSION = "0.1.0"
 
-_BUCKET_TO_STATUS = {
-    "backlog": "open",
-    "next": "open",
-    "now": "in_progress",
-    "done": "done",
-    "dropped": "cancelled",
+_BUCKET_TO_STATE = {
+    "backlog": "inactive",
+    "next": "active",
+    "now": "active",
+    "done": "closed",
+    "dropped": "closed",
 }
 
-_STATUS_TO_BUCKET = {
-    "open": "backlog",
-    "in_progress": "now",
-    "done": "done",
-    "cancelled": "dropped",
+_STATE_TO_BUCKET = {
+    "inactive": "backlog",
+    "active": "now",
+    "closed": "done",
 }
 
 _OTF_KNOWN_KEYS = {
-    "type", "otf_version", "id", "title", "status",
+    "type", "otf_version", "id", "title", "state", "outcome",
     "description", "stage", "kind", "priority", "project",
     "assignees", "labels", "scheduled", "due",
     "impediment", "impediment_reason", "parent", "depends_on",
@@ -65,15 +64,19 @@ def _coerce_date(value: Any) -> date | None:
 def task_to_otf_dict(task: Task, *, project_id: str | None = None) -> dict[str, Any]:
     """Serialize an Octopus Task into a conformant OTF 0.1.0 frontmatter mapping."""
     otf_id = task.otf_id or str(uuid.uuid4())
-    status = _BUCKET_TO_STATUS.get(task.bucket, "open")
+    state = _BUCKET_TO_STATE.get(task.bucket, "active")
 
     data: dict[str, Any] = {
         "type": "task",
         "otf_version": OTF_VERSION,
         "id": otf_id,
         "title": task.title,
-        "status": status,
+        "state": state,
     }
+    if task.bucket == "done":
+        data["outcome"] = "completed"
+    elif task.bucket == "dropped":
+        data["outcome"] = "duplicate" if task.duplicate_of else "cancelled"
 
     if task.description:
         data["description"] = task.description
@@ -98,13 +101,13 @@ def task_to_otf_dict(task: Task, *, project_id: str | None = None) -> dict[str, 
         if reason:
             data["impediment"] = task.issue
             data["impediment_reason"] = reason
-    if task.duplicate_of and status == "cancelled":
+    if task.duplicate_of and state == "closed":
         data["duplicate_of"] = task.duplicate_of
     if task.archived is True:
         data["archived"] = True
     if task.created is not None:
         data["created_at"] = task.created.isoformat()
-    if status == "done" and task.end_date is not None:
+    if state == "closed" and task.end_date is not None:
         data["completed_at"] = task.end_date.isoformat()
 
     if task.external_refs:
@@ -162,12 +165,13 @@ def otf_dict_to_task(
     extensions = dict(data.get("extensions") or {})
     octo_ext = dict(extensions.get("octopus.core") or {})
 
-    status = str(data.get("status", "open"))
-    if status in {"done", "cancelled"}:
-        bucket = _STATUS_TO_BUCKET[status]
+    state = str(data.get("state", "active"))
+    outcome = data.get("outcome")
+    if state == "closed":
+        bucket = "dropped" if outcome in {"cancelled", "duplicate"} or data.get("duplicate_of") else "done"
     else:
         ext_bucket = octo_ext.get("bucket")
-        bucket = str(ext_bucket) if ext_bucket in {"backlog", "next", "now"} else _STATUS_TO_BUCKET.get(status, DEFAULT_BUCKET)
+        bucket = str(ext_bucket) if ext_bucket in {"backlog", "next", "now"} else _STATE_TO_BUCKET.get(state, DEFAULT_BUCKET)
 
     impediment = data.get("impediment")
     impediment_reason = data.get("impediment_reason")
