@@ -1,15 +1,21 @@
 ---
-bucket: done
-created: '2026-06-20'
-end_date: '2026-07-07'
+completed_at: '2026-07-07'
+created_at: '2026-06-20'
+extensions:
+  octopus.core:
+    start_date: '2026-07-07'
+id: 06758ee5-60fe-4e9f-a2d0-6f0ab1edd6e6
 kind: chore
-priority: low
-start_date: '2026-07-07'
-tags:
+labels:
 - index
 - reindex
 - test-hygiene
+otf_version: 0.1.0
+priority: low
+project: octopus
+status: done
 title: Prune stale pytest-temp activities from the index DB
+type: task
 ---
 
 ## Problem

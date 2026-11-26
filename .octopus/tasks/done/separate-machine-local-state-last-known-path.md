@@ -1,10 +1,14 @@
 ---
 archived: true
-bucket: done
-created: '2026-06-15'
-end_date: '2026-06-20'
+completed_at: '2026-06-20'
+created_at: '2026-06-15'
+id: c0eda7b2-0d16-479c-9f8b-7e9a7a65a7ed
 kind: chore
+otf_version: 0.1.0
+project: octopus
+status: done
 title: Separate machine-local state (last_known_path) from versioned activity.md
+type: task
 ---
 
 > Resolved as **D110** (machine-local state in `config.local.toml`), implemented

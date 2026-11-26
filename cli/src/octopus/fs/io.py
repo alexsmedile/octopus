@@ -285,15 +285,15 @@ def write_task(
     task: Task,
     body: str,
     *,
-    format: str = "v1",
+    format: str | None = None,
     project_id: str | None = None,
 ) -> None:
     """Write tasks/<slug>.md.
 
-    Pass `format="otf"` to emit native OTF 0.1.0 Record Markdown; defaults to
-    legacy v1 for backwards compatibility until full v2 cutover.
+    Automatically writes native OTF 0.1.0 Record Markdown whenever `format="otf"`
+    or `task.otf_id` is present, so migrated OTF tasks never downgrade back to v1.
     """
-    if format == "otf":
+    if format == "otf" or (format is None and task.otf_id is not None):
         data = task_to_otf_dict(task, project_id=project_id)
         post = frontmatter.Post(body, **data)
         path.parent.mkdir(parents=True, exist_ok=True)

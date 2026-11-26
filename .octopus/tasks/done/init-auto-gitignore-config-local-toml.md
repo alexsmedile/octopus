@@ -1,13 +1,17 @@
 ---
-bucket: done
-created: '2026-06-20'
-end_date: '2026-06-20'
+completed_at: '2026-06-20'
+created_at: '2026-06-20'
+id: 6e5a1176-3cd3-4065-b681-65bcc7167113
 kind: feat
+labels:
+- d110
+- dx
+otf_version: 0.1.0
 priority: high
+project: octopus
+status: done
 title: octopus init should auto-add config.local.toml to .gitignore
-tags:
-  - d110
-  - dx
+type: task
 ---
 
 ## Problem
