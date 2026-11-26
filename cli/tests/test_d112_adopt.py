@@ -1,6 +1,6 @@
 """D112: interactive adopt-on-read. Runnable check for the TTY/non-TTY branch."""
 import sys
-from pathlib import Path
+
 import octopus.cli as cli
 
 

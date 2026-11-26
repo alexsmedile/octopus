@@ -6,6 +6,7 @@ where Click actually calls them: swap the built subcommand's `.invoke`.
 """
 import typer
 from typer.testing import CliRunner
+
 from octopus import cli
 
 runner = CliRunner()
