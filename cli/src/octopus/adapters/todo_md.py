@@ -63,6 +63,7 @@ class InlineMetadata:
     kind: str | None = None         # %sigil
     arrow_target: str | None = None  # full "provider:slug" if an arrow is present
     has_arrow: bool = False          # convenience flag
+    otf_id: str | None = None        # OTF 0.1.0 <!-- otf:UUID --> marker if present
 
 
 @dataclass(frozen=True)
@@ -230,10 +231,15 @@ def _parse_date_str(s: str) -> date | None:
     return None
 
 
-def _parse_inline_metadata(text: str) -> InlineMetadata:
-    """Extract sigils, emoji, tags, and `→ arrow` from a line body (D72, D103).
+OTF_MARKER_RE = re.compile(
+    r"\s*<!--\s*otf:([0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\s*-->"
+)
 
-    Order: arrow → date emoji → noop emoji → recurrence → tags →
+
+def _parse_inline_metadata(text: str) -> InlineMetadata:
+    """Extract sigils, emoji, tags, OTF UUID markers, and `→ arrow` from a line body (D72, D103).
+
+    Order: OTF UUID marker → arrow → date emoji → noop emoji → recurrence → tags →
            owner sigil → bucket sigil → priority sigil → priority emoji →
            leftover emoji → whitespace collapse.
     """
@@ -246,6 +252,13 @@ def _parse_inline_metadata(text: str) -> InlineMetadata:
     kind: str | None = None
     arrow_target: str | None = None
     has_arrow = False
+    otf_id: str | None = None
+
+    # 0. OTF 0.1.0 UUID marker <!-- otf:UUID -->
+    om = OTF_MARKER_RE.search(text)
+    if om:
+        otf_id = om.group(1)
+        text = text[: om.start()] + text[om.end():]
 
     # 1. Arrow — at the end of the line by convention.
     am = ARROW_RE.search(text)
@@ -348,6 +361,7 @@ def _parse_inline_metadata(text: str) -> InlineMetadata:
         kind=kind,
         arrow_target=arrow_target,
         has_arrow=has_arrow,
+        otf_id=otf_id,
     )
 
 
@@ -701,19 +715,27 @@ def _parse_todo_md(
 # ── source rewrite (D74 — mark_pulled) ────────────────────────────────
 
 
-def _annotate_pulled_line(line: str, task_slug: str) -> str:
-    """Rewrite a `- [ ] ...` line to `- [x] ... → octopus:<slug>`.
+def _annotate_pulled_line(line: str, task_slug: str, *, keep_unchecked: bool = False) -> str:
+    """Rewrite a checkbox line with `→ octopus:<slug>`, preserving any `<!-- otf:UUID -->` marker.
 
-    Preserves indentation, bullet char, original body + inline metadata.
+    When `keep_unchecked=True` (OTF 0.1.0 inline mode), keeps `[ ]` unchecked so `[x]`
+    remains reserved strictly for delivered completion.
     """
     m = CHECKBOX_RE.match(line)
     if not m:
         return line  # not a checkbox line, leave alone
     indent, bullet, marker, body = m.group(1), m.group(2), m.group(3), m.group(4)
+    # Extract and preserve trailing OTF marker so arrow sits cleanly before it
+    otf_suffix = ""
+    om = OTF_MARKER_RE.search(body)
+    if om:
+        otf_suffix = f" <!-- otf:{om.group(1)} -->"
+        body = (body[: om.start()] + body[om.end():]).rstrip()
     # Drop any pre-existing arrow (idempotent in case mark_pulled runs twice).
     body = ARROW_RE.sub("", body).rstrip()
-    new_body = f"{body} → octopus:{task_slug}".strip()
-    return f"{indent}{bullet} [x] {new_body}"
+    new_body = f"{body} → octopus:{task_slug}{otf_suffix}".strip()
+    new_marker = " " if keep_unchecked else "x"
+    return f"{indent}{bullet} [{new_marker}] {new_body}"
 
 
 # ── adapter class ─────────────────────────────────────────────────────

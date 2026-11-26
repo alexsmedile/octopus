@@ -23,6 +23,7 @@ from octopus.core.models import (
     Activity,
     Task,
 )
+from octopus.core.otf import is_otf_frontmatter, otf_dict_to_task, task_to_otf_dict
 
 # ── config.local.toml helpers (D110) ─────────────────────────────────
 
@@ -235,11 +236,14 @@ LEGACY_FIELDS = {"status", "open"}
 def read_task(path: Path) -> tuple[Task, str]:
     """Read tasks/<slug>.md. Returns (Task, body).
 
-    Legacy fields (status, kind, open) are loaded into `extra` and surface
-    as validation errors so old files are flagged loudly.
+    Automatically detects native OTF 0.1.0 records (`type: task` + `otf_version`)
+    and parses them via `otf_dict_to_task`, while continuing to support legacy v1 files.
     """
     post = frontmatter.load(path)
     data = post.metadata
+    if is_otf_frontmatter(data):
+        return otf_dict_to_task(data, slug=path.stem, path=path), post.content
+
     extra = {k: v for k, v in data.items() if k not in TASK_FIELDS}
 
     task = Task(
@@ -276,12 +280,26 @@ def read_task(path: Path) -> tuple[Task, str]:
     return task, post.content
 
 
-def write_task(path: Path, task: Task, body: str) -> None:
+def write_task(
+    path: Path,
+    task: Task,
+    body: str,
+    *,
+    format: str = "v1",
+    project_id: str | None = None,
+) -> None:
     """Write tasks/<slug>.md.
 
-    Default-omission: skip fields equal to defaults so frontmatter stays minimal.
-    Canonical field order matches SCHEMA-TASK.md.
+    Pass `format="otf"` to emit native OTF 0.1.0 Record Markdown; defaults to
+    legacy v1 for backwards compatibility until full v2 cutover.
     """
+    if format == "otf":
+        data = task_to_otf_dict(task, project_id=project_id)
+        post = frontmatter.Post(body, **data)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(frontmatter.dumps(post) + "\n", encoding="utf-8")
+        return
+
     data: dict[str, Any] = {
         "title": task.title,
         "created": task.created.isoformat(),

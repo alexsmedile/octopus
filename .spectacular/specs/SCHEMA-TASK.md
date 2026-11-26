@@ -1,16 +1,18 @@
 ---
 status: draft
-updated: 2026-05-22
-relates_to: SPEC.md §4, CLI-VERBS.md, CRITICAL-DEPENDENCIES.md, AXIS-MODEL.md
+updated: 2026-11-26
+relates_to: SPEC.md §4, CLI-VERBS.md, CRITICAL-DEPENDENCIES.md, AXIS-MODEL.md, OTF 0.1.0
 ---
 
-# Task schema — v1
+# Task schema — v2 (Native OTF 0.1.0)
 
-`tasks/<slug>.md` frontmatter contract. Operated on by the CLI verbs documented in `CLI-VERBS.md`; validated by the rules in `CRITICAL-DEPENDENCIES.md`. Structural framing in `AXIS-MODEL.md`.
+`tasks/<slug>.md` (or `.tasks/<slug>.md` / `.octopus/tasks/<slug>.md`) frontmatter contract, aligned natively to **Open Task Format (OTF) 0.1.0** Record Markdown. Operated on by the CLI verbs documented in `CLI-VERBS.md`; validated by OTF 0.1.0 + `CRITICAL-DEPENDENCIES.md`.
 
-**Field order in the file matters.** Frontmatter fields are written in the order below. This optimizes spatial memory — you always look in the same place for the same property.
+**Field order in the file matters.** Frontmatter fields are written in the canonical order below.
 
-**Default-omission principle.** Any field that equals its default value is *omitted entirely* from the frontmatter. A normal-priority task has no `priority:` line. A human-actor task has no `actor:` line. The frontmatter only contains fields that carry non-default signal.
+**Default-omission principle.** Any optional field that equals its default or is unset is *omitted* from the frontmatter. The frontmatter only carries required OTF identity/lifecycle fields plus non-default signal.
+
+> **v1 → v2 (OTF 0.1.0) breaking alignment:** Required identity adds `type: task`, `otf_version: "0.1.0"`, and `id` (full lowercase UUID v4/v7). Universal lifecycle moves to `status` (`open | in_progress | done | cancelled`); `bucket` moves to `extensions.octopus.core.bucket` (personal pull horizon only: `inbox | backlog | next | now | someday`, never terminal `done`/`dropped`). `issue` + `blocked_by`/`waiting_for` flatten to `impediment` + `impediment_reason`; `tags` → `labels`; `priority` uses `none | low | medium | high | urgent` (matching Linear/Plane/Jira); `owner` (accountable DRI) moves to `extensions.octopus.core.owner` while executors use core `assignees`; `external_refs` uses OTF's scoped array `{system, scope, id, role, url?}`; runtime/personal fields (`run_state`, `pinned`, `energy`, `actor`, `promoted_to`, `start_date`, `subtasks`) live under `extensions.octopus.core`. Legacy v1 files remain read-migratable via explicit adapter mapping.
 
 ---
 
@@ -40,70 +42,75 @@ Aliasing applies only to **field names**, not values or semantics. The axis mode
 
 ---
 
-## Canonical order
+## Canonical order (Native OTF 0.1.0)
 
 ```yaml
 ---
-# ── identity ─────────────────────────────────────────────────────────
-title:                        # required, string
-created:                      # required, ISO date (YYYY-MM-DD)
+# ── OTF required identity & lifecycle ────────────────────────────────
+type: task                    # required, literal: task
+otf_version: "0.1.0"          # required, literal: "0.1.0"
+id:                           # required, full lowercase RFC 9562 UUID v4 or v7
+title:                        # required, single-line string
+status: open                  # required, enum: open | in_progress | done | cancelled
 
-# ── workflow ─────────────────────────────────────────────────────────
-bucket: backlog               # required, enum: backlog | next | now | done | dropped
-stage:                        # optional, free-form (per-activity domain workflow)
+# ── workflow & impediment (OTF core, flat for Obsidian/Bases) ────────
+description:                  # optional, concise summary string (long context in body)
+stage:                        # optional, free-form (per-activity pipeline step)
+kind:                         # optional, open (conv: feat | bug | chore | spec | polish | test | docs | research | idea)
+priority:                     # optional, enum: none | low | medium | high | urgent
+impediment:                   # optional, enum: blocked | waiting
+impediment_reason:            # required iff impediment is present
+duplicate_of:                 # optional, surviving task UUID (valid iff status: cancelled)
+archived:                     # optional, boolean: true (omit when active)
 
-# ── runtime ──────────────────────────────────────────────────────────
-run_state:                    # optional, enum: queued | running | finished | failed   (absent = idle)
+# ── context, people & taxonomy ───────────────────────────────────────
+project:                      # optional, opaque project ID (matches OPF PROJECT.md id)
+assignees:                    # optional, unique list of executing actor refs
+labels:                       # optional, unique list of strings (Obsidian maps labels ↔ tags)
 
-# ── attention / impediment / visibility ──────────────────────────────
-pinned:                       # optional, boolean: true                                (absent or false = not pinned)
-issue:                        # optional, enum: blocked | waiting
-blocked_by:                   # required if issue: blocked
-waiting_for:                  # required if issue: waiting
-archived:                     # optional, boolean: true                                (absent or false = visible)
+# ── dates (quoted ISO strings) ───────────────────────────────────────
+scheduled:                    # optional, "YYYY-MM-DD" — intended work / do-date
+due:                          # optional, "YYYY-MM-DD" or RFC 3339 datetime — hard deadline
+created_at:                   # optional, "YYYY-MM-DD" or RFC 3339 UTC instant
+completed_at:                 # optional, "YYYY-MM-DD" or RFC 3339 UTC instant (valid iff status: done)
 
-# ── dates ────────────────────────────────────────────────────────────
-due:                          # optional, ISO date — hard deadline
-scheduled:                    # optional, ISO date — intended work date
-start_date:                   # optional, ISO date — when work began
-end_date:                     # optional, ISO date — when bucket → done | dropped
+# ── task graph ───────────────────────────────────────────────────────
+parent:                       # optional, parent task UUID
+depends_on:                   # optional, unique list of blocking task UUIDs
 
-# ── prioritization ───────────────────────────────────────────────────
-priority:                     # optional, enum: low | high | urgent                    (absent = normal)
-energy:                       # optional, enum: low | mid | high
+# ── integrations ─────────────────────────────────────────────────────
+external_refs:                # optional, list of {system, scope, id, role, url?}
 
-# ── actors ───────────────────────────────────────────────────────────
-actor:                        # optional, enum: human | ai | automation                (absent = human)
-owner:                        # optional, string
-
-# ── taxonomy ─────────────────────────────────────────────────────────
-kind:                         # optional, enum: feat | bug | spec | polish | test | chore
-tags:                         # optional, list of strings                              (absent = [])
-
-# ── subtask graph (D104) ─────────────────────────────────────────────
-parent:                       # optional, slug of parent task (activity-scoped; no '/')
-subtasks:                     # optional, list of child slugs  (managed index — do not hand-edit)
-
-# ── integrations & provenance ────────────────────────────────────────
-external_refs:                # optional, map: <adapter-name> → <opaque-string>
-import_date:                  # optional, ISO date
-imported_from:                # optional, string
-promoted_to:                  # optional, string in `<provider>:<identifier>` format   (presence = promoted)
+# ── Octopus execution & personal profile (plus otf.* DLCs) ───────────
+extensions:
+  octopus.core:
+    bucket:                   # optional, open (conv: inbox | backlog | next | now | someday)
+    owner:                    # optional, accountable human DRI
+    actor:                    # optional, enum: human | ai | automation (absent = human)
+    run_state:                # optional, enum: queued | running | finished | failed (absent = idle)
+    pinned:                   # optional, boolean: true
+    energy:                   # optional, enum: low | mid | high
+    start_date:               # optional, "YYYY-MM-DD" — observed work start
+    subtasks:                 # optional, managed child-slug/UUID index
+    promoted_to:              # optional, "<provider>:<identifier>"
 ---
 ```
 
-A typical fresh capture writes only the required fields plus the bucket if non-default:
+A minimal fresh capture writes only the 5 required OTF fields plus non-default signal:
 
 ```yaml
 ---
-title: Fix the webhook auth bug
-created: 2026-05-22
-bucket: next
-priority: urgent
+type: task
+otf_version: "0.1.0"
+id: "01936a1b-7c2d-7000-8000-000000000001"
+title: "Fix the webhook auth bug"
+status: "open"
+priority: "urgent"
+extensions:
+  octopus.core:
+    bucket: "next"
 ---
 ```
-
-Four lines. Every line carries non-default signal.
 
 ---
 

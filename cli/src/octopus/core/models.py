@@ -164,6 +164,12 @@ class Task:
     imported_from: str | None = None
     promoted_to: str | None = None  # D48 — "<provider>:<identifier>"
 
+    # OTF 0.1.0 native interoperability fields
+    otf_id: str | None = None
+    description: str | None = None
+    duplicate_of: str | None = None
+    extensions: dict[str, Any] = field(default_factory=dict)
+
     # Not serialized:
     slug: str = field(default="", repr=False)
     path: Path | None = field(default=None, repr=False)

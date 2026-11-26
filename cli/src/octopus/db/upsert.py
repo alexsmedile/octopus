@@ -14,6 +14,14 @@ from typing import Any
 
 from octopus.core.models import Activity, Task
 
+_BUCKET_TO_OTF_STATUS = {
+    "backlog": "open",
+    "next": "open",
+    "now": "in_progress",
+    "done": "done",
+    "dropped": "cancelled",
+}
+
 
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
@@ -136,10 +144,11 @@ def upsert_task(conn: sqlite3.Connection, activity_id: str, task: Task) -> None:
             due, scheduled, start_date, end_date,
             priority, energy, actor, owner,
             kind, promoted_to, parent, subtasks, blocked_by, waiting_for,
+            otf_id, status,
             raw_frontmatter, indexed_at
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT(id) DO UPDATE SET
             path = excluded.path,
@@ -165,6 +174,8 @@ def upsert_task(conn: sqlite3.Connection, activity_id: str, task: Task) -> None:
             subtasks = excluded.subtasks,
             blocked_by = excluded.blocked_by,
             waiting_for = excluded.waiting_for,
+            otf_id = excluded.otf_id,
+            status = excluded.status,
             raw_frontmatter = excluded.raw_frontmatter,
             indexed_at = excluded.indexed_at
         """,
@@ -194,6 +205,8 @@ def upsert_task(conn: sqlite3.Connection, activity_id: str, task: Task) -> None:
             json.dumps(task.subtasks) if task.subtasks else None,
             task.blocked_by or None,
             task.waiting_for or None,
+            task.otf_id or None,
+            _BUCKET_TO_OTF_STATUS.get(task.bucket, "open"),
             _task_raw_frontmatter(task),
             _now(),
         ),

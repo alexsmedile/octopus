@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 SCHEMA_SQL = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -131,6 +131,18 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         _backfill_v6(conn)
         conn.execute("PRAGMA user_version = 6")
         current = 6
+    if current == 6:
+        # v6 → v7: OTF 0.1.0 columns (otf_id UUID + canonical status).
+        conn.executescript(
+            """
+            ALTER TABLE tasks ADD COLUMN otf_id TEXT;
+            ALTER TABLE tasks ADD COLUMN status TEXT;
+            CREATE INDEX IF NOT EXISTS idx_tasks_otf_id ON tasks(otf_id);
+            CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+            """
+        )
+        conn.execute("PRAGMA user_version = 7")
+        current = 7
     if current > SCHEMA_VERSION:
         raise RuntimeError(
             f"index.db schema version {current} > supported {SCHEMA_VERSION}; "

@@ -1,14 +1,17 @@
 ---
 status: draft
-updated: 2026-06-05
-relates_to: SCHEMA-TASK.md, CLI-VERBS.md §bridge, DECISIONS.md D72–D75, D103
+updated: 2026-11-26
+relates_to: SCHEMA-TASK.md, CLI-VERBS.md §bridge, DECISIONS.md D72–D75, D103, OTF 0.1.0
 ---
 
-# TODO.md format — octopus extended standard
+# TODO.md format — OTF 0.1.0 Inline + Octopus extended standard
 
 Two layers. Both valid. Layer 2 is fully additive — a plain GFM file is
-already a valid Layer 2 file. Octopus reads both; unknown syntax is silently
-skipped, never errors.
+already a valid Layer 2 file. `TODO.md` may declare OTF 0.1.0 once in its file-level
+frontmatter (`otf_version: "0.1.0"`, `otf_profile: "inline"` alongside OPF's
+`schema: make-a-change/todo/v1` and array `extensions: [octopus:all]`). Bound items carry
+`<!-- otf:UUID -->` and inherit `otf_version` without repeating a per-item `yaml` fence.
+Octopus reads both; unknown syntax is silently preserved, never errors.
 
 ---
 
@@ -45,14 +48,16 @@ Standard GitHub Flavored Markdown checkboxes. Works in every markdown viewer.
 | `🛫` + date | `start_date` | |
 | `#tag` | `tags` | `- [ ] Title #design` |
 
-**Handoff arrow (D73) — already implemented:**
+**Handoff arrow (D73 — updated for OTF 0.1.0):**
 
 ```markdown
-- [x] Title → octopus:task-slug
+- [ ] Title → octopus:task-slug <!-- otf:550e8400-e29b-41d4-a716-446655440000 -->
 ```
 
-Lines with `→` are skipped — already imported. Octopus writes this on
-successful pull (D74). Users may hand-write it to exclude items from import.
+Lines with `→` are skipped — already imported/promoted. Octopus writes `→ octopus:<slug>` on
+successful pull (D74) and **MUST keep the checkbox unchecked `[ ]`** (never tick `[x]` on pull;
+`[x]` is reserved strictly for delivered `status: done`). Legacy `- [x] Title → octopus:...`
+lines remain read-tolerated as already-imported. Users may hand-write `→` to exclude items from import.
 
 **Sections:**
 
@@ -143,24 +148,26 @@ Rules:
 - The block is parsed as YAML; malformed YAML produces a skip warning.
 - Unknown keys are silently ignored — forward-compatible.
 
-**Supported YAML keys:**
+**Supported YAML keys (OTF 0.1.0 core + `extensions.octopus.core` / `otf.*` DLCs):**
 
-| Key | Task field | Type / enum |
-|-----|-----------|-------------|
-| `bucket` | `bucket` | `backlog` \| `next` \| `now` \| `done` \| `dropped` |
-| `stage` | `stage` | free-form string |
-| `pinned` | `pinned` | `true` |
-| `issue` | `issue` | `blocked` \| `waiting` |
-| `blocked_by` | `blocked_by` | free-form or `activity/task-slug` |
-| `waiting_for` | `waiting_for` | free-form or `activity/task-slug` |
-| `due` | `due` | ISO date `YYYY-MM-DD` |
-| `scheduled` | `scheduled` | ISO date `YYYY-MM-DD` |
-| `priority` | `priority` | `low` \| `high` \| `urgent` |
-| `energy` | `energy` | `low` \| `mid` \| `high` |
-| `actor` | `actor` | `human` \| `ai` \| `automation` |
-| `owner` | `owner` | free-form string |
-| `kind` | `kind` | `feat` \| `bug` \| `spec` \| `polish` \| `test` \| `chore` |
-| `tags` | `tags` | list or comma-separated string; merged with sigil tags |
+| Key | Target | Type / enum |
+|-----|--------|-------------|
+| `description` | OTF core | optional concise summary string |
+| `status` | OTF core | `open` \| `in_progress` \| `done` \| `cancelled` |
+| `stage` | OTF core | free-form string |
+| `kind` | OTF core | open (conv: `feat` \| `bug` \| `spec` \| `polish` \| `test` \| `chore` \| `docs` \| `research` \| `idea`) |
+| `priority` | OTF core | `none` \| `low` \| `medium` \| `high` \| `urgent` |
+| `assignees` | OTF core | list of actor refs |
+| `labels` | OTF core | list of strings; merged with `#tag` sigils |
+| `scheduled` | OTF core | ISO date `"YYYY-MM-DD"` |
+| `due` | OTF core | ISO date `"YYYY-MM-DD"` or RFC 3339 datetime |
+| `impediment` | OTF core | `blocked` \| `waiting` |
+| `impediment_reason` | OTF core | nonblank string (paired with `impediment`) |
+| `depends_on` | OTF core | list of task UUIDs |
+| `extensions.otf.*` | Standard DLCs | `otf.agile` (`cycle`, `milestone`, `estimate`, `unit`), `otf.schedule`, `otf.relations` |
+| `extensions.octopus.core` | Octopus profile | `bucket` (`inbox` \| `backlog` \| `next` \| `now` \| `someday`), `owner`, `actor`, `run_state`, `pinned`, `energy` |
+
+Legacy v1 keys (`bucket`, `owner`, `actor`, `pinned`, `energy`, `issue`, `blocked_by`, `waiting_for`, `tags`) remain read-tolerated on migration; writers emit the OTF 0.1.0 keys above.
 
 ### Subtasks (indented checkboxes) — D105
 

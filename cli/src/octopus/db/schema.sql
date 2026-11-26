@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   subtasks        TEXT,   -- D104 JSON list of child slugs (derived, managed by reindex)
   blocked_by      TEXT,   -- impediment detail (promoted from raw_frontmatter)
   waiting_for     TEXT,   -- impediment detail (promoted from raw_frontmatter)
+  otf_id          TEXT,   -- OTF 0.1.0 immutable UUID (v7)
+  status          TEXT,   -- OTF 0.1.0 lifecycle: open | in_progress | done | cancelled (v7)
   raw_frontmatter TEXT,
   indexed_at      DATETIME NOT NULL,
   UNIQUE(activity_id, slug)
@@ -67,6 +69,8 @@ CREATE INDEX IF NOT EXISTS idx_tasks_activity     ON tasks(activity_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_kind         ON tasks(kind);
 CREATE INDEX IF NOT EXISTS idx_tasks_promoted_to  ON tasks(promoted_to);
 CREATE INDEX IF NOT EXISTS idx_tasks_parent       ON tasks(parent);
+CREATE INDEX IF NOT EXISTS idx_tasks_otf_id       ON tasks(otf_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status       ON tasks(status);
 
 -- Fix 1: composite covering index for tasks_for_activity (eliminates temp B-tree sort).
 -- Covers: activity_id filter + archived guard + bucket filter + sort (pinned, priority, due, slug).
