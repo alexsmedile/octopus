@@ -1,7 +1,7 @@
 ---
 name: octopus-migrate
 description: |
-  Migrate any existing project folder to the Octopus standard. Initializes .octopus/, rewrites TODO.md to Layer 2 format (sigils + body blocks + YAML blocks + section_map), pulls tasks via the todo-md bridge, and archives the old vault/tasks entry if one exists. Use when the user wants to "convert a project to octopus", "octopus-ify a project", "init octopus on X", or "migrate tasks from TODO.md".
+  Migrate any existing project folder to the Octopus standard. Initializes .octopus/, rewrites TODO.md to Layer 2 format (sigils + body blocks + YAML blocks + section_map), pulls tasks via the todo-md bridge, and archives the old legacy vault/tasks entry if one still exists. Use when the user wants to "convert a project to octopus", "octopus-ify a project", "init octopus on X", or "migrate tasks from TODO.md".
 when_to_use: |
   - User says "migrate project X to octopus" or "convert X"
   - User says "octo init on <folder>" and there's a TODO.md to import
@@ -22,7 +22,7 @@ Migrate any project folder to the Octopus standard. The workflow is:
 4. Write `.octopus/config.toml` with section_map
 5. Enable the todo-md bridge
 6. Peek, then pull
-7. Archive old vault/tasks entry if one exists
+7. Archive old legacy vault/tasks entry if one still exists
 
 ---
 
@@ -43,7 +43,7 @@ project_root   = absolute path to the project folder
 title          = human name (default: folder name, capitalized)
 type           = automation | business | code | content | other | personal | research | skill
 area           = free-form (e.g. design, dev, marketing)
-vault_entry    = path to vault/tasks/active/<slug>.md if one exists (check ~/vault/tasks/active/)
+vault_entry    = legacy path vault/tasks/active/<slug>.md if one still exists (check ~/vault/tasks/active/)
 ```
 
 Read the existing `TODO.md` to understand the section structure. Ask the user to confirm title/type/area before proceeding if they haven't specified them.
@@ -204,9 +204,11 @@ Confirm the output: `pulled N new · M already-known · 0 errors`.
 
 ---
 
-## Step 8 — Archive vault/tasks entry (if one exists)
+## Step 8 — Archive legacy vault/tasks entry (if one still exists)
 
-If there's a `~/vault/tasks/active/<slug>.md` file for this project:
+`~/vault/tasks` is **legacy, read-only** as a task home; the live home for user tasks is **my_tasks** (`~/tasks` ↔ `alexsmedile/tasks`, registry `REGISTRY.md`, nested `tasks:projects/<slug>`). This step is legacy cleanup only — it does not move vault content into `~/tasks`. If the migrated project should be indexed, make sure it has an entry in `~/tasks/REGISTRY.md` (ask before editing).
+
+If there's still a `~/vault/tasks/active/<slug>.md` file for this project:
 
 1. Add `archived: <today>` and `migrated_to: <relative-path>/.octopus` to its frontmatter.
 2. Update `status: archived`.

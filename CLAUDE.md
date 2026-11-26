@@ -14,9 +14,11 @@ This folder is the source workspace for Octopus project/design work:
 
 - `/Users/alex/vault/data/skills_db/octopus`
 
-The live task database remains separate:
+The live user tasks home remains separate — **my_tasks**:
 
-- `/Users/alex/vault/tasks`
+- `/Users/alex/tasks` (`~/tasks` ↔ private GitHub `alexsmedile/tasks`; index `REGISTRY.md`, nested projects `tasks:projects/<slug>`)
+
+`/Users/alex/vault/tasks` is **legacy, read-only** (content may still be migrating into my_tasks). Do not write new tasks there.
 
 Do not move real task records into this project folder unless Alessandro explicitly asks.
 
@@ -88,7 +90,7 @@ All design specs live under `.spectacular/`. There is no separate `specs/` or `d
 4. Read `.spectacular/specs/index.md` for the on-disk contract.
 5. If touching a schema, read the relevant `.spectacular/specs/SCHEMA-*.md`.
 6. If activating or working on a request, read its `.spectacular/requests/<slug>/PLAN.md` and `TASKS.md`.
-7. If touching `/Users/alex/vault/tasks`, also read `/Users/alex/vault/tasks/AGENTS.md`.
+7. If touching `/Users/alex/tasks` (my_tasks), also read its `README.md` (routing rules). If touching legacy `/Users/alex/vault/tasks`, also read `/Users/alex/vault/tasks/AGENTS.md`.
 
 ## Authority hierarchy
 
@@ -105,7 +107,7 @@ If you find a conflict, surface it to Alessandro before resolving. Do not silent
 
 - Treat Octopus as a project/skill, not as the live task database.
 - Keep project docs, prompts, schemas, examples, and scripts here.
-- Keep live user tasks in `/Users/alex/vault/tasks`.
+- Keep live user tasks in my_tasks (`/Users/alex/tasks`); `/Users/alex/vault/tasks` is legacy read-only.
 - Preserve links and old-path compatibility when moving docs.
 - Prefer small, explicit changes over broad rewrites.
 - If changing routing or schema, update the authoritative spec document(s) and `.spectacular/decisions/index.md`.
@@ -141,4 +143,4 @@ When activating a request:
 
 ## Authority on safety
 
-This is a design + implementation project for a system that will eventually manage Alessandro's real task data. Code changes in `cli/` (when it exists) and `plugin/` (when it exists) are not destructive at this stage; care is required when scripts are later run against `/Users/alex/vault/tasks` or other live folders. Default to dry-run, prompt before mutation, never delete.
+This is a design + implementation project for a system that will eventually manage Alessandro's real task data. Code changes in `cli/` (when it exists) and `plugin/` (when it exists) are not destructive at this stage; care is required when scripts are later run against my_tasks (`/Users/alex/tasks`), legacy `/Users/alex/vault/tasks`, or other live folders. Default to dry-run, prompt before mutation, never delete.

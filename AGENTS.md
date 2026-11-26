@@ -14,9 +14,11 @@ This folder is the source workspace for Octopus project/design work:
 
 - `/Users/alex/vault/data/skills_db/octopus`
 
-The live task database remains separate:
+The live user tasks home remains separate — **my_tasks**:
 
-- `/Users/alex/vault/tasks`
+- `/Users/alex/tasks` (`~/tasks` ↔ private GitHub `alexsmedile/tasks`; index `REGISTRY.md`, nested projects `tasks:projects/<slug>`)
+
+`/Users/alex/vault/tasks` is **legacy, read-only** (content may still be migrating into my_tasks). Do not write new tasks there.
 
 Do not move real task records into this project folder unless Alessandro explicitly asks.
 
@@ -30,13 +32,13 @@ Before editing:
 4. Read `.spectacular/PRD.md` for vision, `.spectacular/decisions/index.md` for locked decisions, and `.spectacular/specs/index.md` for the on-disk contract.
 5. If touching a schema or behavior covered by a companion spec, read the relevant file under `.spectacular/specs/`.
 6. If activating or working on a request, read its `.spectacular/requests/<slug>/PLAN.md` and `TASKS.md`.
-7. If touching `/Users/alex/vault/tasks`, also read `/Users/alex/vault/tasks/AGENTS.md`.
+7. If touching `/Users/alex/tasks` (my_tasks), also read its `README.md` (routing rules). If touching legacy `/Users/alex/vault/tasks`, also read `/Users/alex/vault/tasks/AGENTS.md`.
 
 ## Working Rules
 
 - Treat Octopus as a project/skill, not as the live task database.
 - Keep project docs, prompts, schemas, examples, and scripts here.
-- Keep live user tasks in `/Users/alex/vault/tasks`.
+- Keep live user tasks in my_tasks (`/Users/alex/tasks`); `/Users/alex/vault/tasks` is legacy read-only.
 - Preserve links and old-path compatibility when moving docs.
 - Prefer small, explicit changes over broad rewrites.
 - If changing routing or schema, update the authoritative spec document(s) and `.spectacular/decisions/index.md`.
@@ -53,6 +55,6 @@ Before editing:
 - `.spectacular/decisions/index.md` — every locked decision, dated
 - `.spectacular/requests/<slug>/PLAN.md` — active build phases
 - `skills/octopus/SKILL.md` — the agent-facing compressed operating skill (router; loads from `references/` on demand)
-- `skills/octopus-migrate/SKILL.md` — project-migration skill: init + TODO.md Layer 2 rewrite + bridge pull + vault/tasks archive
+- `skills/octopus-migrate/SKILL.md` — project-migration skill: init + TODO.md Layer 2 rewrite + bridge pull + legacy vault/tasks archive
 - `CHANGELOG.md` — release history
 - `TODO.md` — deferred ideas (routines, mind-view, soft-delete, …)

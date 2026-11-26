@@ -7,6 +7,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+### Docs
+
+- **Live user tasks home → my_tasks.** `CLAUDE.md`, `AGENTS.md`, `skills/octopus/SKILL.md`, and `skills/octopus-migrate/SKILL.md` now name my_tasks (`~/tasks` ↔ private GitHub `alexsmedile/tasks`; `REGISTRY.md`; `tasks:projects/<slug>`) as the live user tasks home. `~/vault/tasks` is legacy read-only (content may still be migrating). The migrate skill's Step 8 vault archive is kept as legacy cleanup; no CLI/behavior change.
+
 ### Added
 
 - **`octopus watch start | stop | status`** — opt-in background daemon for real-time index sync (PRD §13.5). Prefers `watchdog` (native fsevents/inotify); falls back to mtime-diff polling when unavailable or `[watcher] polling_fallback` is set. Off by default. PID at `~/.cache/octopus/watcher.pid`, log at `~/.local/share/octopus/logs/watcher.log`.
